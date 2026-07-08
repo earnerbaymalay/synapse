@@ -1,0 +1,2 @@
+Legacy rules file, kept for compatibility. Prefer .cursor/rules/*.mdc going
+forward — adapters must handle both per docs/research/cursor.md.

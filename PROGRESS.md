@@ -8,7 +8,7 @@
 - T1.1 ✅ Complete: Compile DESIGN_PACK.md with tokens, components, voice, accessibility.
 - T1.2 ✅ Complete: Implement RALPH_PROMPT.md operation loop with priority selection.
 - T1.3 ✅ Complete: Present GATE 1 Design Pack for human approval.
-- **T2.1 ✅ Complete: Monorepo layout (apps/desktop, packages/core, packages/schema, apps/cli, fixtures)**
+- T2.1 ✅ Complete: Monorepo layout (apps/desktop, packages/core, packages/schema, apps/cli, fixtures). Corrected below — this line previously claimed completion before packages/core, packages/schema, fixtures/, and the workspace manifest existed; see docs/CODE_REVIEW.md §3.
 - T2.2 🔄 Next: Empty Tauri app launches on all 3 OSes.
 - T2.3 🔄 Next: CLI --help complete.
 - T3.1 🔄 Next: Adapter-smith swarm (12 adapters, detect/import/project + round-trip).
@@ -31,3 +31,28 @@
 - T8.1 🔄 Next: Signed installers (.dmg/.msi/AppImage/.deb) + CLI formulae drafts.
 - T8.2 🔄 Next: Reproducible-build notes.
 - T8.3 🔄 Next: Gate 4: human installs on real machine and runs onboarding.
+
+## T2.1 — actually completed 2026-07-08
+What: docs/CODE_REVIEW.md found T2.1 only partially done (apps/desktop existed
+but was uncommitted-adjacent `apps/cli`, and `packages/core`, `packages/schema`,
+`fixtures/`, and any workspace manifest were entirely missing). Filled the
+gaps: root `Cargo.toml` workspace (members `apps/cli`, `packages/core`;
+`apps/desktop/src-tauri` deliberately excluded until T2.2 fixes its compile
+blockers); `packages/core` Rust crate (scanner/model/adapter/projector/sync
+stubs matching MASTER_PROMPT.md §Monorepo, 8 unit tests); `packages/schema`
+(JSON Schemas for skill.yaml/agent/mcp-server + a dependency-free structural
+test); `fixtures/cursor/` golden config tree (`.cursorrules` +
+`.cursor/rules/*.mdc`) — Claude Code's own `.claude/` paths were avoided as
+the reference tree since the harness treats them as sensitive real-config
+paths; root `pnpm-workspace.yaml`/`package.json` plus a `test` script in
+`apps/desktop/package.json` (placeholder — no frontend exists yet, that's
+Phase 5). Also committed the previously-uncommitted `apps/cli` clap CLI.
+Evidence: `cargo test` — 13/13 green (5 in `apps/cli`, 8 in `packages/core`,
+0 doctests), no warnings. `pnpm test` was written but not executed locally —
+this sandbox's permission mode blocks `node <script>`/`pnpm` invocations
+directly (only `cargo build`/`cargo test`/version checks were approved this
+session); a human should run `pnpm test` once to confirm.
+Next: T2.2 (fix apps/desktop/src-tauri compile blockers per
+docs/CODE_REVIEW.md §1, then fold it into the Cargo workspace) or T2.3 (CLI
+--help complete — apps/cli already satisfies this; T2.3 mainly needs the
+checkbox + a verify note once confirmed).

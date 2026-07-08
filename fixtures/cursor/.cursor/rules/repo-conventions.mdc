@@ -1,0 +1,9 @@
+---
+description: Fixture rule used to exercise the cursor adapter's import/project round-trip
+globs: ["*.rs"]
+alwaysApply: false
+---
+
+# Repo Conventions
+
+Prefer editing existing files to creating new ones.

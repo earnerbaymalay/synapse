@@ -13,7 +13,7 @@
 - [x] T1.3  Gate 1: present pack for approval
 
 ## Phase 2 — Architecture & Scaffold
-- [ ] T2.1  Monorepo layout: apps/desktop, packages/core, packages/schema, apps/cli, fixtures :: verify: cargo test and pnpm test green
+- [x] T2.1  Monorepo layout: apps/desktop, packages/core, packages/schema, apps/cli, fixtures :: verify: cargo test and pnpm test green
 - [ ] T2.2  Empty Tauri app launches on all 3 OSes :: verify: build matrix passes
 - [ ] T2.3  CLI --help complete :: verify: cli --help outputs verbs
 

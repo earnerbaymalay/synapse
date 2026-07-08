@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-neurosurgeon.dev/schema/skill.schema.json",
+  "title": "Skill",
+  "description": "AIBrain/skills/<slug>/skill.yaml — see MASTER_PROMPT.md canonical Brain layout",
+  "type": "object",
+  "required": ["id", "version", "triggers", "targets", "source", "sha256"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable slug, matches the parent skills/<slug>/ directory name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "triggers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Glob patterns or keyword phrases that should surface this skill"
+    },
+    "targets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tool ids this skill is projected to, e.g. claude-code, cursor"
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin path or URL this skill was imported from, or the Brain path if authored natively"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Checksum of SKILL.md, recomputed on every import to detect drift"
+    }
+  }
+}

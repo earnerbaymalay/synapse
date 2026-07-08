@@ -1,0 +1,7 @@
+[package]
+name = "neurosurgeon-core"
+version = "0.1.0"
+edition = "2021"
+description = "Canonical Brain model, scanner, adapter trait, projector, and sync engine shared by the desktop app and CLI"
+
+[dependencies]

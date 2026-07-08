@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "echo \"apps/desktop: no frontend tests yet, see PLAN.md T5.x\""
   },
   "dependencies": {
     "react": "^18.2.0",

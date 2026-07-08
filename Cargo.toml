@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/cli",
+    "packages/core",
+]
+
+# apps/desktop/src-tauri is intentionally excluded until T2.2 fixes its
+# compile blockers (see docs/CODE_REVIEW.md §1) — including it here would
+# make `cargo test` red for the whole workspace over unrelated Tauri work.
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
