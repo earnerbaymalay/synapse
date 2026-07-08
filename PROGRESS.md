@@ -10,8 +10,8 @@
 - T1.3 ✅ Complete: Present GATE 1 Design Pack for human approval.
 - [x] T2.1 ✅ Complete: Monorepo layout (apps/desktop, packages/core, packages/schema, apps/cli, fixtures). Corrected below — this line previously claimed completion before packages/core, packages/schema, fixtures/, and the workspace manifest existed; see docs/CODE_REVIEW.md §3.
 - [x] T2.2 ✅ Complete: Empty Tauri app launches on all 3 OSes.
-- T2.3 🔄 Next: CLI --help complete.
-- T3.1 🔄 Next: Adapter-smith swarm (12 adapters, detect/import/project + round-trip).
+- [x] T2.3 ✅ Complete: CLI --help complete.
+- [ ] T3.1 🔄 Next: Adapter-smith swarm (12 adapters, detect/import/project + round-trip).
 - T3.2 🔄 Next: Projection engine with policy table, mappings.json, drift detector.
 - T3.3 🔄 Next: Red-team pass (symlink escape, path traversal, circular links, malformed configs).
 - T3.4 🔄 Next: Gate 2: human runs cli scan && cli import --dry-run.
