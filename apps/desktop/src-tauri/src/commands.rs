@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::{Result, State, Window};
+use tauri::{State, Window};
 
 use crate::state::AppState;
 
@@ -10,20 +10,27 @@ struct AdapterCommand {
     arguments: Vec<String>,
 }
 
+#[tauri::command]
 pub fn get_version() -> String {
-    return env!("CARGO_PKG_VERSION").to_string();
+    env!("CARGO_PKG_VERSION").to_string()
 }
 
+#[tauri::command]
 pub fn open_settings(window: Window) -> Result<(), String> {
-    println!("Opening settings...");
+    println!("Opening settings for window '{}'...", window.label());
     Ok(())
 }
 
+#[tauri::command]
 pub fn run_adapter_command(
-    state: State<AppState>,
+    state: State<'_, Mutex<AppState>>,
     command: AdapterCommand,
 ) -> Result<String, String> {
-    println!("Running adapter command: {:?}", command);
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    println!(
+        "Running adapter command: {:?} (sync_status: {})",
+        command, app_state.sync_status
+    );
 
     let output = format!(
         "Adapter '{}' executed with args: {:?}",
@@ -33,7 +40,10 @@ pub fn run_adapter_command(
     Ok(output)
 }
 
-pub fn import_config(state: State<AppState>, path: String) -> Result<String, String> {
+#[tauri::command]
+pub fn import_config(state: State<'_, Mutex<AppState>>, path: String) -> Result<String, String> {
+    let mut app_state = state.lock().map_err(|e| e.to_string())?;
+    app_state.update_adapter_status(app_state.adapter_count, "connected");
     println!("Importing config from: {}", path);
 
     let imported = format!("Config imported from {} successfully", path);
@@ -41,8 +51,13 @@ pub fn import_config(state: State<AppState>, path: String) -> Result<String, Str
     Ok(imported)
 }
 
-pub fn export_config(state: State<AppState>, path: String) -> Result<String, String> {
-    println!("Exporting config to: {}", path);
+#[tauri::command]
+pub fn export_config(state: State<'_, Mutex<AppState>>, path: String) -> Result<String, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    println!(
+        "Exporting config to: {} ({} adapters tracked)",
+        path, app_state.adapter_count
+    );
 
     let exported = format!("Config exported to {} successfully", path);
 

@@ -5,47 +5,45 @@ pub mod logger;
 pub mod state;
 
 use std::sync::Mutex;
-use tauri::{Builder, Window, WindowBuilder, WindowUrl};
+use tauri::{CustomMenuItem, Menu, Submenu, WindowBuilder, WindowUrl};
 
-#[derive(Debug)]
-pub struct AppState {
-    pub config_loaded: bool,
-    pub last_adapter_check: String,
-    pub adapter_count: usize,
-    pub sync_status: String,
+use state::AppState;
+
+fn build_menu() -> Menu {
+    let file_menu = Submenu::new(
+        "File",
+        Menu::new().add_item(CustomMenuItem::new("quit".to_string(), "Quit")),
+    );
+    let edit_menu = Submenu::new("Edit", Menu::new());
+    let view_menu = Submenu::new("View", Menu::new());
+    let tools_menu = Submenu::new("Tools", Menu::new());
+    let help_menu = Submenu::new("Help", Menu::new());
+
+    Menu::new()
+        .add_submenu(file_menu)
+        .add_submenu(edit_menu)
+        .add_submenu(view_menu)
+        .add_submenu(tools_menu)
+        .add_submenu(help_menu)
 }
 
-impl AppState {
-    pub fn new() -> Self {
-        Self {
-            config_loaded: false,
-            last_adapter_check: "2026-07-07T14:23:12Z".to_string(),
-            adapter_count: 12,
-            sync_status: "disconnected".to_string(),
-        }
-    }
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    logger::init_logger();
 
-    pub fn update_adapter_status(&mut self, count: usize, status: &str) {
-        self.adapter_count = count;
-        self.last_adapter_check = chrono::offset::Utc::now().to_rfc3339();
-        self.sync_status = status.to_string();
-    }
-}
-
-#[cfg_attr(not(debug_assertions), tauri::mobile_entry_point)]
-pub fn main() {
     tauri::Builder::default()
+        .menu(build_menu())
+        .manage(Mutex::new(AppState::new()))
         .setup(|app| {
-            println!("LLM Neurosurgeon Desktop v1.0.0 initialized");
-
-            // Create main window
-            let window = WindowBuilder::new()
+            let _window = WindowBuilder::new(app, "main", WindowUrl::App("index.html".into()))
                 .title("LLM Neurosurgeon")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
-                .build(app.handle())?;
+                .build()?;
 
-            println!("Window created successfully");
+            let _config = config::load_config()?;
+
+            log::info!("LLM Neurosurgeon Desktop v{} initialized", env!("CARGO_PKG_VERSION"));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,0 +1,34 @@
+{
+  "build": {
+    "devPath": "../dist",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "LLM Neurosurgeon",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false
+    },
+    "bundle": {
+      "active": false,
+      "targets": [],
+      "identifier": "dev.llmneurosurgeon.desktop",
+      "icon": []
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "LLM Neurosurgeon",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  }
+}

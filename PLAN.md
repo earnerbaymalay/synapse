@@ -14,7 +14,7 @@
 
 ## Phase 2 — Architecture & Scaffold
 - [x] T2.1  Monorepo layout: apps/desktop, packages/core, packages/schema, apps/cli, fixtures :: verify: cargo test and pnpm test green
-- [ ] T2.2  Empty Tauri app launches on all 3 OSes :: verify: build matrix passes
+- [x] T2.2  Empty Tauri app launches on all 3 OSes :: verify: build matrix passes
 - [ ] T2.3  CLI --help complete :: verify: cli --help outputs verbs
 
 ## Phase 3 — Core Engine: adapters + projection → GATE 2 (human)
