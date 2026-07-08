@@ -19,7 +19,7 @@ impl AppState {
         });
         Ok(state)
     }
-    
+
     pub fn update_adapter_status(&mut self, count: usize, status: &str) {
         self.adapter_count = count;
         self.last_adapter_check = chrono::offset::Utc::now().to_rfc3339();

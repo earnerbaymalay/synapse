@@ -1,6 +1,6 @@
-use tauri::{State, Window, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use tauri::{Result, State, Window};
 
 use crate::state::AppState;
 
@@ -20,29 +20,31 @@ pub fn open_settings(window: Window) -> Result<(), String> {
 }
 
 pub fn run_adapter_command(
-    state: State<AppState>, 
-    command: AdapterCommand
+    state: State<AppState>,
+    command: AdapterCommand,
 ) -> Result<String, String> {
     println!("Running adapter command: {:?}", command);
-    
-    let output = format!("Adapter '{}' executed with args: {:?}", 
-                       command.name, command.arguments);
-    
+
+    let output = format!(
+        "Adapter '{}' executed with args: {:?}",
+        command.name, command.arguments
+    );
+
     Ok(output)
 }
 
 pub fn import_config(state: State<AppState>, path: String) -> Result<String, String> {
     println!("Importing config from: {}", path);
-    
+
     let imported = format!("Config imported from {} successfully", path);
-    
+
     Ok(imported)
 }
 
 pub fn export_config(state: State<AppState>, path: String) -> Result<String, String> {
     println!("Exporting config to: {}", path);
-    
+
     let exported = format!("Config exported to {} successfully", path);
-    
+
     Ok(exported)
 }

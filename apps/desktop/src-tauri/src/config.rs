@@ -27,13 +27,13 @@ impl AppConfig {
             sync_enabled: false,
         }
     }
-    
+
     pub fn load(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
         let config: AppConfig = serde_json::from_str(&content)?;
         Ok(config)
     }
-    
+
     pub fn save(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
         let content = serde_json::to_string_pretty(self)?;
         fs::write(path, content)?;
@@ -43,7 +43,7 @@ impl AppConfig {
 
 pub fn load_config() -> Result<AppConfig, Box<dyn std::error::Error>> {
     let config_path = ".claude/settings.json";
-    
+
     if Path::new(config_path).exists() {
         AppConfig::load(config_path)
     } else {

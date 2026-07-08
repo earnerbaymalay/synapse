@@ -10,7 +10,13 @@ pub struct AppError {
 
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}] {}: {}", self.code, self.message, self.details.as_deref().unwrap_or("") )
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.code,
+            self.message,
+            self.details.as_deref().unwrap_or("")
+        )
     }
 }
 

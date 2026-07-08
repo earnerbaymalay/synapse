@@ -4,8 +4,8 @@ mod error;
 mod logger;
 mod state;
 
-use tauri::{Builder, Menu, MenuItem, WindowBuilder, WindowUrl};
 use std::path::PathBuf;
+use tauri::{Builder, Menu, MenuItem, WindowBuilder, WindowUrl};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn main() {
@@ -21,17 +21,17 @@ pub fn main() {
         .setup(|app| {
             // Initialize application state
             let _state = state::AppState::new()?;
-            
+
             // Create main window
             let window = WindowBuilder::new()
                 .title("LLM Neurosurgeon")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
                 .build(app.handle())?;
-                
+
             // Load initial configuration
             let config = config::load_config()?;
-            
+
             println!("LLM Neurosurgeon Desktop v1.0.0 initialized");
             Ok(())
         })
@@ -45,7 +45,5 @@ pub fn main() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(move |_app_handle| {
-        Box::new(move || {})
-    });
+    app.run(move |_app_handle| Box::new(move || {}));
 }

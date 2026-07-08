@@ -4,8 +4,8 @@ pub mod error;
 pub mod logger;
 pub mod state;
 
-use tauri::{Builder, Window, WindowBuilder, WindowUrl};
 use std::sync::Mutex;
+use tauri::{Builder, Window, WindowBuilder, WindowUrl};
 
 #[derive(Debug)]
 pub struct AppState {
@@ -24,7 +24,7 @@ impl AppState {
             sync_status: "disconnected".to_string(),
         }
     }
-    
+
     pub fn update_adapter_status(&mut self, count: usize, status: &str) {
         self.adapter_count = count;
         self.last_adapter_check = chrono::offset::Utc::now().to_rfc3339();
@@ -37,14 +37,14 @@ pub fn main() {
     tauri::Builder::default()
         .setup(|app| {
             println!("LLM Neurosurgeon Desktop v1.0.0 initialized");
-            
+
             // Create main window
             let window = WindowBuilder::new()
                 .title("LLM Neurosurgeon")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
                 .build(app.handle())?;
-            
+
             println!("Window created successfully");
             Ok(())
         })
