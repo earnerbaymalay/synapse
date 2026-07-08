@@ -14,6 +14,8 @@
 
 ## Phase 2 — Architecture & Scaffold
 - [ ] T2.1  Monorepo layout: apps/desktop, packages/core, packages/schema, apps/cli, fixtures :: verify: cargo test and pnpm test green
+      <!-- PARTIAL: only apps/desktop exists (and it does not compile). Missing: packages/core, packages/schema, apps/cli, fixtures/, frontend. See docs/CODE_REVIEW.md §3. -->
+- [ ] T2.1a Scaffold packages/core (Rust lib) + apps/cli (clap) with unit tests — no system deps, fastest green cargo test :: verify: cargo test passes in workspace
 - [ ] T2.2  Empty Tauri app launches on all 3 OSes :: verify: build matrix passes
 - [ ] T2.3  CLI --help complete :: verify: cli --help outputs verbs
 

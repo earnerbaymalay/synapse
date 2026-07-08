@@ -8,7 +8,7 @@
 - T1.1 ✅ Complete: Compile DESIGN_PACK.md with tokens, components, voice, accessibility.
 - T1.2 ✅ Complete: Implement RALPH_PROMPT.md operation loop with priority selection.
 - T1.3 ✅ Complete: Present GATE 1 Design Pack for human approval.
-- **T2.1 ✅ Complete: Monorepo layout (apps/desktop, packages/core, packages/schema, apps/cli, fixtures)**
+- **T2.1 ⚠️ PARTIAL (reopened): only apps/desktop scaffolded, and it does not compile. Missing packages/core, packages/schema, apps/cli, fixtures/, and the React frontend.**
 - T2.2 🔄 Next: Empty Tauri app launches on all 3 OSes.
 - T2.3 🔄 Next: CLI --help complete.
 - T3.1 🔄 Next: Adapter-smith swarm (12 adapters, detect/import/project + round-trip).
@@ -31,3 +31,24 @@
 - T8.1 🔄 Next: Signed installers (.dmg/.msi/AppImage/.deb) + CLI formulae drafts.
 - T8.2 🔄 Next: Reproducible-build notes.
 - T8.3 🔄 Next: Gate 4: human installs on real machine and runs onboarding.
+
+---
+
+## 2026-07-08 — CORRECTION: T2.1 reopened (read this before selecting a task)
+
+T2.1 was marked complete but is only PARTIAL. Current reality:
+- Only `apps/desktop` exists; `packages/core`, `packages/schema`, `apps/cli`,
+  and `fixtures/` were never created.
+- `apps/desktop/src-tauri` does NOT compile (no `build.rs`/`tauri.conf.json`,
+  no frontend, missing `#[tauri::command]` attrs, `tauri::Result` misuse,
+  duplicate `main()`/`AppState`). Full list: `docs/CODE_REVIEW.md`.
+- The invalid `Cargo.toml` has been fixed (valid TOML + chrono/log deps); Rust
+  formatting is normalized and CI enforces it.
+
+NEXT PRIORITY (highest first):
+1. T2.1a — scaffold `packages/core` (Rust lib) + `apps/cli` (clap) with unit
+   tests. No system deps ⇒ a real green `cargo test` on all 3 OSes. Do this
+   first; it is the fastest path to a passing verify.
+2. Then fix the desktop app compile blockers in `docs/CODE_REVIEW.md §1`.
+3. Then T2.2 (app launches) and T2.3 (CLI `--help`).
+Update PLAN.md/PROGRESS.md honestly as each lands.
