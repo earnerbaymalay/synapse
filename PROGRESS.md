@@ -56,3 +56,15 @@ Next: T2.2 (fix apps/desktop/src-tauri compile blockers per
 docs/CODE_REVIEW.md §1, then fold it into the Cargo workspace) or T2.3 (CLI
 --help complete — apps/cli already satisfies this; T2.3 mainly needs the
 checkbox + a verify note once confirmed).
+
+## T3.1 — Milestone 1 of 4 (adapters) — 2026-07-10
+What: `cline`, `opencode`, `github-copilot`, `windsurf` adapters implemented
+(detect/import/project, SHA256 provenance, JSONC parsing) per PROJECT.md's
+4-milestone breakdown of T3.1. Also scaffolded `packages/e2e` (Vitest) per
+TEST_INFRA.md for later cross-tool E2E coverage.
+Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 21 lib tests +
+16 stress tests (1 ignored, platform-dependent) + 5 CLI tests, all green.
+Commit 9041ee8.
+Next: Milestone 2 — `gemini-cli`, `zed`, `aider`, `roo-code` (hybrid
+settings+Markdown tools). T3.1's checkbox in PLAN.md stays unchecked until
+all 4 milestones (12/12 adapters) land and round-trip green.
