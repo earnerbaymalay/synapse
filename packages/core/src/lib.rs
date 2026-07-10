@@ -7,6 +7,7 @@
 //! Phase 3/4 (see PLAN.md).
 
 pub mod adapter;
+pub mod adapters;
 pub mod model;
 pub mod projector;
 pub mod scanner;

@@ -1,5 +1,7 @@
 packages:
   - apps/desktop
   - packages/schema
+  - packages/e2e
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+
