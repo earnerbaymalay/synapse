@@ -68,3 +68,16 @@ Commit 9041ee8.
 Next: Milestone 2 — `gemini-cli`, `zed`, `aider`, `roo-code` (hybrid
 settings+Markdown tools). T3.1's checkbox in PLAN.md stays unchecked until
 all 4 milestones (12/12 adapters) land and round-trip green.
+
+## T3.1 — Milestone 2 of 4 (adapters) — 2026-07-10
+What: `gemini-cli` (GEMINI.md + .gemini/settings.json mcpServers),
+`zed` (.rules + .zed/settings.json context_servers), `aider` (CONVENTIONS.md
++ hand-rolled flat-YAML .aider.conf.yml, no MCP support per recon brief),
+`roo-code` (.roomodes custom modes -> Agent + companion Skill; deliberately
+does NOT claim `.clinerules` since that file is Cline's — avoids double-import
+across the two adapters). All JSON/settings merges preserve pre-existing
+unrelated keys (matches Milestone 1's cline/windsurf merge pattern).
+Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 59 tests green
+(1 ignored, platform-dependent), `cargo fmt --check` clean. Commit <pending>.
+Next: Milestone 3 — `cursor`, `continue`, `claude-code`, `openai-codex`
+(advanced multi-file/settings tools). 8/12 adapters done.

@@ -1,9 +1,9 @@
-use std::path::Path;
-use std::fs;
-use serde_json::{json, Value};
+use super::{clean_jsonc, compute_sha256, get_windsurf_mcp_path, strip_provenance};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, McpServer, Skill, HealthStatus};
-use super::{compute_sha256, strip_provenance, clean_jsonc, get_windsurf_mcp_path};
+use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use serde_json::{json, Value};
+use std::fs;
+use std::path::Path;
 
 pub struct WindsurfAdapter;
 
@@ -38,19 +38,24 @@ impl Adapter for WindsurfAdapter {
 
         if let Some(mcp_path) = get_windsurf_mcp_path() {
             if mcp_path.exists() {
-                let raw_json = fs::read_to_string(&mcp_path)
-                    .map_err(|e| AdapterError::Io(format!("Failed to read Windsurf mcp.json: {}", e)))?;
+                let raw_json = fs::read_to_string(&mcp_path).map_err(|e| {
+                    AdapterError::Io(format!("Failed to read Windsurf mcp.json: {}", e))
+                })?;
                 let cleaned = clean_jsonc(&raw_json);
-                let parsed: Value = serde_json::from_str(&cleaned)
-                    .map_err(|e| AdapterError::Malformed(format!("Invalid JSON in Windsurf mcp.json: {}", e)))?;
+                let parsed: Value = serde_json::from_str(&cleaned).map_err(|e| {
+                    AdapterError::Malformed(format!("Invalid JSON in Windsurf mcp.json: {}", e))
+                })?;
 
-                if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
+                if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object())
+                {
                     for (id, val) in mcp_servers_val {
-                        let command = val.get("command")
+                        let command = val
+                            .get("command")
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .to_string();
-                        let args: Vec<String> = val.get("args")
+                        let args: Vec<String> = val
+                            .get("args")
                             .and_then(|v| v.as_array())
                             .map(|arr| {
                                 arr.iter()
@@ -58,7 +63,7 @@ impl Adapter for WindsurfAdapter {
                                     .collect()
                             })
                             .unwrap_or_default();
-                        
+
                         let command_or_url = if args.is_empty() {
                             command
                         } else {
@@ -130,13 +135,18 @@ impl Adapter for WindsurfAdapter {
         if !windsurf_servers.is_empty() {
             if let Some(mcp_path) = get_windsurf_mcp_path() {
                 if let Some(parent) = mcp_path.parent() {
-                    fs::create_dir_all(parent)
-                        .map_err(|e| AdapterError::Io(format!("Failed to create Windsurf config directory: {}", e)))?;
+                    fs::create_dir_all(parent).map_err(|e| {
+                        AdapterError::Io(format!(
+                            "Failed to create Windsurf config directory: {}",
+                            e
+                        ))
+                    })?;
                 }
 
                 let mut current_json = if mcp_path.exists() {
-                    let raw_json = fs::read_to_string(&mcp_path)
-                        .map_err(|e| AdapterError::Io(format!("Failed to read Windsurf mcp.json: {}", e)))?;
+                    let raw_json = fs::read_to_string(&mcp_path).map_err(|e| {
+                        AdapterError::Io(format!("Failed to read Windsurf mcp.json: {}", e))
+                    })?;
                     let cleaned = clean_jsonc(&raw_json);
                     serde_json::from_str(&cleaned).unwrap_or_else(|_| json!({ "mcpServers": {} }))
                 } else {
@@ -153,7 +163,9 @@ impl Adapter for WindsurfAdapter {
                     .entry("mcpServers")
                     .or_insert_with(|| json!({}))
                     .as_object_mut()
-                    .ok_or_else(|| AdapterError::Malformed("mcpServers is not an object".to_string()))?;
+                    .ok_or_else(|| {
+                        AdapterError::Malformed("mcpServers is not an object".to_string())
+                    })?;
 
                 for server in windsurf_servers {
                     let parts: Vec<&str> = server.command_or_url.split_whitespace().collect();
@@ -161,11 +173,16 @@ impl Adapter for WindsurfAdapter {
                         continue;
                     }
                     let command = parts[0].to_string();
-                    let args: Vec<Value> = parts[1..].iter().map(|s| Value::String(s.to_string())).collect();
+                    let args: Vec<Value> = parts[1..]
+                        .iter()
+                        .map(|s| Value::String(s.to_string()))
+                        .collect();
 
                     let mut env_obj = serde_json::Map::new();
                     if let Some(existing_server) = mcp_servers_map.get(&server.id) {
-                        if let Some(existing_env) = existing_server.get("env").and_then(|v| v.as_object()) {
+                        if let Some(existing_env) =
+                            existing_server.get("env").and_then(|v| v.as_object())
+                        {
                             env_obj = existing_env.clone();
                         }
                     }
@@ -185,11 +202,13 @@ impl Adapter for WindsurfAdapter {
                     mcp_servers_map.insert(server.id.clone(), new_server);
                 }
 
-                let pretty = serde_json::to_string_pretty(&current_json)
-                    .map_err(|e| AdapterError::Malformed(format!("Failed to serialize JSON: {}", e)))?;
-                fs::write(&mcp_path, pretty)
-                    .map_err(|e| AdapterError::Io(format!("Failed to write Windsurf mcp.json: {}", e)))?;
-                
+                let pretty = serde_json::to_string_pretty(&current_json).map_err(|e| {
+                    AdapterError::Malformed(format!("Failed to serialize JSON: {}", e))
+                })?;
+                fs::write(&mcp_path, pretty).map_err(|e| {
+                    AdapterError::Io(format!("Failed to write Windsurf mcp.json: {}", e))
+                })?;
+
                 written.push(mcp_path.to_string_lossy().into_owned());
             }
         }
@@ -226,11 +245,19 @@ mod tests {
         let home_dir = tempdir().unwrap();
         std::env::set_var("HOME", home_dir.path());
 
-        fs::write(dir.path().join(".windsurfrules"), "windsurf global instructions").unwrap();
+        fs::write(
+            dir.path().join(".windsurfrules"),
+            "windsurf global instructions",
+        )
+        .unwrap();
 
         let mcp_dir = home_dir.path().join(".devin");
         fs::create_dir_all(&mcp_dir).unwrap();
-        fs::write(mcp_dir.join("mcp.json"), r#"{"mcpServers": {"wind-mcp": {"command": "python", "args": ["main.py"]}}}"#).unwrap();
+        fs::write(
+            mcp_dir.join("mcp.json"),
+            r#"{"mcpServers": {"wind-mcp": {"command": "python", "args": ["main.py"]}}}"#,
+        )
+        .unwrap();
 
         let imported = adapter.import(dir.path()).unwrap();
         assert_eq!(imported.skills.len(), 1);
@@ -246,12 +273,9 @@ mod tests {
         let out_home = tempdir().unwrap();
         std::env::set_var("HOME", out_home.path());
 
-        let project_res = adapter.project(
-            out_dir.path(),
-            &imported.skills,
-            &[],
-            &imported.mcp_servers,
-        ).unwrap();
+        let project_res = adapter
+            .project(out_dir.path(), &imported.skills, &[], &imported.mcp_servers)
+            .unwrap();
 
         assert_eq!(project_res.written.len(), 2);
         assert!(project_res.written.contains(&".windsurfrules".to_string()));

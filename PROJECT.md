@@ -25,8 +25,8 @@
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Simple Markdown Adapters | Implement: `cline`, `opencode`, `github-copilot`, `windsurf` | none | PLANNED |
-| 2 | Hybrid Settings & Markdown | Implement: `gemini-cli`, `zed`, `aider`, `roo-code` | M1 | PLANNED |
+| 1 | Simple Markdown Adapters | Implement: `cline`, `opencode`, `github-copilot`, `windsurf` | none | DONE |
+| 2 | Hybrid Settings & Markdown | Implement: `gemini-cli`, `zed`, `aider`, `roo-code` | M1 | DONE |
 | 3 | Advanced Multi-file/Settings | Implement: `cursor`, `continue`, `claude-code`, `openai-codex` | M2 | PLANNED |
 | 4 | E2E test verification | Final pass of 12/12 adapter round-trip tests | M3 | PLANNED |
 

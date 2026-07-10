@@ -1,19 +1,27 @@
-use std::path::PathBuf;
-use sha2::{Sha256, Digest};
 use crate::adapter::Adapter;
+use sha2::{Digest, Sha256};
+use std::path::PathBuf;
 
+pub mod aider;
 pub mod cline;
-pub mod opencode;
+pub mod gemini_cli;
 pub mod github_copilot;
+pub mod opencode;
+pub mod roo_code;
 pub mod windsurf;
+pub mod zed;
 
-/// Returns all implemented Phase 3 Milestone 1 adapters.
+/// Returns all adapters implemented so far (Phase 3 Milestones 1-2).
 pub fn all_adapters() -> Vec<Box<dyn Adapter>> {
     vec![
         Box::new(cline::ClineAdapter),
         Box::new(opencode::OpenCodeAdapter),
         Box::new(github_copilot::GitHubCopilotAdapter),
         Box::new(windsurf::WindsurfAdapter),
+        Box::new(gemini_cli::GeminiCliAdapter),
+        Box::new(zed::ZedAdapter),
+        Box::new(aider::AiderAdapter),
+        Box::new(roo_code::RooCodeAdapter),
     ]
 }
 

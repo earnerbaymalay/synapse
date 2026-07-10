@@ -1,13 +1,11 @@
-use std::fs;
-use tempfile::tempdir;
 use neurosurgeon_core::adapter::{Adapter, AdapterError};
 use neurosurgeon_core::adapters::{
-    cline::ClineAdapter,
-    opencode::OpenCodeAdapter,
-    github_copilot::GitHubCopilotAdapter,
+    cline::ClineAdapter, github_copilot::GitHubCopilotAdapter, opencode::OpenCodeAdapter,
     windsurf::WindsurfAdapter,
 };
 use neurosurgeon_core::model::Skill;
+use std::fs;
+use tempfile::tempdir;
 
 #[test]
 fn test_cline_adapter_missing_files_graceful() {
@@ -27,7 +25,11 @@ fn test_cline_adapter_malformed_json() {
     let adapter = ClineAdapter;
 
     // Completely malformed JSON
-    fs::write(dir.path().join("cline_mcp_settings.json"), "{ invalid json }").unwrap();
+    fs::write(
+        dir.path().join("cline_mcp_settings.json"),
+        "{ invalid json }",
+    )
+    .unwrap();
     let result = adapter.import(dir.path());
     assert!(matches!(result, Err(AdapterError::Malformed(_))));
 
@@ -63,15 +65,18 @@ fn test_cline_adapter_clean_jsonc_robustness() {
     fs::write(dir.path().join("cline_mcp_settings.json"), mcp_content).unwrap();
     let result = adapter.import(dir.path()).unwrap();
     assert_eq!(result.mcp_servers.len(), 1);
-    
+
     let server = &result.mcp_servers[0];
     assert_eq!(server.id, "weather");
     assert_eq!(server.command_or_url, "node dist/index.js");
-    assert_eq!(server.env_placeholders, vec![
-        "API_KEY".to_string(),
-        "COMMENT_TEST".to_string(),
-        "ESC_QUOTE".to_string(),
-    ]);
+    assert_eq!(
+        server.env_placeholders,
+        vec![
+            "API_KEY".to_string(),
+            "COMMENT_TEST".to_string(),
+            "ESC_QUOTE".to_string(),
+        ]
+    );
 }
 
 #[test]
@@ -80,12 +85,18 @@ fn test_cline_adapter_unusual_json_types() {
     let adapter = ClineAdapter;
 
     // mcpServers is not an object (e.g. string)
-    fs::write(dir.path().join("cline_mcp_settings.json"), r#"{"mcpServers": "not_an_object"}"#).unwrap();
+    fs::write(
+        dir.path().join("cline_mcp_settings.json"),
+        r#"{"mcpServers": "not_an_object"}"#,
+    )
+    .unwrap();
     let result = adapter.import(dir.path()).unwrap();
     assert!(result.mcp_servers.is_empty()); // should gracefully ignore
 
     // args is not an array, env is not an object
-    fs::write(dir.path().join("cline_mcp_settings.json"), r#"{
+    fs::write(
+        dir.path().join("cline_mcp_settings.json"),
+        r#"{
         "mcpServers": {
             "bad-server": {
                 "command": "node",
@@ -93,7 +104,9 @@ fn test_cline_adapter_unusual_json_types() {
                 "env": "not_an_object"
             }
         }
-    }"#).unwrap();
+    }"#,
+    )
+    .unwrap();
     let result = adapter.import(dir.path()).unwrap();
     assert_eq!(result.mcp_servers.len(), 1);
     assert_eq!(result.mcp_servers[0].command_or_url, "node");
@@ -120,7 +133,7 @@ fn test_cline_adapter_project_io_error() {
     let adapter = ClineAdapter;
     // Attempting to project to a non-existent path that cannot be created
     let bad_path = std::path::Path::new("/nonexistent_directory_xyz/abc");
-    
+
     let skills = vec![Skill {
         id: "cline-rules".to_string(),
         version: "1.0.0".to_string(),
@@ -150,7 +163,11 @@ fn test_opencode_adapter_malformed_frontmatter() {
     let adapter = OpenCodeAdapter;
 
     // 1. Unclosed frontmatter
-    fs::write(dir.path().join("AGENTS.md"), "---\ntools:\n  - search\nNo closing dashes").unwrap();
+    fs::write(
+        dir.path().join("AGENTS.md"),
+        "---\ntools:\n  - search\nNo closing dashes",
+    )
+    .unwrap();
     let result = adapter.import(dir.path()).unwrap();
     // Should treat everything as plain text body
     assert_eq!(result.agents.len(), 1);
@@ -159,7 +176,11 @@ fn test_opencode_adapter_malformed_frontmatter() {
     assert!(result.skills[0].source.contains("No closing dashes"));
 
     // 2. YAML list format with missing keys
-    fs::write(dir.path().join("AGENTS.md"), "---\n- item1\n- item2\n---\nbody").unwrap();
+    fs::write(
+        dir.path().join("AGENTS.md"),
+        "---\n- item1\n- item2\n---\nbody",
+    )
+    .unwrap();
     let result = adapter.import(dir.path()).unwrap();
     assert_eq!(result.agents.len(), 1);
     assert!(result.agents[0].tools.is_empty());
@@ -167,7 +188,11 @@ fn test_opencode_adapter_malformed_frontmatter() {
     assert_eq!(result.skills[0].source, "body");
 
     // 3. YAML inline bracket format
-    fs::write(dir.path().join("AGENTS.md"), "---\ntools: [web_search, read_file]\nmodel_hints: [\"gpt-4\", 'claude']\n---\nbody").unwrap();
+    fs::write(
+        dir.path().join("AGENTS.md"),
+        "---\ntools: [web_search, read_file]\nmodel_hints: [\"gpt-4\", 'claude']\n---\nbody",
+    )
+    .unwrap();
     let result = adapter.import(dir.path()).unwrap();
     assert_eq!(result.agents.len(), 1);
     assert_eq!(result.agents[0].tools, vec!["web_search", "read_file"]);
@@ -191,7 +216,11 @@ fn test_opencode_adapter_empty_and_special_chars() {
 
     // Special characters in instructions
     let special_body = "🚀 OpenCode rules with unicode: \u{1F600} \u{2601} \u{2744}\n~!@#$%^&*()_+{}|:\"<>?`-=[];',./";
-    fs::write(dir.path().join("AGENTS.md"), format!("---\ntools:\n  - test\n---\n{}", special_body)).unwrap();
+    fs::write(
+        dir.path().join("AGENTS.md"),
+        format!("---\ntools:\n  - test\n---\n{}", special_body),
+    )
+    .unwrap();
     let result = adapter.import(dir.path()).unwrap();
     assert_eq!(result.skills.len(), 1);
     assert_eq!(result.skills[0].source, special_body);
@@ -232,10 +261,13 @@ fn test_github_copilot_adapter_scoped_instructions_edge_cases() {
 
     let result = adapter.import(dir.path()).unwrap();
     assert_eq!(result.skills.len(), 1);
-    
+
     let skill = &result.skills[0];
     assert_eq!(skill.id, "src-nested-folder_xyz-special@dir-helper");
-    assert_eq!(skill.triggers, vec!["src/nested-folder_xyz/special@dir/**/*".to_string()]);
+    assert_eq!(
+        skill.triggers,
+        vec!["src/nested-folder_xyz/special@dir/**/*".to_string()]
+    );
     assert_eq!(skill.source, "helper rules");
 }
 
@@ -288,9 +320,11 @@ fn test_github_copilot_adapter_path_traversal() {
     assert!(project_res.is_ok(), "Expected Ok, got {:?}", project_res);
 
     // Check if a file was created outside the temp directory (specifically in dir.path()/../traversal_output)
-    let traversal_file = dir.path().join("../traversal_output/traversal.instructions.md");
+    let traversal_file = dir
+        .path()
+        .join("../traversal_output/traversal.instructions.md");
     let file_exists = traversal_file.exists();
-    
+
     // Clean up if it exists
     if file_exists {
         let parent = traversal_file.parent().unwrap();
@@ -299,7 +333,10 @@ fn test_github_copilot_adapter_path_traversal() {
     }
 
     // If it wrote the file outside the root, this is a path traversal vulnerability!
-    assert!(file_exists, "Vulnerability missing: expected file to be written outside root directory!");
+    assert!(
+        file_exists,
+        "Vulnerability missing: expected file to be written outside root directory!"
+    );
 }
 
 #[test]
@@ -340,4 +377,3 @@ fn test_windsurf_adapter_writes_outside_root() {
     let mcp_path = home_dir.path().join(".codeium/windsurf/mcp.json");
     assert!(mcp_path.exists());
 }
-

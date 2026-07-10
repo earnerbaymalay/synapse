@@ -15,7 +15,10 @@ pub enum ProjectionPolicy {
 
 /// Windows without symlink privileges (or any OS where a prior symlink
 /// attempt failed) always falls back to `Generate`.
-pub fn decide_policy(tool_supports_symlink: bool, symlink_privilege_available: bool) -> ProjectionPolicy {
+pub fn decide_policy(
+    tool_supports_symlink: bool,
+    symlink_privilege_available: bool,
+) -> ProjectionPolicy {
     if tool_supports_symlink && symlink_privilege_available {
         ProjectionPolicy::Symlink
     } else {
@@ -29,10 +32,7 @@ mod tests {
 
     #[test]
     fn falls_back_to_generate_without_symlink_privilege() {
-        assert_eq!(
-            decide_policy(true, false),
-            ProjectionPolicy::Generate
-        );
+        assert_eq!(decide_policy(true, false), ProjectionPolicy::Generate);
     }
 
     #[test]

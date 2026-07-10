@@ -1,9 +1,9 @@
-use std::path::Path;
-use std::fs;
-use serde_json::{json, Value};
+use super::{clean_jsonc, compute_sha256, strip_provenance};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, McpServer, Skill, HealthStatus};
-use super::{compute_sha256, strip_provenance, clean_jsonc};
+use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use serde_json::{json, Value};
+use std::fs;
+use std::path::Path;
 
 pub struct ClineAdapter;
 
@@ -39,19 +39,23 @@ impl Adapter for ClineAdapter {
 
         let mcp_path = root.join("cline_mcp_settings.json");
         if mcp_path.exists() {
-            let raw_json = fs::read_to_string(&mcp_path)
-                .map_err(|e| AdapterError::Io(format!("Failed to read cline_mcp_settings.json: {}", e)))?;
+            let raw_json = fs::read_to_string(&mcp_path).map_err(|e| {
+                AdapterError::Io(format!("Failed to read cline_mcp_settings.json: {}", e))
+            })?;
             let cleaned = clean_jsonc(&raw_json);
-            let parsed: Value = serde_json::from_str(&cleaned)
-                .map_err(|e| AdapterError::Malformed(format!("Invalid JSON in cline_mcp_settings.json: {}", e)))?;
+            let parsed: Value = serde_json::from_str(&cleaned).map_err(|e| {
+                AdapterError::Malformed(format!("Invalid JSON in cline_mcp_settings.json: {}", e))
+            })?;
 
             if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
                 for (id, val) in mcp_servers_val {
-                    let command = val.get("command")
+                    let command = val
+                        .get("command")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
-                    let args: Vec<String> = val.get("args")
+                    let args: Vec<String> = val
+                        .get("args")
                         .and_then(|v| v.as_array())
                         .map(|arr| {
                             arr.iter()
@@ -59,7 +63,7 @@ impl Adapter for ClineAdapter {
                                 .collect()
                         })
                         .unwrap_or_default();
-                    
+
                     let command_or_url = if args.is_empty() {
                         command
                     } else {
@@ -133,8 +137,9 @@ impl Adapter for ClineAdapter {
         if !cline_servers.is_empty() {
             let mcp_path = root.join("cline_mcp_settings.json");
             let mut current_json = if mcp_path.exists() {
-                let raw_json = fs::read_to_string(&mcp_path)
-                    .map_err(|e| AdapterError::Io(format!("Failed to read cline_mcp_settings.json: {}", e)))?;
+                let raw_json = fs::read_to_string(&mcp_path).map_err(|e| {
+                    AdapterError::Io(format!("Failed to read cline_mcp_settings.json: {}", e))
+                })?;
                 let cleaned = clean_jsonc(&raw_json);
                 serde_json::from_str(&cleaned).unwrap_or_else(|_| json!({ "mcpServers": {} }))
             } else {
@@ -151,7 +156,9 @@ impl Adapter for ClineAdapter {
                 .entry("mcpServers")
                 .or_insert_with(|| json!({}))
                 .as_object_mut()
-                .ok_or_else(|| AdapterError::Malformed("mcpServers is not an object".to_string()))?;
+                .ok_or_else(|| {
+                    AdapterError::Malformed("mcpServers is not an object".to_string())
+                })?;
 
             for server in cline_servers {
                 let parts: Vec<&str> = server.command_or_url.split_whitespace().collect();
@@ -159,12 +166,17 @@ impl Adapter for ClineAdapter {
                     continue;
                 }
                 let command = parts[0].to_string();
-                let args: Vec<Value> = parts[1..].iter().map(|s| Value::String(s.to_string())).collect();
+                let args: Vec<Value> = parts[1..]
+                    .iter()
+                    .map(|s| Value::String(s.to_string()))
+                    .collect();
 
                 // Build env preserving any existing variables
                 let mut env_obj = serde_json::Map::new();
                 if let Some(existing_server) = mcp_servers_map.get(&server.id) {
-                    if let Some(existing_env) = existing_server.get("env").and_then(|v| v.as_object()) {
+                    if let Some(existing_env) =
+                        existing_server.get("env").and_then(|v| v.as_object())
+                    {
                         env_obj = existing_env.clone();
                     }
                 }
@@ -186,8 +198,9 @@ impl Adapter for ClineAdapter {
 
             let pretty = serde_json::to_string_pretty(&current_json)
                 .map_err(|e| AdapterError::Malformed(format!("Failed to serialize JSON: {}", e)))?;
-            fs::write(&mcp_path, pretty)
-                .map_err(|e| AdapterError::Io(format!("Failed to write cline_mcp_settings.json: {}", e)))?;
+            fs::write(&mcp_path, pretty).map_err(|e| {
+                AdapterError::Io(format!("Failed to write cline_mcp_settings.json: {}", e))
+            })?;
             written.push("cline_mcp_settings.json".to_string());
         }
 
@@ -247,45 +260,48 @@ mod tests {
         assert_eq!(imported.mcp_servers.len(), 1);
         assert_eq!(imported.mcp_servers[0].id, "weather");
         assert_eq!(imported.mcp_servers[0].command_or_url, "node dist/index.js");
-        assert_eq!(imported.mcp_servers[0].env_placeholders, vec!["API_KEY".to_string()]);
+        assert_eq!(
+            imported.mcp_servers[0].env_placeholders,
+            vec!["API_KEY".to_string()]
+        );
 
         // Now project back to a clean directory
         let out_dir = tempdir().unwrap();
-        let project_res = adapter.project(
-            out_dir.path(),
-            &imported.skills,
-            &[],
-            &imported.mcp_servers,
-        ).unwrap();
+        let project_res = adapter
+            .project(out_dir.path(), &imported.skills, &[], &imported.mcp_servers)
+            .unwrap();
 
         assert_eq!(project_res.written.len(), 2);
         assert!(project_res.written.contains(&".clinerules".to_string()));
-        assert!(project_res.written.contains(&"cline_mcp_settings.json".to_string()));
+        assert!(project_res
+            .written
+            .contains(&"cline_mcp_settings.json".to_string()));
 
         // Check content (with provenance and pretty print)
         let projected_rule = fs::read_to_string(out_dir.path().join(".clinerules")).unwrap();
-        assert!(projected_rule.contains("<!-- GENERATED BY LLM NEUROSURGEON — edit in the Brain -->"));
+        assert!(
+            projected_rule.contains("<!-- GENERATED BY LLM NEUROSURGEON — edit in the Brain -->")
+        );
         assert!(projected_rule.contains(rule_content));
 
-        let projected_mcp = fs::read_to_string(out_dir.path().join("cline_mcp_settings.json")).unwrap();
+        let projected_mcp =
+            fs::read_to_string(out_dir.path().join("cline_mcp_settings.json")).unwrap();
         let parsed: Value = serde_json::from_str(&projected_mcp).unwrap();
-        assert_eq!(
-            parsed["mcpServers"]["weather"]["command"],
-            "node"
-        );
-        assert_eq!(
-            parsed["mcpServers"]["weather"]["args"][0],
-            "dist/index.js"
-        );
+        assert_eq!(parsed["mcpServers"]["weather"]["command"], "node");
+        assert_eq!(parsed["mcpServers"]["weather"]["args"][0], "dist/index.js");
     }
 
     #[test]
     fn test_cline_stress_malformed_json() {
         let dir = tempdir().unwrap();
         let adapter = ClineAdapter;
-        
+
         // Garbled JSON should return Malformed error
-        fs::write(dir.path().join("cline_mcp_settings.json"), "{ invalid json }").unwrap();
+        fs::write(
+            dir.path().join("cline_mcp_settings.json"),
+            "{ invalid json }",
+        )
+        .unwrap();
         let res = adapter.import(dir.path());
         assert!(matches!(res, Err(AdapterError::Malformed(_))));
 
@@ -320,10 +336,14 @@ mod tests {
     fn test_cline_stress_project_malformed_existing_json() {
         let dir = tempdir().unwrap();
         let adapter = ClineAdapter;
-        
+
         // Existing JSON has mcpServers as a string, not an object
-        fs::write(dir.path().join("cline_mcp_settings.json"), r#"{"mcpServers": "string_not_object"}"#).unwrap();
-        
+        fs::write(
+            dir.path().join("cline_mcp_settings.json"),
+            r#"{"mcpServers": "string_not_object"}"#,
+        )
+        .unwrap();
+
         let server = McpServer {
             id: "my-server".to_string(),
             transport: "stdio".to_string(),
@@ -342,10 +362,10 @@ mod tests {
     fn test_cline_stress_project_invalid_root_json() {
         let dir = tempdir().unwrap();
         let adapter = ClineAdapter;
-        
+
         // Existing JSON is just a list, not an object
         fs::write(dir.path().join("cline_mcp_settings.json"), r#"[1, 2, 3]"#).unwrap();
-        
+
         let server = McpServer {
             id: "my-server".to_string(),
             transport: "stdio".to_string(),
@@ -360,4 +380,3 @@ mod tests {
         assert!(res.is_ok());
     }
 }
-
