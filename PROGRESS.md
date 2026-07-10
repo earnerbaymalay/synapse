@@ -78,6 +78,32 @@ does NOT claim `.clinerules` since that file is Cline's — avoids double-import
 across the two adapters). All JSON/settings merges preserve pre-existing
 unrelated keys (matches Milestone 1's cline/windsurf merge pattern).
 Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 59 tests green
-(1 ignored, platform-dependent), `cargo fmt --check` clean. Commit <pending>.
+(1 ignored, platform-dependent), `cargo fmt --check` clean. Commit d162d6f.
 Next: Milestone 3 — `cursor`, `continue`, `claude-code`, `openai-codex`
 (advanced multi-file/settings tools). 8/12 adapters done.
+
+## T3.1 — Milestones 3-4 of 4 (adapters) — 2026-07-10 — T3.1 COMPLETE
+What: `cursor` (.cursorrules legacy + .cursor/rules/*.mdc, globs/alwaysApply
+frontmatter -> Skill.triggers; validated against the golden fixture in
+fixtures/cursor/), `continue` (.continue/config.json mcpServers +
+.continue/rules/*.md, same mdc-frontmatter convention as cursor — shared via
+a new `split_frontmatter`/`parse_mdc_frontmatter` helper in adapters/mod.rs),
+`claude-code` (CLAUDE.md + .claude/skills/*/SKILL.md + .claude/agents/*.md
+-> Agent+companion-Skill + .mcp.json), `openai-codex` (.codex/config.toml
+[mcp_servers.*] via the `toml` crate; deliberately does NOT claim AGENTS.md
+— that's opencode's file). Before building openai-codex, live-verified its
+config paths via WebFetch against developers.openai.com/codex since the
+recon brief had them marked VERIFY (confirmed: AGENTS.md walk-up + project
+`.codex/config.toml`, user `~/.codex/config.toml`, TOML not JSON).
+Added a registry sanity test (`adapters::registry_tests`): exactly 12
+adapters registered, unique ids, none false-detects an empty root.
+T3.1's PLAN.md verify condition (12/12 round-trip green) is now met — ticked
+the checkbox. PROJECT.md's Milestone 4 line is marked done at the unit-test
+level; the cross-tool `packages/e2e` suite (tier1-4) is separate follow-on
+work, not required by T3.1's own verify text.
+Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 77 tests green
+(1 ignored, platform-dependent), `cargo fmt --check` clean.
+Next: T3.2 (projection engine: symlink-vs-generate policy table,
+mappings.json, drift detector) or T3.3 (red-team pass) — both unblocked now
+that T3.1 is done. T3.4 is Gate 2 (human-run `cli scan && cli import
+--dry-run`), which halts the RALPH loop for review once reached.

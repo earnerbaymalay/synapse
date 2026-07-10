@@ -18,7 +18,7 @@
 - [x] T2.3  CLI --help complete :: verify: cli --help outputs verbs
 
 ## Phase 3 — Core Engine: adapters + projection → GATE 2 (human)
-- [ ] T3.1  Adapter-smith swarm: 12 adapters, detect/import/project + round-trip :: verify: 12/12 round-trip green
+- [x] T3.1  Adapter-smith swarm: 12 adapters, detect/import/project + round-trip :: verify: 12/12 round-trip green
 - [ ] T3.2  Projection engine: symlink-vs-generate policy table, mappings.json, drift detector :: verify: policy table present and tested
 - [ ] T3.3  Red-team pass: symlink escape, path traversal, circular links, malformed configs :: verify: red-team report in docs/security.md
 - [ ] T3.4  Gate 2: human runs cli scan && cli import --dry-run on real machine and approves

@@ -27,8 +27,18 @@
 |---|------|-------|-------------|--------|
 | 1 | Simple Markdown Adapters | Implement: `cline`, `opencode`, `github-copilot`, `windsurf` | none | DONE |
 | 2 | Hybrid Settings & Markdown | Implement: `gemini-cli`, `zed`, `aider`, `roo-code` | M1 | DONE |
-| 3 | Advanced Multi-file/Settings | Implement: `cursor`, `continue`, `claude-code`, `openai-codex` | M2 | PLANNED |
-| 4 | E2E test verification | Final pass of 12/12 adapter round-trip tests | M3 | PLANNED |
+| 3 | Advanced Multi-file/Settings | Implement: `cursor`, `continue`, `claude-code`, `openai-codex` | M2 | DONE |
+| 4 | E2E test verification | Final pass of 12/12 adapter round-trip tests | M3 | DONE (unit-level; packages/e2e cross-tool suite still open) |
+
+## Shared-Filename Ownership
+Several tools converge on the same on-disk filename (an emerging cross-tool
+convention, not a bug). Exactly one adapter owns each shared filename so two
+adapters never double-import the same file's content under different Skill
+ids:
+- `AGENTS.md` — owned by `opencode`. `openai-codex` deliberately does not
+  claim it.
+- `.clinerules` — owned by `cline`. `roo-code` deliberately does not claim
+  it (its own artifact is `.roomodes`).
 
 ## Interface Contracts
 - Each adapter implements the `Adapter` trait:

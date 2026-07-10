@@ -3,15 +3,19 @@ use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
 pub mod aider;
+pub mod claude_code;
 pub mod cline;
+pub mod continue_adapter;
+pub mod cursor;
 pub mod gemini_cli;
 pub mod github_copilot;
+pub mod openai_codex;
 pub mod opencode;
 pub mod roo_code;
 pub mod windsurf;
 pub mod zed;
 
-/// Returns all adapters implemented so far (Phase 3 Milestones 1-2).
+/// Returns all 12 implemented adapters (Phase 3 Milestones 1-3).
 pub fn all_adapters() -> Vec<Box<dyn Adapter>> {
     vec![
         Box::new(cline::ClineAdapter),
@@ -22,6 +26,10 @@ pub fn all_adapters() -> Vec<Box<dyn Adapter>> {
         Box::new(zed::ZedAdapter),
         Box::new(aider::AiderAdapter),
         Box::new(roo_code::RooCodeAdapter),
+        Box::new(cursor::CursorAdapter),
+        Box::new(continue_adapter::ContinueAdapter),
+        Box::new(claude_code::ClaudeCodeAdapter),
+        Box::new(openai_codex::OpenAiCodexAdapter),
     ]
 }
 
@@ -115,6 +123,72 @@ pub fn get_home_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// Splits a `---`-delimited frontmatter block from the body that follows,
+/// shared by the `.mdc`-style rule formats (cursor, continue).
+pub fn split_frontmatter(content: &str) -> (Option<String>, String) {
+    let lines: Vec<&str> = content.lines().collect();
+    if lines.first().map(|l| l.trim()) == Some("---") {
+        if let Some(rel_end) = lines.iter().skip(1).position(|l| l.trim() == "---") {
+            let end = rel_end + 1;
+            let fm = lines[1..end].join("\n");
+            let body = lines[end + 1..].join("\n");
+            return (Some(fm), body);
+        }
+    }
+    (None, content.to_string())
+}
+
+/// The `description` / `globs` / `alwaysApply` frontmatter fields shared by
+/// Cursor's `.mdc` rule files and Continue's `.continue/rules/*.md` files.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MdcFrontmatter {
+    pub globs: Vec<String>,
+    pub always_apply: bool,
+}
+
+pub fn parse_mdc_frontmatter(fm: &str) -> MdcFrontmatter {
+    let mut result = MdcFrontmatter::default();
+    for line in fm.lines() {
+        let line = line.trim();
+        let Some(colon_idx) = line.find(':') else {
+            continue;
+        };
+        let key = line[..colon_idx].trim();
+        let val = line[colon_idx + 1..].trim();
+        match key {
+            "globs" => {
+                if val.starts_with('[') && val.ends_with(']') {
+                    result.globs = val[1..val.len() - 1]
+                        .split(',')
+                        .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                } else if !val.is_empty() {
+                    result.globs = vec![val.trim_matches('"').trim_matches('\'').to_string()];
+                }
+            }
+            "alwaysApply" => {
+                result.always_apply = val == "true";
+            }
+            _ => {}
+        }
+    }
+    result
+}
+
+pub fn serialize_mdc_frontmatter(fm: &MdcFrontmatter) -> String {
+    let globs_str = fm
+        .globs
+        .iter()
+        .map(|g| format!("\"{}\"", g))
+        .collect::<Vec<String>>()
+        .join(", ");
+    format!(
+        "---\ndescription: \nglobs: [{}]\nalwaysApply: {}\n---",
+        globs_str, fm.always_apply
+    )
+}
+
 /// Helper to get the Windsurf mcp.json path.
 pub fn get_windsurf_mcp_path() -> Option<PathBuf> {
     let home = get_home_dir()?;
@@ -127,4 +201,34 @@ pub fn get_windsurf_mcp_path() -> Option<PathBuf> {
         return Some(codeium_path);
     }
     Some(codeium_path)
+}
+
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn all_12_adapters_registered_with_unique_ids() {
+        let adapters = all_adapters();
+        assert_eq!(adapters.len(), 12);
+
+        let mut ids: Vec<&str> = adapters.iter().map(|a| a.id()).collect();
+        let before = ids.len();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), before, "duplicate adapter ids: {:?}", ids);
+    }
+
+    #[test]
+    fn no_adapter_detects_an_empty_root() {
+        let dir = tempdir().unwrap();
+        for adapter in all_adapters() {
+            assert!(
+                !adapter.detect(dir.path()),
+                "{} falsely detected an empty root",
+                adapter.id()
+            );
+        }
+    }
 }
