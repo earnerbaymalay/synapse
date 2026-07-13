@@ -25,7 +25,7 @@
 - T6.2 🔄 Next: MCP registry importers + health-check handshake.
 - T6.3 🔄 Next: Secrets flow: keychain, placeholders, project-to-all-tools.
 - T7.1 🔄 Next: Threat-model pass + red-team sign-off.
-- T7.2 🔄 Next: Doctor rules library (≥12 diagnoses).
+- T7.2 ✅ Complete: Doctor rules library (13 rules) + CLI wiring + corrupted-fixture self-verify.
 - T7.3 🔄 Next: Auto-update channel dry-run.
 - T7.4 🔄 Next: Doc set: README, user guide, adapter-authoring guide, CHANGELOG.
 - T8.1 🔄 Next: Signed installers (.dmg/.msi/AppImage/.deb) + CLI formulae drafts.
@@ -710,3 +710,50 @@ secrets handling), T7.2 (Doctor rules library ≥12 diagnoses), T7.3
 needs signing keys that don't exist yet; the honest T7.3 is config +
 dry-run verification), T7.4 (doc set). No human gate until T8.3
 (Gate 4).
+
+## T7.2 — Doctor rules library — 2026-07-14 — COMPLETE
+What: The diagnostic engine (`packages/core/src/doctor.rs`) already existed
+from a prior session with 13 rules and `apply_fixes`, but two things were
+missing to actually close T7.2: (1) the CLI `doctor` command was a
+`not_yet_implemented` stub, and (2) there was no single "corrupted fixture
+Brain" self-verify — only per-rule unit tests. Both are now done.
+
+CLI (`apps/cli/src/main.rs`): `neurosurgeon doctor [--fix]` is wired to
+`diagnose`/`apply_fixes` with a clinical report (severity-tagged lines,
+"(fixable — rerun with --fix)" hints). Added `--brain <PATH>` and
+`--tool-root <PATH>` overrides; default resolution is
+`$NEUROSURGEON_BRAIN` else `~/AIBrain` for the Brain (the documented
+default), and `$NEUROSURGEON_TOOL_ROOT` else `$HOME` for the tool root.
+Exit code is FAILURE when any Critical diagnosis remains (script/CI
+gating), SUCCESS otherwise. Added `dirs = "6"` (already in the lock tree)
+for cross-platform home resolution.
+
+Self-verify: added `doctor_fixes_every_seeded_fault_in_a_corrupted_brain`
+— one Brain seeded with five simultaneous faults (non-git Brain, missing
+generated projection, detached symlink, retargeted symlink, and one
+human-only fault: a mapping whose canonical source was deleted). One
+`apply_fixes` pass clears every auto-fixable fault (verified by real
+filesystem evidence: the generated file has the provenance header + body,
+the detached path is now a symlink, the retargeted symlink points at the
+right canonical file, `.git` exists) while the human-only Critical fault
+stays reported but untouched. Idempotent on a second pass.
+
+Bug found by driving the real binary end-to-end (not just tests): after
+`doctor --fix` re-projected a file whose recorded `content_sha256` was
+empty/stale, the very next `diagnose` falsely flagged it as
+`generated-file-edited` — the Doctor accusing its own handiwork of being a
+phantom hand-edit. Fixed `reproject` to heal the record too: it now
+updates the mapping's checksum in `mappings.json` to match what it wrote,
+so a re-diagnose is a clean bill of health. Regression test:
+`fixing_a_missing_projection_heals_the_checksum_so_rediagnose_is_clean`.
+Confirmed live: seed empty-checksum Brain → `doctor --fix` → second
+`doctor` prints "clean bill of health", exit 0.
+
+Evidence: T7.2's verify ("doctor fixes seeded faults") met by the
+corrupted-fixture self-verify above plus the existing per-rule tests and a
+real end-to-end CLI run. `cargo test --workspace` — 167 passed, 0 failed;
+`cargo fmt --all --check` clean. Ticked T7.2.
+Next: T7.3 (auto-update channel dry-run — scope carefully: a real Tauri
+updater needs signing keys that don't exist yet, so the honest T7.3 is
+config + dry-run verification), then T7.4 (doc set). No human gate until
+T8.3 (Gate 4).

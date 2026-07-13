@@ -2041,6 +2041,7 @@ name = "neurosurgeon"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "dirs",
  "neurosurgeon-core",
  "serde_json",
  "tempfile",

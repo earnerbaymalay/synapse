@@ -1,8 +1,9 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use neurosurgeon_core::adapters::all_adapters;
+use neurosurgeon_core::doctor::{apply_fixes, diagnose, DoctorContext, Severity};
 
 /// LLM Neurosurgeon — scan, import, project, and sync AI tool configs
 /// through one canonical Brain.
@@ -44,6 +45,12 @@ enum Command {
         /// Apply the suggested fix for every diagnosis instead of just reporting
         #[arg(long)]
         fix: bool,
+        /// Brain directory to examine (defaults to $NEUROSURGEON_BRAIN, else ~/AIBrain)
+        #[arg(long, value_name = "PATH")]
+        brain: Option<PathBuf>,
+        /// Tool config root that projections are relative to (defaults to $NEUROSURGEON_TOOL_ROOT, else your home directory)
+        #[arg(long, value_name = "PATH")]
+        tool_root: Option<PathBuf>,
     },
     /// Record a git snapshot of the current Brain state
     Snapshot {
@@ -88,7 +95,27 @@ fn main() -> ExitCode {
             not_yet_implemented("project", &format!("dry_run={dry_run}"))
         }
         Command::Sync { once } => not_yet_implemented("sync", &format!("once={once}")),
-        Command::Doctor { fix } => not_yet_implemented("doctor", &format!("fix={fix}")),
+        Command::Doctor {
+            fix,
+            brain,
+            tool_root,
+        } => {
+            let brain_root = match resolve_brain_root(brain) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("neurosurgeon doctor: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let tool_root = match resolve_tool_root(tool_root) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("neurosurgeon doctor: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            run_doctor(&brain_root, &tool_root, fix)
+        }
         Command::Snapshot { message } => {
             not_yet_implemented("snapshot", &format!("message={message:?}"))
         }
@@ -191,8 +218,100 @@ fn report_import_dry_run(root: &Path) -> ExitCode {
     }
 }
 
-/// The Brain-writing side of `import`/`project`/`sync`/`doctor`, and
-/// git-backed `snapshot`/`rollback`, are Phase 3/4 scope not yet landed.
+/// Resolves the Brain directory for `doctor`. Precedence: an explicit
+/// `--brain` flag, then `$NEUROSURGEON_BRAIN`, then the documented default
+/// `~/AIBrain` (see DECISIONS.md / model.rs). Errors only if none of these
+/// yield a path (no home directory on a headless account with no override).
+fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    if let Some(p) = explicit {
+        return Ok(p);
+    }
+    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN") {
+        return Ok(PathBuf::from(env));
+    }
+    dirs::home_dir()
+        .map(|h| h.join("AIBrain"))
+        .ok_or_else(|| "cannot locate a home directory; pass --brain <PATH>".to_string())
+}
+
+/// Resolves the tool config root that projection paths are relative to.
+/// Precedence: `--tool-root`, then `$NEUROSURGEON_TOOL_ROOT`, then the home
+/// directory (tool configs like `.cursor/…` live under `$HOME`).
+fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    if let Some(p) = explicit {
+        return Ok(p);
+    }
+    if let Some(env) = std::env::var_os("NEUROSURGEON_TOOL_ROOT") {
+        return Ok(PathBuf::from(env));
+    }
+    dirs::home_dir()
+        .ok_or_else(|| "cannot locate a home directory; pass --tool-root <PATH>".to_string())
+}
+
+/// Runs the Doctor rule library against `brain_root`/`tool_root` and prints
+/// a clinical report. With `fix`, applies every auto-fixable diagnosis and
+/// re-diagnoses so the report reflects the post-fix state. Exit code is
+/// FAILURE if any Critical diagnosis remains unresolved (usable in scripts),
+/// SUCCESS otherwise.
+fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
+    let ctx = DoctorContext {
+        brain_root: brain_root.to_path_buf(),
+        tool_root: tool_root.to_path_buf(),
+        mappings_path: brain_root.join(".brain/mappings.json"),
+    };
+
+    if fix {
+        match apply_fixes(&ctx) {
+            Ok(0) => println!("Doctor: nothing to fix."),
+            Ok(n) => println!("Doctor: applied {n} fix(es)."),
+            Err(e) => {
+                eprintln!("neurosurgeon doctor: fix failed: {e}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
+    let diagnoses = diagnose(&ctx);
+    if diagnoses.is_empty() {
+        println!(
+            "Doctor: clean bill of health — no issues found in {}.",
+            brain_root.display()
+        );
+        return ExitCode::SUCCESS;
+    }
+
+    println!("Doctor examined {}:", brain_root.display());
+    let mut criticals = 0;
+    for d in &diagnoses {
+        let tag = match d.severity {
+            Severity::Critical => {
+                criticals += 1;
+                "CRITICAL"
+            }
+            Severity::Warning => "WARNING ",
+            Severity::Info => "INFO    ",
+        };
+        let hint = if d.auto_fixable && !fix {
+            "  (fixable — rerun with --fix)"
+        } else {
+            ""
+        };
+        match &d.subject {
+            Some(s) => println!("  [{tag}] {} — {}{}", d.message, s, hint),
+            None => println!("  [{tag}] {}{}", d.message, hint),
+        }
+    }
+
+    if criticals > 0 {
+        eprintln!("\n{criticals} critical issue(s) need a human — see the report above.");
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// The Brain-writing side of `import`/`project`/`sync`, and git-backed
+/// `snapshot`/`rollback`, are Phase 3/4 scope not yet landed.
 fn not_yet_implemented(verb: &str, args: &str) -> ExitCode {
     eprintln!("neurosurgeon {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
     ExitCode::FAILURE
@@ -277,5 +396,75 @@ mod tests {
             .collect();
 
         assert_eq!(before, after, "dry-run import must not write any files");
+    }
+
+    #[test]
+    fn resolve_brain_root_prefers_explicit_then_defaults_to_aibrain() {
+        // An explicit --brain always wins.
+        let explicit = PathBuf::from("/tmp/some-brain");
+        assert_eq!(
+            resolve_brain_root(Some(explicit.clone())).unwrap(),
+            explicit
+        );
+        // With no override, the default is <home>/AIBrain (when a home exists).
+        if let Some(home) = dirs::home_dir() {
+            // Only meaningful when the env override is unset in this process.
+            if std::env::var_os("NEUROSURGEON_BRAIN").is_none() {
+                assert_eq!(resolve_brain_root(None).unwrap(), home.join("AIBrain"));
+            }
+        }
+    }
+
+    #[test]
+    fn doctor_reports_without_criticals_and_returns_success() {
+        // A fresh, non-git Brain with no mappings: only Warnings/Info, no
+        // Critical → the report is informative and the exit code is SUCCESS.
+        let brain = tempfile::tempdir().unwrap();
+        let tool = tempfile::tempdir().unwrap();
+        assert_eq!(
+            run_doctor(brain.path(), tool.path(), false),
+            ExitCode::SUCCESS
+        );
+    }
+
+    #[test]
+    fn doctor_fix_initializes_git_and_mappings() {
+        // --fix on a fresh Brain should create the git repo and mappings.json.
+        let brain = tempfile::tempdir().unwrap();
+        let tool = tempfile::tempdir().unwrap();
+        assert_eq!(
+            run_doctor(brain.path(), tool.path(), true),
+            ExitCode::SUCCESS
+        );
+        assert!(brain.path().join(".git").is_dir());
+        assert!(brain.path().join(".brain/mappings.json").exists());
+    }
+
+    #[test]
+    fn doctor_returns_failure_on_a_critical_fault() {
+        // Seed a mapping whose canonical Brain source doesn't exist →
+        // canonical-source-missing (Critical), which the CLI surfaces as a
+        // FAILURE exit code so scripts/CI can gate on it.
+        use neurosurgeon_core::mappings::{Mapping, MappingsFile};
+        use neurosurgeon_core::projector::ProjectionPolicy;
+
+        let brain = tempfile::tempdir().unwrap();
+        let tool = tempfile::tempdir().unwrap();
+        MappingsFile {
+            mappings: vec![Mapping {
+                tool_id: "seed".into(),
+                canonical_path: "skills/does-not-exist".into(),
+                projection_path: ".clinerules".into(),
+                policy: ProjectionPolicy::Generate,
+                content_sha256: String::new(),
+            }],
+        }
+        .save(&brain.path().join(".brain/mappings.json"))
+        .unwrap();
+
+        assert_eq!(
+            run_doctor(brain.path(), tool.path(), false),
+            ExitCode::FAILURE
+        );
     }
 }

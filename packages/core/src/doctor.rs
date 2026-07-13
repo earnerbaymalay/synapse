@@ -114,7 +114,9 @@ pub fn diagnose(ctx: &DoctorContext) -> Vec<Diagnosis> {
     let mut seen_canonical: HashMap<&str, usize> = HashMap::new();
 
     for mapping in &mappings.mappings {
-        *seen_canonical.entry(mapping.canonical_path.as_str()).or_insert(0) += 1;
+        *seen_canonical
+            .entry(mapping.canonical_path.as_str())
+            .or_insert(0) += 1;
 
         // Rule 4: every mapping's canonical source must still exist in the Brain.
         let canonical_full = ctx.brain_root.join(&mapping.canonical_path);
@@ -304,12 +306,19 @@ pub fn apply_fixes(ctx: &DoctorContext) -> Result<usize, DoctorError> {
 /// that means (re)writing the file with the provenance header; for a
 /// `Symlink` mapping, replacing whatever is there with a fresh symlink to
 /// the canonical source.
+///
+/// The mapping's recorded `content_sha256` is updated in `mappings.json` to
+/// match what was just written, so the drift detector sees the healed
+/// projection as Clean afterward. Without this, a fix that re-projects a
+/// file whose recorded checksum was empty or stale would immediately trip
+/// the `generated-file-edited` rule on the very file it just wrote — the
+/// Doctor would flag its own handiwork as a phantom hand-edit.
 fn reproject(ctx: &DoctorContext, subject: &str) -> Result<(), DoctorError> {
-    let mappings =
+    let mut mappings =
         MappingsFile::load(&ctx.mappings_path).map_err(|e| DoctorError::Io(e.to_string()))?;
     let Some(mapping) = mappings
         .mappings
-        .iter()
+        .iter_mut()
         .find(|m| m.projection_path == subject)
     else {
         return Ok(());
@@ -323,18 +332,30 @@ fn reproject(ctx: &DoctorContext, subject: &str) -> Result<(), DoctorError> {
 
     match mapping.policy {
         crate::projector::ProjectionPolicy::Generate => {
-            let canonical = fs::read_to_string(&canonical_full)
-                .map_err(|e| DoctorError::Io(e.to_string()))?;
+            let canonical =
+                fs::read_to_string(&canonical_full).map_err(|e| DoctorError::Io(e.to_string()))?;
             let output = format!("{PROVENANCE_HEADER}\n{canonical}");
             // Remove first in case a symlink is sitting where a file should be.
             let _ = fs::remove_file(&full_projection);
-            fs::write(&full_projection, output).map_err(|e| DoctorError::Io(e.to_string()))?;
+            fs::write(&full_projection, &output).map_err(|e| DoctorError::Io(e.to_string()))?;
+            // Heal the record: drift for a Generate mapping is a content hash
+            // comparison, so the recorded checksum must reflect what we wrote.
+            mapping.content_sha256 = crate::adapters::compute_sha256(&output);
         }
         crate::projector::ProjectionPolicy::Symlink => {
             let _ = fs::remove_file(&full_projection);
             symlink_file(&canonical_full, &full_projection)?;
+            // Symlink drift is target-equality, not hash-based, so this field
+            // is informational; keep it consistent with the canonical content.
+            let canonical =
+                fs::read_to_string(&canonical_full).map_err(|e| DoctorError::Io(e.to_string()))?;
+            mapping.content_sha256 = crate::adapters::compute_sha256(&canonical);
         }
     }
+
+    mappings
+        .save(&ctx.mappings_path)
+        .map_err(|e| DoctorError::Io(e.to_string()))?;
     Ok(())
 }
 
@@ -376,7 +397,10 @@ mod tests {
         let tool = tempfile::tempdir().unwrap();
 
         // Canonical source in the Brain.
-        write(&brain.path().join("skills/repo-conventions"), "always write tests first");
+        write(
+            &brain.path().join("skills/repo-conventions"),
+            "always write tests first",
+        );
 
         let mapping = Mapping {
             tool_id: "cline".into(),
@@ -464,7 +488,10 @@ mod tests {
             .iter()
             .find(|d| d.rule_id == "generated-file-edited")
             .expect("hand-edit should be diagnosed");
-        assert!(!edit.auto_fixable, "a human edit must not be silently clobbered");
+        assert!(
+            !edit.auto_fixable,
+            "a human edit must not be silently clobbered"
+        );
 
         // apply_fixes must leave the human's edit alone.
         apply_fixes(&fx.ctx).unwrap();
@@ -505,14 +532,21 @@ mod tests {
             mappings_path,
         };
 
-        assert!(diagnose(&ctx).iter().any(|d| d.rule_id == "symlink-detached"));
+        assert!(diagnose(&ctx)
+            .iter()
+            .any(|d| d.rule_id == "symlink-detached"));
         apply_fixes(&ctx).unwrap();
 
         // Now it's a real symlink pointing at the canonical file.
         let link = tool.path().join(".cursorrules");
-        assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
         assert_eq!(fs::read_link(&link).unwrap(), canonical);
-        assert!(!diagnose(&ctx).iter().any(|d| d.rule_id == "symlink-detached"));
+        assert!(!diagnose(&ctx)
+            .iter()
+            .any(|d| d.rule_id == "symlink-detached"));
     }
 
     #[test]
@@ -539,11 +573,196 @@ mod tests {
     }
 
     #[test]
+    fn fixing_a_missing_projection_heals_the_checksum_so_rediagnose_is_clean() {
+        // Seed a Generate mapping with an EMPTY recorded checksum (as a
+        // never-cleanly-synced Brain would have) and no projection on disk.
+        let brain = tempfile::tempdir().unwrap();
+        let tool = tempfile::tempdir().unwrap();
+        write(&brain.path().join("skills/x"), "canonical body");
+        let mappings_path = brain.path().join(".brain/mappings.json");
+        MappingsFile {
+            mappings: vec![Mapping {
+                tool_id: "cline".into(),
+                canonical_path: "skills/x".into(),
+                projection_path: ".clinerules".into(),
+                policy: ProjectionPolicy::Generate,
+                content_sha256: String::new(),
+            }],
+        }
+        .save(&mappings_path)
+        .unwrap();
+        crate::snapshot::ensure_repo(brain.path()).unwrap();
+
+        let ctx = DoctorContext {
+            brain_root: brain.path().to_path_buf(),
+            tool_root: tool.path().to_path_buf(),
+            mappings_path,
+        };
+
+        assert!(diagnose(&ctx)
+            .iter()
+            .any(|d| d.rule_id == "projection-missing"));
+        apply_fixes(&ctx).unwrap();
+
+        // The Doctor must NOT flag the file it just wrote as a phantom
+        // hand-edit, nor leave the checksum missing.
+        let after = diagnose(&ctx);
+        assert!(
+            !after.iter().any(|d| d.rule_id == "generated-file-edited"),
+            "re-projected file was wrongly flagged as hand-edited: {:?}",
+            after.iter().map(|d| d.rule_id).collect::<Vec<_>>()
+        );
+        assert!(
+            !after.iter().any(|d| d.rule_id == "missing-checksum"),
+            "checksum should have been healed by the fix"
+        );
+    }
+
+    #[test]
     fn apply_fixes_is_idempotent() {
         let fx = fixture_with_generate_mapping();
         let first = apply_fixes(&fx.ctx).unwrap();
         assert!(first >= 1);
         let second = apply_fixes(&fx.ctx).unwrap();
         assert_eq!(second, 0, "second run should find nothing left to fix");
+    }
+
+    /// Phase 7 self-verify: "doctor fixes every seeded fault in a corrupted
+    /// fixture Brain." This builds one Brain riddled with several distinct
+    /// faults at once — a non-git Brain, a missing generated projection, a
+    /// detached symlink, a retargeted symlink, and (deliberately) one fault
+    /// that needs a human (a mapping whose canonical source was deleted).
+    /// After a single `apply_fixes`, every auto-fixable fault must be gone
+    /// and the human-only fault must remain reported but untouched.
+    #[cfg(unix)]
+    #[test]
+    fn doctor_fixes_every_seeded_fault_in_a_corrupted_brain() {
+        use std::os::unix::fs::symlink;
+
+        let brain = tempfile::tempdir().unwrap();
+        let tool = tempfile::tempdir().unwrap();
+        let bp = brain.path();
+        let tp = tool.path();
+
+        // Canonical sources that exist in the Brain.
+        write(&bp.join("skills/repo-conventions"), "write tests first");
+        write(&bp.join("rules/global"), "global rules");
+        write(&bp.join("rules/style"), "style rules");
+
+        let generate = |canonical: &str, projection: &str, content: &str| Mapping {
+            tool_id: "seed".into(),
+            canonical_path: canonical.into(),
+            projection_path: projection.into(),
+            policy: ProjectionPolicy::Generate,
+            content_sha256: crate::adapters::compute_sha256(&format!(
+                "{PROVENANCE_HEADER}\n{content}"
+            )),
+        };
+        let symlink_map = |canonical: &str, projection: &str, content: &str| Mapping {
+            tool_id: "seed".into(),
+            canonical_path: canonical.into(),
+            projection_path: projection.into(),
+            policy: ProjectionPolicy::Symlink,
+            content_sha256: crate::adapters::compute_sha256(content),
+        };
+
+        let mappings = MappingsFile {
+            mappings: vec![
+                // Fault A: generated projection simply never written → projection-missing (auto-fix).
+                generate(
+                    "skills/repo-conventions",
+                    ".clinerules",
+                    "write tests first",
+                ),
+                // Fault B: a plain file where a symlink should be → symlink-detached (auto-fix).
+                symlink_map("rules/global", ".cursorrules", "global rules"),
+                // Fault C: a symlink pointing at the wrong target → symlink-retargeted (auto-fix).
+                symlink_map("rules/style", ".windsurfrules", "style rules"),
+                // Fault D: canonical source deleted from the Brain → canonical-source-missing
+                // (CRITICAL, human-only: cannot regenerate what no longer exists).
+                generate("skills/deleted", ".roomodes", "gone"),
+            ],
+        };
+        let mappings_path = bp.join(".brain/mappings.json");
+        mappings.save(&mappings_path).unwrap();
+
+        // Seed the on-disk faults.
+        write(&tp.join(".cursorrules"), "not a symlink"); // Fault B
+        let wrong_target = bp.join("rules/global");
+        symlink(&wrong_target, tp.join(".windsurfrules")).unwrap(); // Fault C → wrong target
+                                                                    // Fault A left absent, Fault D's canonical never created, Brain left non-git (Fault: brain-not-git-repo).
+
+        let ctx = DoctorContext {
+            brain_root: bp.to_path_buf(),
+            tool_root: tp.to_path_buf(),
+            mappings_path,
+        };
+
+        // Before: every seeded fault is diagnosed.
+        let before = diagnose(&ctx);
+        for expected in [
+            "brain-not-git-repo",
+            "projection-missing",
+            "symlink-detached",
+            "symlink-retargeted",
+            "canonical-source-missing",
+        ] {
+            assert!(
+                before.iter().any(|d| d.rule_id == expected),
+                "expected seeded fault '{expected}' to be diagnosed; got {:?}",
+                before.iter().map(|d| d.rule_id).collect::<Vec<_>>()
+            );
+        }
+
+        // Fix once.
+        let fixed = apply_fixes(&ctx).unwrap();
+        assert!(fixed >= 4, "expected ≥4 auto-fixes, got {fixed}");
+
+        // After: no auto-fixable fault remains anywhere...
+        let after = diagnose(&ctx);
+        assert!(
+            after.iter().all(|d| !d.auto_fixable),
+            "auto-fixable faults survived: {:?}",
+            after
+                .iter()
+                .filter(|d| d.auto_fixable)
+                .map(|d| d.rule_id)
+                .collect::<Vec<_>>()
+        );
+        for gone in [
+            "brain-not-git-repo",
+            "projection-missing",
+            "symlink-detached",
+            "symlink-retargeted",
+        ] {
+            assert!(
+                !after.iter().any(|d| d.rule_id == gone),
+                "auto-fixable fault '{gone}' should be resolved"
+            );
+        }
+
+        // ...but the human-only fault is still reported, never silently swallowed.
+        let critical = after
+            .iter()
+            .find(|d| d.rule_id == "canonical-source-missing")
+            .expect("the human-only fault must remain reported");
+        assert_eq!(critical.severity, Severity::Critical);
+        assert!(!critical.auto_fixable);
+
+        // Concrete evidence the fixes were real, not just quieted diagnoses:
+        let clinerules = fs::read_to_string(tp.join(".clinerules")).unwrap();
+        assert!(clinerules.contains("write tests first"));
+        assert!(fs::symlink_metadata(tp.join(".cursorrules"))
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            fs::read_link(tp.join(".windsurfrules")).unwrap(),
+            bp.join("rules/style")
+        );
+        assert!(bp.join(".git").is_dir());
+
+        // Idempotent: a second pass has nothing left to auto-fix.
+        assert_eq!(apply_fixes(&ctx).unwrap(), 0);
     }
 }
