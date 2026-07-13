@@ -1,3 +1,36 @@
+> **2026-07-12 addendum:** this document is historical (as of Phase 2/T2.1,
+> before `packages/core`/`apps/cli` existed). By the start of this session,
+> §1.2–§1.6 and §2.1 were already resolved (build.rs, tauri.conf.json,
+> `#[tauri::command]` attributes, single entry point, `.manage()`, and
+> `config.rs` using an OS config dir via the `directories` crate rather than
+> writing into the repo's `.claude/` — none of that was touched this
+> session). What was **still genuinely blocking `cargo build` on
+> `apps/desktop/src-tauri`** going into this session: Ubuntu 24.04/Linux
+> Mint 22 don't ship `webkit2gtk-4.0`/`javascriptcoregtk-4.0` (only the 4.1
+> generation), which Tauri **v1.5.0** (what this crate was pinned to)
+> hardcodes lookups for — no `apt install` can fix that, since the 4.0
+> packages simply aren't built for this OS version. Fixed by upgrading to
+> **Tauri v2** (`tauri`/`tauri-build` → `2`, `tauri.conf.json` rewritten to
+> the v2 schema, `lib.rs`'s menu/window code ported to
+> `tauri::menu::{Menu, MenuItem, Submenu}` + `WebviewWindowBuilder`), which
+> natively supports webkit2gtk-4.1 and also matches MASTER_PROMPT.md's own
+> stated default stack (the v1.5.0 pin was itself a pre-existing deviation
+> from spec). While migrating, also fixed several previously-unreached
+> compile errors that only surfaced once the build got this far: a missing
+> `icons/icon.png` (generated a placeholder — real branding is T5.1 scope),
+> `log::set_boxed_logger` needing the crate's `std` feature explicitly
+> enabled, a borrow-checker error in `commands::import_config`, and
+> `AdapterCommand` needing to be `pub` for `generate_handler!` to accept it.
+> Also fixed a **latent runtime bug** unrelated to compilation: v1's
+> `tauri.conf.json` declared a default window AND `lib.rs`'s `setup()`
+> imperatively built a second window with the same `"main"` label — would
+> have panicked on first launch. Removed the config-declared window since
+> the app clearly intends to build its window in code. Full workspace
+> (`packages/core` + `apps/cli` + `apps/desktop/src-tauri`) now builds and
+> tests clean together — see PROGRESS.md's dated entry for evidence. §2
+> (beyond 2.1)–§5 below were not re-audited this session and may also be
+> stale; treat them as of their original date, not current fact.
+
 # Code Review — LLM Neurosurgeon (as of Phase 2 / T2.1)
 
 **Scope:** the code and scaffolding that shipped with the initial upload —

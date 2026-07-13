@@ -1,5 +1,5 @@
 use super::{
-    compute_sha256, parse_mdc_frontmatter, serialize_mdc_frontmatter, split_frontmatter,
+    compute_sha256, parse_mdc_frontmatter, safe_join, serialize_mdc_frontmatter, split_frontmatter,
     strip_provenance, MdcFrontmatter,
 };
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
@@ -81,7 +81,12 @@ impl Adapter for ContinueAdapter {
             let mut entries: Vec<_> = fs::read_dir(&rules_dir)
                 .map_err(|e| AdapterError::Io(format!("Failed to read .continue/rules: {}", e)))?
                 .filter_map(|e| e.ok())
-                .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("md"))
+                .filter(|e| {
+                    // See cursor.rs's identical guard: `file_type()` does
+                    // not follow symlinks, unlike `path.is_dir()`/`is_file()`.
+                    e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
+                        && e.path().extension().and_then(|ext| ext.to_str()) == Some("md")
+                })
                 .collect();
             entries.sort_by_key(|e| e.file_name());
 
@@ -245,7 +250,8 @@ impl Adapter for ContinueAdapter {
                     skill.source
                 );
                 let rel_path = format!(".continue/rules/{}.md", slug);
-                fs::write(root.join(&rel_path), output).map_err(|e| {
+                let target_path = safe_join(root, &rel_path)?;
+                fs::write(&target_path, output).map_err(|e| {
                     AdapterError::Io(format!("Failed to write {}: {}", rel_path, e))
                 })?;
                 written.push(rel_path);
@@ -264,6 +270,24 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn test_continue_project_rejects_path_traversal_in_rule_slug() {
+        let dir = tempdir().unwrap();
+        let adapter = ContinueAdapter;
+
+        let skill = Skill {
+            id: format!("{}../../../evil", RULE_ID_PREFIX),
+            version: "1.0.0".to_string(),
+            triggers: vec!["*.rs".to_string()],
+            targets: vec!["continue".to_string()],
+            source: "malicious".to_string(),
+            sha256: "hash".to_string(),
+        };
+
+        let result = adapter.project(dir.path(), &[skill], &[], &[]);
+        assert!(matches!(result, Err(AdapterError::Malformed(_))));
+    }
 
     #[test]
     fn test_continue_detect() {
@@ -326,6 +350,23 @@ mod tests {
         let projected_rule =
             fs::read_to_string(out_dir.path().join(".continue/rules/01-style.md")).unwrap();
         assert!(projected_rule.contains("2-space indentation"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_continue_import_does_not_follow_symlinked_rule_files() {
+        let dir = tempdir().unwrap();
+        let adapter = ContinueAdapter;
+
+        let outside = tempdir().unwrap();
+        let secret = outside.path().join("secret.md");
+        fs::write(&secret, "top secret content").unwrap();
+
+        fs::create_dir_all(dir.path().join(".continue/rules")).unwrap();
+        std::os::unix::fs::symlink(&secret, dir.path().join(".continue/rules/planted.md")).unwrap();
+
+        let imported = adapter.import(dir.path()).unwrap();
+        assert!(imported.skills.is_empty());
     }
 
     #[test]

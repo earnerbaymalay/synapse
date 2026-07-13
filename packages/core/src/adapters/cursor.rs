@@ -1,5 +1,5 @@
 use super::{
-    compute_sha256, parse_mdc_frontmatter, serialize_mdc_frontmatter, split_frontmatter,
+    compute_sha256, parse_mdc_frontmatter, safe_join, serialize_mdc_frontmatter, split_frontmatter,
     strip_provenance, MdcFrontmatter,
 };
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
@@ -45,7 +45,16 @@ impl Adapter for CursorAdapter {
             let mut entries: Vec<_> = fs::read_dir(&rules_dir)
                 .map_err(|e| AdapterError::Io(format!("Failed to read .cursor/rules: {}", e)))?
                 .filter_map(|e| e.ok())
-                .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("mdc"))
+                .filter(|e| {
+                    // `entry.file_type()` reports the entry itself rather
+                    // than following it, unlike `path.is_dir()`; a symlink
+                    // planted in a cloned repo (e.g. pointing at ~/.ssh)
+                    // must never be read into the Brain — per
+                    // MASTER_PROMPT.md's "import never follows symlinks
+                    // outside scanned roots".
+                    e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
+                        && e.path().extension().and_then(|ext| ext.to_str()) == Some("mdc")
+                })
                 .collect();
             entries.sort_by_key(|e| e.file_name());
 
@@ -139,7 +148,8 @@ impl Adapter for CursorAdapter {
                     skill.source
                 );
                 let rel_path = format!(".cursor/rules/{}.mdc", slug);
-                fs::write(root.join(&rel_path), output).map_err(|e| {
+                let target_path = safe_join(root, &rel_path)?;
+                fs::write(&target_path, output).map_err(|e| {
                     AdapterError::Io(format!("Failed to write {}: {}", rel_path, e))
                 })?;
                 written.push(rel_path);
@@ -158,6 +168,27 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn test_cursor_project_rejects_path_traversal_in_rule_slug() {
+        let dir = tempdir().unwrap();
+        let adapter = CursorAdapter;
+
+        // A rule skill id derived from a malicious/malformed upstream
+        // config could carry a slug with `..` components; projecting it
+        // must not escape the target root.
+        let skill = Skill {
+            id: format!("{}../../../evil", RULE_ID_PREFIX),
+            version: "1.0.0".to_string(),
+            triggers: vec!["*.rs".to_string()],
+            targets: vec!["cursor".to_string()],
+            source: "malicious".to_string(),
+            sha256: "hash".to_string(),
+        };
+
+        let result = adapter.project(dir.path(), &[skill], &[], &[]);
+        assert!(matches!(result, Err(AdapterError::Malformed(_))));
+    }
 
     #[test]
     fn test_cursor_detect() {
@@ -231,6 +262,23 @@ mod tests {
 
         let imported = adapter.import(dir.path()).unwrap();
         assert_eq!(imported.skills[0].triggers, vec!["*".to_string()]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_cursor_import_does_not_follow_symlinked_rule_files() {
+        let dir = tempdir().unwrap();
+        let adapter = CursorAdapter;
+
+        let outside = tempdir().unwrap();
+        let secret = outside.path().join("secret.mdc");
+        fs::write(&secret, "top secret content").unwrap();
+
+        fs::create_dir_all(dir.path().join(".cursor/rules")).unwrap();
+        std::os::unix::fs::symlink(&secret, dir.path().join(".cursor/rules/planted.mdc")).unwrap();
+
+        let imported = adapter.import(dir.path()).unwrap();
+        assert!(imported.skills.is_empty());
     }
 
     #[test]

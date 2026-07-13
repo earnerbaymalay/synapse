@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::{State, Window};
+use tauri::{State, WebviewWindow};
 
 use crate::state::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct AdapterCommand {
+pub struct AdapterCommand {
     name: String,
     arguments: Vec<String>,
 }
@@ -16,7 +16,7 @@ pub fn get_version() -> String {
 }
 
 #[tauri::command]
-pub fn open_settings(window: Window) -> Result<(), String> {
+pub fn open_settings(window: WebviewWindow) -> Result<(), String> {
     println!("Opening settings for window '{}'...", window.label());
     Ok(())
 }
@@ -43,7 +43,8 @@ pub fn run_adapter_command(
 #[tauri::command]
 pub fn import_config(state: State<'_, Mutex<AppState>>, path: String) -> Result<String, String> {
     let mut app_state = state.lock().map_err(|e| e.to_string())?;
-    app_state.update_adapter_status(app_state.adapter_count, "connected");
+    let count = app_state.adapter_count;
+    app_state.update_adapter_status(count, "connected");
     println!("Importing config from: {}", path);
 
     let imported = format!("Config imported from {} successfully", path);

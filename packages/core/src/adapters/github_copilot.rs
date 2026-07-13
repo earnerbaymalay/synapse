@@ -1,4 +1,4 @@
-use super::{clean_jsonc, compute_sha256, strip_provenance};
+use super::{clean_jsonc, compute_sha256, safe_join, strip_provenance};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, HealthStatus, McpServer, Skill};
 use serde_json::{json, Value};
@@ -13,14 +13,28 @@ fn find_instruction_files(dir: &Path) -> Vec<PathBuf> {
     while let Some(current) = queue.pop() {
         if let Ok(entries) = fs::read_dir(current) {
             for entry in entries.flatten() {
+                // `entry.file_type()` reports the entry itself, unlike
+                // `path.is_dir()`/`path.is_file()` which follow symlinks.
+                // A symlinked directory (e.g. one pointing back at an
+                // ancestor, or outside `dir` entirely) must never be
+                // queued, or a symlink cycle hangs this scan forever and a
+                // symlink pointing outside `dir` leaks files from outside
+                // the scanned root — per MASTER_PROMPT.md's "import never
+                // follows symlinks outside scanned roots".
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
+                if file_type.is_symlink() {
+                    continue;
+                }
                 let path = entry.path();
-                if path.is_dir() {
+                if file_type.is_dir() {
                     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                     if name == ".git" || name == "node_modules" || name == "target" {
                         continue;
                     }
                     queue.push(path);
-                } else if path.is_file() {
+                } else if file_type.is_file() {
                     if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
                         if filename.ends_with(".instructions.md") {
                             results.push(path);
@@ -261,7 +275,7 @@ impl Adapter for GitHubCopilotAdapter {
                     format!("{}/{}.instructions.md", clean_dir, name)
                 };
 
-                let target_path = root.join(&relative_target);
+                let target_path = safe_join(root, &relative_target)?;
                 if let Some(parent) = target_path.parent() {
                     fs::create_dir_all(parent).map_err(|e| {
                         AdapterError::Io(format!(

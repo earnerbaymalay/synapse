@@ -1,5 +1,4 @@
 use log::{Level, Log, Metadata, Record};
-use std::sync::Mutex;
 
 pub struct SimpleLogger;
 

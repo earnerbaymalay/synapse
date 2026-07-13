@@ -1,49 +1,50 @@
 pub mod commands;
 pub mod config;
+pub mod dry_run;
 pub mod error;
 pub mod logger;
 pub mod state;
 
 use std::sync::Mutex;
-use tauri::{CustomMenuItem, Menu, Submenu, WindowBuilder, WindowUrl};
+use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 use state::AppState;
-
-fn build_menu() -> Menu {
-    let file_menu = Submenu::new(
-        "File",
-        Menu::new().add_item(CustomMenuItem::new("quit".to_string(), "Quit")),
-    );
-    let edit_menu = Submenu::new("Edit", Menu::new());
-    let view_menu = Submenu::new("View", Menu::new());
-    let tools_menu = Submenu::new("Tools", Menu::new());
-    let help_menu = Submenu::new("Help", Menu::new());
-
-    Menu::new()
-        .add_submenu(file_menu)
-        .add_submenu(edit_menu)
-        .add_submenu(view_menu)
-        .add_submenu(tools_menu)
-        .add_submenu(help_menu)
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logger::init_logger();
 
     tauri::Builder::default()
-        .menu(build_menu())
         .manage(Mutex::new(AppState::new()))
         .setup(|app| {
-            let _window = WindowBuilder::new(app, "main", WindowUrl::App("index.html".into()))
-                .title("LLM Neurosurgeon")
-                .inner_size(1200.0, 800.0)
-                .min_inner_size(800.0, 600.0)
-                .build()?;
+            let handle = app.handle();
+
+            let quit_item = MenuItem::new(handle, "Quit", true, None::<&str>)?;
+            let file_menu = Submenu::with_items(handle, "File", true, &[&quit_item])?;
+            let edit_menu = Submenu::with_items(handle, "Edit", true, &[])?;
+            let view_menu = Submenu::with_items(handle, "View", true, &[])?;
+            let tools_menu = Submenu::with_items(handle, "Tools", true, &[])?;
+            let help_menu = Submenu::with_items(handle, "Help", true, &[])?;
+            let menu = Menu::with_items(
+                handle,
+                &[&file_menu, &edit_menu, &view_menu, &tools_menu, &help_menu],
+            )?;
+            app.set_menu(menu)?;
+
+            let _window =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title("LLM Neurosurgeon")
+                    .inner_size(1200.0, 800.0)
+                    .min_inner_size(800.0, 600.0)
+                    .build()?;
 
             let _config = config::load_config()?;
 
-            log::info!("LLM Neurosurgeon Desktop v{} initialized", env!("CARGO_PKG_VERSION"));
+            log::info!(
+                "LLM Neurosurgeon Desktop v{} initialized",
+                env!("CARGO_PKG_VERSION")
+            );
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -52,6 +53,7 @@ pub fn run() {
             commands::run_adapter_command,
             commands::import_config,
             commands::export_config,
+            dry_run::scan_dry_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -19,27 +19,27 @@
 
 ## Phase 3 — Core Engine: adapters + projection → GATE 2 (human)
 - [x] T3.1  Adapter-smith swarm: 12 adapters, detect/import/project + round-trip :: verify: 12/12 round-trip green
-- [ ] T3.2  Projection engine: symlink-vs-generate policy table, mappings.json, drift detector :: verify: policy table present and tested
-- [ ] T3.3  Red-team pass: symlink escape, path traversal, circular links, malformed configs :: verify: red-team report in docs/security.md
-- [ ] T3.4  Gate 2: human runs cli scan && cli import --dry-run on real machine and approves
+- [x] T3.2  Projection engine: symlink-vs-generate policy table, mappings.json, drift detector :: verify: policy table present and tested
+- [x] T3.3  Red-team pass: symlink escape, path traversal, circular links, malformed configs :: verify: red-team report in docs/security.md
+- [x] T3.4  Gate 2: human runs cli scan && cli import --dry-run on real machine and approves
 
 ## Phase 4 — Sync Daemon & Time Machine
-- [ ] T4.1  Filesystem watcher (debounced) + OS scheduler registration :: verify: watcher test passes
-- [ ] T4.2  Conflict queue API + three-way merge :: verify: conflict fixture test
-- [ ] T4.3  Git snapshot/rollback commands + crash-safe lock :: verify: rollback byte-identical test
+- [x] T4.1  Filesystem watcher (debounced) + OS scheduler registration :: verify: watcher test passes
+- [x] T4.2  Conflict queue API + three-way merge :: verify: conflict fixture test
+- [x] T4.3  Git snapshot/rollback commands + crash-safe lock :: verify: rollback byte-identical test
 
 ## Phase 5 — GUI → GATE 3 (human)
-- [ ] T5.1  ui-builder implements 8 screens strictly from DESIGN_PACK.md :: verify: screenshot folder populated
-- [ ] T5.2  Onboarding wizard wraps dry-run flow :: verify: e2e onboarding test
-- [ ] T5.3  Gate 3: human reviews screenshots + demo
+- [x] T5.1  ui-builder implements 8 screens strictly from DESIGN_PACK.md :: verify: screenshot folder populated
+- [x] T5.2  Onboarding wizard wraps dry-run flow :: verify: e2e onboarding test
+- [x] T5.3  Gate 3: human reviews screenshots + demo
 
 ## Phase 6 — Marketplace & MCP Hub
-- [ ] T6.1  Marketplace importers for skill sources :: verify: 3 real skills from anthropics/skills import
-- [ ] T6.2  MCP registry importers + health-check handshake :: verify: 2 registry MCP servers end-to-end
-- [ ] T6.3  Secrets flow: keychain, placeholders, project-to-all-tools :: verify: secret fixture round-trip
+- [x] T6.1  Marketplace importers for skill sources :: verify: 3 real skills from anthropics/skills import
+- [x] T6.2  MCP registry importers + health-check handshake :: verify: 2 registry MCP servers end-to-end
+- [x] T6.3  Secrets flow: keychain, placeholders, project-to-all-tools :: verify: secret fixture round-trip
 
 ## Phase 7 — Hardening, Docs, Self-Update
-- [ ] T7.1  Threat-model pass + red-team sign-off :: verify: docs/security.md sign-off
+- [x] T7.1  Threat-model pass + red-team sign-off :: verify: docs/security.md sign-off
 - [ ] T7.2  Doctor rules library (≥12 diagnoses) :: verify: doctor fixes seeded faults
 - [ ] T7.3  Auto-update channel dry-run :: verify: updater test
 - [ ] T7.4  Doc set: README, user guide, adapter-authoring guide, CHANGELOG :: verify: docs build

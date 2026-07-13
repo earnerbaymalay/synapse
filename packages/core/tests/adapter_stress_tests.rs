@@ -5,7 +5,16 @@ use neurosurgeon_core::adapters::{
 };
 use neurosurgeon_core::model::Skill;
 use std::fs;
+use std::sync::Mutex;
 use tempfile::tempdir;
+
+/// `cargo test` runs tests in this file concurrently by default, but
+/// `WindsurfAdapter` reads the process-global `$HOME` env var, and three
+/// tests below mutate it. Without serializing them, one test's `HOME` can
+/// leak into another's assertions — a real, pre-existing flaky-test bug,
+/// not a property of the adapter itself. Every test that touches `HOME`
+/// must hold this lock for its full duration.
+static HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn test_cline_adapter_missing_files_graceful() {
@@ -273,6 +282,7 @@ fn test_github_copilot_adapter_scoped_instructions_edge_cases() {
 
 #[test]
 fn test_windsurf_adapter_missing_files_graceful() {
+    let _guard = HOME_ENV_LOCK.lock().unwrap();
     let dir = tempdir().unwrap();
     let adapter = WindsurfAdapter;
 
@@ -286,6 +296,7 @@ fn test_windsurf_adapter_missing_files_graceful() {
 
 #[test]
 fn test_windsurf_adapter_malformed_json() {
+    let _guard = HOME_ENV_LOCK.lock().unwrap();
     let dir = tempdir().unwrap();
     let adapter = WindsurfAdapter;
 
@@ -302,11 +313,13 @@ fn test_windsurf_adapter_malformed_json() {
 }
 
 #[test]
-fn test_github_copilot_adapter_path_traversal() {
+fn test_github_copilot_adapter_path_traversal_is_blocked() {
     let dir = tempdir().unwrap();
     let adapter = GitHubCopilotAdapter;
 
-    // Craft a skill with a path traversal trigger targeting outside the root
+    // A skill with a path-traversal trigger (e.g. imported from a
+    // malicious/malformed upstream config with a crafted `globs:` field)
+    // must not be able to write outside the target root.
     let skill = Skill {
         id: "traversal".to_string(),
         version: "1.0.0".to_string(),
@@ -317,44 +330,38 @@ fn test_github_copilot_adapter_path_traversal() {
     };
 
     let project_res = adapter.project(dir.path(), &[skill], &[], &[]);
-    assert!(project_res.is_ok(), "Expected Ok, got {:?}", project_res);
+    assert!(
+        matches!(project_res, Err(AdapterError::Malformed(_))),
+        "expected traversal to be rejected as malformed, got {:?}",
+        project_res
+    );
 
-    // Check if a file was created outside the temp directory (specifically in dir.path()/../traversal_output)
     let traversal_file = dir
         .path()
         .join("../traversal_output/traversal.instructions.md");
-    let file_exists = traversal_file.exists();
-
-    // Clean up if it exists
-    if file_exists {
-        let parent = traversal_file.parent().unwrap();
-        let _ = fs::remove_file(&traversal_file);
-        let _ = fs::remove_dir(parent);
-    }
-
-    // If it wrote the file outside the root, this is a path traversal vulnerability!
     assert!(
-        file_exists,
-        "Vulnerability missing: expected file to be written outside root directory!"
+        !traversal_file.exists(),
+        "path traversal vulnerability: file was written outside the target root"
     );
 }
 
 #[test]
-#[ignore] // Run manually because it hangs due to infinite loop
-fn test_github_copilot_adapter_symlink_loop() {
+fn test_github_copilot_adapter_symlink_loop_does_not_hang() {
     let dir = tempdir().unwrap();
     let adapter = GitHubCopilotAdapter;
 
-    // Create a symlink loop: root/loop -> root
+    // Create a symlink loop: root/loop -> root. `find_instruction_files`
+    // must not follow symlinked directories, or this hangs forever.
     let loop_dir = dir.path().join("loop");
     std::os::unix::fs::symlink(dir.path(), &loop_dir).unwrap();
 
-    // This will hang indefinitely if there is no cycle detection
-    let _result = adapter.import(dir.path());
+    let result = adapter.import(dir.path());
+    assert!(result.is_ok());
 }
 
 #[test]
 fn test_windsurf_adapter_writes_outside_root() {
+    let _guard = HOME_ENV_LOCK.lock().unwrap();
     let dir = tempdir().unwrap();
     let adapter = WindsurfAdapter;
 

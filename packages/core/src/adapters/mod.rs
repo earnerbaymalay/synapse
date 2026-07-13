@@ -1,6 +1,6 @@
-use crate::adapter::Adapter;
+use crate::adapter::{Adapter, AdapterError};
 use sha2::{Digest, Sha256};
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 pub mod aider;
 pub mod claude_code;
@@ -203,6 +203,28 @@ pub fn get_windsurf_mcp_path() -> Option<PathBuf> {
     Some(codeium_path)
 }
 
+/// Joins `relative` onto `root`, refusing any path that would escape
+/// `root`. Use this whenever a projected file's path is built from data
+/// that ultimately came from another tool's config during `import()`
+/// (a skill id, an agent slug, a trigger/glob) rather than a fixed
+/// literal — that data is attacker-influenced (a malicious or malformed
+/// upstream config), so a `..` component or an absolute path in it must
+/// not be allowed to write outside the tool root being projected to.
+pub fn safe_join(root: &Path, relative: &str) -> Result<PathBuf, AdapterError> {
+    let candidate = Path::new(relative);
+    for component in candidate.components() {
+        match component {
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(AdapterError::Malformed(format!(
+                    "refusing to write outside the target root: {relative}"
+                )));
+            }
+            Component::CurDir | Component::Normal(_) => {}
+        }
+    }
+    Ok(root.join(candidate))
+}
+
 #[cfg(test)]
 mod registry_tests {
     use super::*;
@@ -230,5 +252,47 @@ mod registry_tests {
                 adapter.id()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod safe_join_tests {
+    use super::*;
+
+    #[test]
+    fn joins_a_plain_relative_path() {
+        let root = Path::new("/brain/out");
+        let result = safe_join(root, ".cursor/rules/repo-conventions.mdc").unwrap();
+        assert_eq!(
+            result,
+            Path::new("/brain/out/.cursor/rules/repo-conventions.mdc")
+        );
+    }
+
+    #[test]
+    fn rejects_parent_dir_traversal() {
+        let root = Path::new("/brain/out");
+        assert!(matches!(
+            safe_join(root, "../traversal_output/evil.md"),
+            Err(AdapterError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_parent_dir_traversal_nested_inside_a_normal_prefix() {
+        let root = Path::new("/brain/out");
+        assert!(matches!(
+            safe_join(root, "src/../../evil.md"),
+            Err(AdapterError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_absolute_paths() {
+        let root = Path::new("/brain/out");
+        assert!(matches!(
+            safe_join(root, "/etc/cron.d/evil"),
+            Err(AdapterError::Malformed(_))
+        ));
     }
 }
