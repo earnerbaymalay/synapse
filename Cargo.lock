@@ -2056,6 +2056,7 @@ dependencies = [
  "hex",
  "keyring",
  "notify",
+ "semver",
  "serde",
  "serde_json",
  "sha2",

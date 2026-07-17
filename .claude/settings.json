@@ -16,7 +16,8 @@
       "Bash(flatpak list *)",
       "Bash(wmctrl -lG)",
       "mcp__Desktop_Commander__read_process_output",
-      "mcp__claude_ai_Google_Drive__read_file_content"
+      "mcp__claude_ai_Google_Drive__read_file_content",
+      "mcp__claude_ai_Context7__query-docs"
     ]
   }
 }

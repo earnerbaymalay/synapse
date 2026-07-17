@@ -26,7 +26,7 @@
 - T6.3 🔄 Next: Secrets flow: keychain, placeholders, project-to-all-tools.
 - T7.1 🔄 Next: Threat-model pass + red-team sign-off.
 - T7.2 ✅ Complete: Doctor rules library (13 rules) + CLI wiring + corrupted-fixture self-verify.
-- T7.3 🔄 Next: Auto-update channel dry-run.
+- T7.3 ✅ Complete: Auto-update channel dry-run (core module + fixture + Tauri command).
 - T7.4 🔄 Next: Doc set: README, user guide, adapter-authoring guide, CHANGELOG.
 - T8.1 🔄 Next: Signed installers (.dmg/.msi/AppImage/.deb) + CLI formulae drafts.
 - T8.2 🔄 Next: Reproducible-build notes.
@@ -757,3 +757,55 @@ Next: T7.3 (auto-update channel dry-run — scope carefully: a real Tauri
 updater needs signing keys that don't exist yet, so the honest T7.3 is
 config + dry-run verification), then T7.4 (doc set). No human gate until
 T8.3 (Gate 4).
+
+## T7.3 — Auto-update channel dry-run — 2026-07-17 — COMPLETE
+Honest scope (as flagged at T7.2 close): a shipping Tauri updater verifies a
+minisign/ed25519 signature over every downloaded artifact, which needs a
+release signing keypair that does not exist yet — generating/safeguarding
+those keys is Phase 8 (Package & Release) work behind GATE 4. So T7.3
+delivers the half that is real and fully testable now: the update-channel
+**decision + dry-run**, with signing represented honestly rather than faked.
+
+What:
+- `packages/core/src/updater.rs` — the dry-run engine. `Channel`
+  (Stable/Beta; Stable ignores pre-releases, Beta accepts them), a
+  `ReleaseManifest`/`Release`/`PlatformAsset` model (the JSON a channel
+  endpoint serves), and `check_for_update(current, manifest, channel,
+  target)` which parses versions with real semver ordering, picks the
+  newest channel-eligible release that ships an asset for the platform, and
+  returns an `UpdateDecision` (UpToDate / UpdateAvailable / UnsupportedPlatform
+  / NoReleaseForChannel). It **downloads, verifies, and installs nothing** —
+  that is the dry-run boundary. A single malformed manifest entry is skipped,
+  not fatal; a bad current version is a loud error.
+- Signing represented, not faked: `UPDATE_PUBLIC_KEY` is empty, so
+  `verification_status()` returns `SigningStatus::NotConfigured` and
+  `dry_run_report()` prints "signature verification PENDING (release signing
+  keys not configured — nothing would actually be installed in this build)".
+  The report never says "verified". The signature blob from the manifest is
+  carried through the decision so the trust step is wired for when keys land.
+- Config made concrete: `UPDATE_ENDPOINT_TEMPLATE` +
+  `endpoint_for(channel)` resolve the per-channel manifest URL (host is a
+  placeholder until Phase 8 release infra exists). Did NOT add
+  `tauri-plugin-updater` or a `plugins.updater` block to tauri.conf.json —
+  that consumes the same endpoint + real pubkey and is Phase 8; adding it now
+  with placeholder keys would either break the Tauri schema or fake a trust
+  boundary.
+- App entry point: `dry_run_from_json(current, manifest_json, channel)` in
+  core bundles decision + report + signing into a `DryRunResult`; Tauri
+  command `check_for_update(manifest_json, channel)` (registered in
+  `apps/desktop/src-tauri/src/{commands,lib}.rs`) exposes it to the UI. The
+  frontend fetches the manifest and calls this; the command installs nothing.
+- Fixture: `fixtures/updater/latest.json` — a real 2-release stable manifest
+  (0.1.0, 0.2.0) across linux/darwin/windows.
+
+Evidence: T7.3's verify ("updater test") met by 14 unit tests in updater.rs
+plus 3 integration tests in `packages/core/tests/updater_dry_run.rs` that
+drive the committed fixture manifest end-to-end (0.1.0 → 0.2.0 offered,
+0.2.0 reports up-to-date, every published platform resolves, offline/no-write).
+The "update channel dry-run works" self-verify: the fixture dry-run finds the
+newer release and the report flags verification as pending signing keys.
+`cargo test --workspace` — 184 passed, 0 failed; `cargo fmt --all --check`
+clean. Added `semver = "1"` to core deps. Ticked T7.3.
+Next: T7.4 (doc set: README, user guide, adapter-authoring guide, CHANGELOG;
+verify: docs build) — the last task before Phase 8 (installers → GATE 4, the
+final human gate).

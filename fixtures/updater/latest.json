@@ -1,0 +1,43 @@
+{
+  "channel": "stable",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "notes": "Initial internal build.",
+      "pub_date": "2026-07-09",
+      "platforms": {
+        "linux-x86_64": {
+          "url": "https://releases.llmneurosurgeon.dev/stable/0.1.0/neurosurgeon_0.1.0_amd64.AppImage",
+          "signature": ""
+        },
+        "darwin-aarch64": {
+          "url": "https://releases.llmneurosurgeon.dev/stable/0.1.0/neurosurgeon_0.1.0_aarch64.dmg",
+          "signature": ""
+        },
+        "windows-x86_64": {
+          "url": "https://releases.llmneurosurgeon.dev/stable/0.1.0/neurosurgeon_0.1.0_x64.msi",
+          "signature": ""
+        }
+      }
+    },
+    {
+      "version": "0.2.0",
+      "notes": "Doctor rule library and update-channel dry-run.",
+      "pub_date": "2026-07-14",
+      "platforms": {
+        "linux-x86_64": {
+          "url": "https://releases.llmneurosurgeon.dev/stable/0.2.0/neurosurgeon_0.2.0_amd64.AppImage",
+          "signature": ""
+        },
+        "darwin-aarch64": {
+          "url": "https://releases.llmneurosurgeon.dev/stable/0.2.0/neurosurgeon_0.2.0_aarch64.dmg",
+          "signature": ""
+        },
+        "windows-x86_64": {
+          "url": "https://releases.llmneurosurgeon.dev/stable/0.2.0/neurosurgeon_0.2.0_x64.msi",
+          "signature": ""
+        }
+      }
+    }
+  ]
+}

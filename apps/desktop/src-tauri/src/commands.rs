@@ -15,6 +15,22 @@ pub fn get_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// Dry-run of the auto-update channel (T7.3). Given the release manifest a
+/// channel endpoint served (fetched by the frontend), decides whether a
+/// newer build exists for this platform — WITHOUT downloading, verifying, or
+/// installing anything. Until release signing keys exist (Phase 8), the
+/// result's `signing` field is `not_configured` and the UI must not offer a
+/// one-click install: this is a check, not an installer.
+#[tauri::command]
+pub fn check_for_update(
+    manifest_json: String,
+    channel: String,
+) -> Result<neurosurgeon_core::updater::DryRunResult, String> {
+    let current = env!("CARGO_PKG_VERSION");
+    neurosurgeon_core::updater::dry_run_from_json(current, &manifest_json, &channel)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn open_settings(window: WebviewWindow) -> Result<(), String> {
     println!("Opening settings for window '{}'...", window.label());

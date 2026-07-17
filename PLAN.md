@@ -41,7 +41,7 @@
 ## Phase 7 — Hardening, Docs, Self-Update
 - [x] T7.1  Threat-model pass + red-team sign-off :: verify: docs/security.md sign-off
 - [x] T7.2  Doctor rules library (≥12 diagnoses) :: verify: doctor fixes seeded faults
-- [ ] T7.3  Auto-update channel dry-run :: verify: updater test
+- [x] T7.3  Auto-update channel dry-run :: verify: updater test
 - [ ] T7.4  Doc set: README, user guide, adapter-authoring guide, CHANGELOG :: verify: docs build
 
 ## Phase 8 — Package & Release → GATE 4 (human)

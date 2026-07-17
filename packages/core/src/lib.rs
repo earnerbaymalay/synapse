@@ -22,6 +22,7 @@ pub mod scheduler;
 pub mod secrets;
 pub mod snapshot;
 pub mod sync;
+pub mod updater;
 pub mod watcher;
 
 pub use adapter::Adapter;
@@ -39,4 +40,5 @@ pub use scheduler::{ScheduledJob, SchedulerOs};
 pub use secrets::{MemorySecretStore, SecretError, SecretStore};
 pub use snapshot::{SnapshotError, SnapshotLock};
 pub use sync::SyncOutcome;
+pub use updater::{check_for_update, Channel, ReleaseManifest, UpdateDecision, UpdateError};
 pub use watcher::{DebouncedEvent, DebouncedWatcher};

@@ -14,6 +14,7 @@ notify = "6"
 diffy = "0.4"
 ureq = { version = "2", features = ["json"] }
 base64 = "0.22"
+semver = "1"
 # One dependency, real keychain on all 3 OSes: Secret Service via DBus on
 # Linux, Security.framework on macOS, Credential Manager on Windows.
 # Optional because headless CI has no unlocked keyring to talk to —
