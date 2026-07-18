@@ -809,3 +809,18 @@ clean. Added `semver = "1"` to core deps. Ticked T7.3.
 Next: T7.4 (doc set: README, user guide, adapter-authoring guide, CHANGELOG;
 verify: docs build) — the last task before Phase 8 (installers → GATE 4, the
 final human gate).
+
+## 2026-07-18 — Dependency security: vite bumped to clear 6 Dependabot alerts
+
+After pushing the feature branch, GitHub Dependabot reported 6 open alerts
+(2 high, 2 moderate, 2 low) — all the same package: `vite` in
+`apps/desktop/package.json`, pinned at `^4.4.9` (resolved 4.5.14), which sits
+below every flagged range. All six are dev-server issues (server.fs.deny bypass,
+launch-editor command injection / NTLMv2 disclosure, `.map` path traversal,
+public-dir file serving) fixed at vite 6.4.3.
+Fix: bumped `vite` `^4.4.9` → `^6.4.3` (resolves 6.4.3). `@vitejs/plugin-react`
+`^4.0.3` already supports vite 6, and `vitest@4.1.10` bundles a newer vite, so
+no other churn was needed.
+Verify: `npm audit` = 0 vulnerabilities; `tsc --noEmit` clean; `vite build`
+succeeds (54 modules, built in ~3.3s); `vitest run` = 4/4 pass. Rust workspace
+untouched (still 184 green). No CVE remains in the desktop dependency tree.
