@@ -824,3 +824,50 @@ no other churn was needed.
 Verify: `npm audit` = 0 vulnerabilities; `tsc --noEmit` clean; `vite build`
 succeeds (54 modules, built in ~3.3s); `vitest run` = 4/4 pass. Rust workspace
 untouched (still 184 green). No CVE remains in the desktop dependency tree.
+
+## 2026-07-18 — Dependency security (round 2): full tree after PR #1 merged to main
+
+Merging PR #1 promoted the whole project onto `main` for the first time, so
+Dependabot finally scanned the *entire* dependency tree (previously `main` had
+only a stub app) — surfacing 14 alerts across two ecosystems. Root causes and
+fixes:
+
+- **pnpm workspace was the real JS source of truth, not npm.** The repo is a
+  pnpm workspace (`pnpm-lock.yaml`, members apps/desktop + packages/schema +
+  packages/e2e); the earlier round only fixed the stray npm `package-lock.json`
+  in apps/desktop. Regenerated `pnpm-lock.yaml` (pnpm 10.17.0 via corepack)
+  against the corrected manifests. Removed the stray
+  `apps/desktop/package-lock.json` entirely — a duplicate npm lockfile inside a
+  pnpm workspace only drifts and spawns phantom alerts.
+- **`packages/e2e` pinned `vitest ^1.6.0`** — the lone CRITICAL alert
+  (GHSA-5xrq-8626-4rwp, Vitest UI arbitrary file read/exec). Bumped to `^3.2.6`
+  (patched line). The e2e suites run cleanly under 3.2.7 — the 74 pre-existing
+  failures there are stubbed-CLI assertions ("sync: not yet implemented", empty
+  `scan` detection), NOT vitest-version regressions (0 API errors; 68 pass; CI
+  never ran this suite). Resolved vite→6.4.3, esbuild→0.25.12, vitest→3.2.7/4.1.10.
+  `pnpm audit` = **No known vulnerabilities found**.
+- **`apps/desktop/src-tauri/Cargo.lock` was an orphan.** src-tauri is a workspace
+  member, so cargo uses the *root* Cargo.lock (tauri 2.11.5); the per-crate lock
+  was a stale Tauri-1 leftover (tauri 1.5.0 / rand 0.7.3 / glib 0.15) contradicting
+  its own `tauri = "2"` manifest. Deleted it — clears 3 Rust alerts.
+
+- **Accepted (unfixable) transitive: `glib 0.18.5` in root Cargo.lock**
+  (GHSA-wrw7-89jp-8q8g, medium — unsoundness in `glib::VariantStrIter` iterator
+  impls). It is pinned by `gtk 0.18.2` ← `tauri 2.11.5` (the GTK3 Linux backend);
+  `gtk 0.18.2` requires `glib ^0.18` and cannot take the patched 0.20.0 without
+  tauri upgrading its entire gtk-rs stack, which tauri 2.11 does not support.
+  `cargo update -p glib --precise 0.20.0` fails accordingly. Low practical risk
+  (deep Linux GUI-binding soundness bug we never exercise directly). Revisit when
+  tauri ships a gtk-rs 0.20+ release.
+
+Net: 13 of 14 alerts resolved; 1 (glib) is an accepted upstream transitive.
+
+**Latent fragility flagged (not a dep issue):** `cargo test --workspace` is NOT
+hermetic — `desktop-app`'s `tauri::generate_context!()` reads `frontendDist
+"../dist"`, and `apps/desktop/dist` is gitignored with no `beforeBuildCommand`,
+so a fresh clone's `cargo test --workspace` fails to compile desktop-app until
+`vite build` (or `pnpm --filter desktop build`) is run first. The 184-green runs
+have all relied on a locally-present dist. Fix options for Phase 8 / T7.4: add a
+`beforeBuildCommand`, or gate desktop-app out of the default test set, or commit
+a minimal placeholder dist. Restored dist locally → `cargo test --workspace` =
+184 passed again.
