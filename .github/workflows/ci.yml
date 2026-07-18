@@ -1,0 +1,91 @@
+name: CI
+
+# Fast, always-verifiable checks that run on every push and pull request.
+# The heavier cross-platform Tauri build lives in build.yml and is opt-in
+# (workflow_dispatch) until the desktop app compiles end-to-end — see
+# docs/CODE_REVIEW.md for the remaining Phase 2 work.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-fmt:
+    name: Rust formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: cargo fmt --check
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --all --check
+
+  shell:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Syntax check
+        run: bash -n ralph.sh
+      - name: shellcheck
+        run: shellcheck ralph.sh
+
+  html:
+    name: Brand mock HTML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate brand mocks parse
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          import glob, sys
+          failed = False
+          files = sorted(glob.glob("brands/*/index.html"))
+          assert files, "no brand mocks found under brands/*/index.html"
+          for f in files:
+              try:
+                  HTMLParser().feed(open(f, encoding="utf-8").read())
+                  print(f"OK   {f}")
+              except Exception as e:  # noqa: BLE001
+                  failed = True
+                  print(f"FAIL {f}: {e}")
+          sys.exit(1 if failed else 0)
+          PY
+
+  docs:
+    name: Docs & state files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Required project files present
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          required = [
+              "README.md", "CLAUDE.md", "MASTER_PROMPT.md", "PLAN.md",
+              "PROGRESS.md", "DECISIONS.md", "DESIGN_PACK.md",
+              "RALPH_PROMPT.md", "docs/CODE_REVIEW.md",
+          ]
+          missing = [f for f in required if not os.path.isfile(f)]
+          for f in required:
+              print(("MISSING " if f in missing else "OK      ") + f)
+          sys.exit(1 if missing else 0)
+          PY
+      - name: Recon briefs complete (expect 12)
+        run: |
+          count=$(find docs/research -maxdepth 1 -name '*.md' | wc -l)
+          echo "recon briefs: $count"
+          test "$count" -ge 12

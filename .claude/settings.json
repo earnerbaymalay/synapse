@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(apt-cache *)",
+      "Bash(dmesg *)",
+      "Bash(adb devices *)",
+      "Bash(cargo build *)",
+      "Bash(cargo test *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(cargo fmt --check *)",
+      "Bash(cargo check *)",
+      "Bash(dpkg -l *)",
+      "Bash(flatpak list *)",
+      "Bash(wmctrl -lG)",
+      "mcp__Desktop_Commander__read_process_output",
+      "mcp__claude_ai_Google_Drive__read_file_content",
+      "mcp__claude_ai_Context7__query-docs"
+    ]
+  }
+}

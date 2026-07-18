@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-neurosurgeon.dev/schema/mcp-server.schema.json",
+  "title": "McpServer",
+  "description": "AIBrain/mcp/servers/<id>.yaml — see MASTER_PROMPT.md canonical Brain layout",
+  "type": "object",
+  "required": ["id", "transport", "command_or_url", "targets"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable slug, matches the parent mcp/servers/<id>.yaml file name"
+    },
+    "transport": {
+      "type": "string",
+      "enum": ["stdio", "sse", "http"]
+    },
+    "command_or_url": {
+      "type": "string",
+      "description": "Launch command for stdio transports, or the endpoint URL for sse/http"
+    },
+    "env_placeholders": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Env var names whose real values live in the OS keychain, never in this file"
+    },
+    "targets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tool ids this server config is projected to"
+    },
+    "health": {
+      "type": "string",
+      "enum": ["unknown", "healthy", "unreachable"],
+      "default": "unknown"
+    }
+  }
+}

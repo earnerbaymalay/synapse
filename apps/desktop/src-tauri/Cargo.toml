@@ -2,33 +2,37 @@
 name = "desktop-app"
 version = "0.1.0"
 edition = "2021"
+description = "LLM Neurosurgeon desktop application (Tauri core)"
 
-[workspace]
 
-[target."cfg(not(target_os = "linux"))"]
-rustc-flags = ["-C", "link-arg=-Wl,--copy-dt-needed-names"]
-
-[profile.release]
-codegen-units = 1
-cfg-set = ["target.cpu=""native""]
-incremental = false
-lto = true
-panic = "abort"
-opt-level = "s"
-strip = true
+[[bin]]
+name = "desktop-app"
+path = "src/main.rs"
 
 [lib]
 name = "desktopapplib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = "=1.5.0"
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "=1.5.0", features = [] }
+tauri = { version = "2", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+chrono = "0.4"
+log = { version = "0.4", features = ["std"] }
+directories = "5"
+neurosurgeon-core = { path = "../../../packages/core" }
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+codegen-units = 1
+incremental = false
+lto = true
+panic = "abort"
+opt-level = "s"
+strip = true

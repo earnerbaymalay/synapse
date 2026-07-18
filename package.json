@@ -1,0 +1,9 @@
+{
+  "name": "llm-neurosurgeon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo root — see PLAN.md for phase status",
+  "scripts": {
+    "test": "pnpm -r test"
+  }
+}

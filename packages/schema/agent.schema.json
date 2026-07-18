@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-neurosurgeon.dev/schema/agent.schema.json",
+  "title": "Agent",
+  "description": "AIBrain/agents/<slug>.md frontmatter — see MASTER_PROMPT.md canonical Brain layout",
+  "type": "object",
+  "required": ["slug", "tools", "targets"],
+  "additionalProperties": false,
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Stable slug, matches the agents/<slug>.md file name"
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tool/capability names this agent is permitted to use"
+    },
+    "model_hints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Preferred model tiers or ids, e.g. sonnet, opus — advisory only"
+    },
+    "targets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tool ids this agent definition is projected to"
+    }
+  }
+}
