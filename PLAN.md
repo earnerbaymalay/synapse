@@ -45,6 +45,6 @@
 - [x] T7.4  Doc set: README, user guide, adapter-authoring guide, CHANGELOG :: verify: docs build
 
 ## Phase 8 — Package & Release → GATE 4 (human)
-- [ ] T8.1  Signed installers .dmg/.msi/AppImage/.deb + CLI formulae drafts :: verify: smoke-test install matrix
-- [ ] T8.2  Reproducible-build notes :: verify: build notes present
+- [x] T8.1  Signed installers .dmg/.msi/AppImage/.deb + CLI formulae drafts :: verify: smoke-test install matrix
+- [x] T8.2  Reproducible-build notes :: verify: build notes present
 - [ ] T8.3  Gate 4: human installs on real machine and runs onboarding

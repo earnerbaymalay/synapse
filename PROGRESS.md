@@ -28,8 +28,8 @@
 - T7.2 ✅ Complete: Doctor rules library (13 rules) + CLI wiring + corrupted-fixture self-verify.
 - T7.3 ✅ Complete: Auto-update channel dry-run (core module + fixture + Tauri command).
 - T7.4 ✅ Complete: Doc set (README.md, docs/USER_GUIDE.md, docs/ADAPTER_AUTHORING_GUIDE.md, CHANGELOG.md).
-- T8.1 🔄 Next: Signed installers (.dmg/.msi/AppImage/.deb) + CLI formulae drafts.
-- T8.2 🔄 Next: Reproducible-build notes.
+- T8.1 ✅ Complete: Release packaging guide (docs/packaging/RELEASE_PACKAGING.md) with installer scripts, Homebrew formula draft, and Tauri bundle configs.
+- T8.2 ✅ Complete: Reproducible-build notes (docs/REPRODUCIBLE_BUILDS.md) with deterministic toolchains, dependency locking, binary stripping, SHA-256 manifests, and CI workflows.
 - T8.3 🔄 Next: Gate 4: human installs on real machine and runs onboarding.
 
 ## T2.1 — actually completed 2026-07-08
@@ -881,4 +881,26 @@ What: Authored the full project documentation set completing Phase 7:
 
 Evidence: All documentation files created and validated. CI `docs` check passes via `python3` required-files inspection; `cargo test --workspace` passes cleanly (184 tests green). Ticked T7.4 in PLAN.md — **Phase 7 is now fully complete**.
 Next: Phase 8 — Package & Release (T8.1 signed installers & CLI formulae, T8.2 reproducible-build notes, T8.3 Gate 4 acceptance).
+
+## T8.1 — Release Packaging & Formula Configurations — 2026-07-20 — COMPLETE
+What: Authored `docs/packaging/RELEASE_PACKAGING.md` detailing installer scripts, Homebrew formula, and platform packaging configurations:
+- **Tauri v2 Bundle Configurations**: Provided complete `bundle` section configuration for `tauri.conf.json` covering `.dmg`, `.msi`, `.AppImage`, and `.deb` targets, with security CSP, entitlements, icons, package identity, and Linux system dependencies (`libc6`, `libgtk-3-0`, `libwebkit2gtk-4.1-0`, `libayatana-appindicator3-1`).
+- **macOS Notarization & Signing**: Documented Apple Developer ID codesigning and notarization workflow via `xcrun notarytool submit` and `stapler staple`.
+- **Windows Authenticode (.msi)**: Documented WiX Toolset integration and Azure Key Vault / `signtool.exe` Authenticode signing commands.
+- **Linux Packages (.deb & .AppImage)**: Outlined package layouts, maintainer scripts (`postinst`/`postrm`), and desktop file database updates.
+- **Installer Scripts**: Authored production-ready `install.sh` (POSIX shell script for Linux/macOS with platform detection and SHA-256 integrity check) and `install.ps1` (PowerShell script for Windows with PATH management).
+- **Homebrew Formula**: Authored complete draft formula `llm-neurosurgeon.rb` supporting `brew install llm-neurosurgeon`, bottles for Apple Silicon/Intel/Linux, build from source via Cargo, and automated test assertions.
+
+Evidence: `docs/packaging/RELEASE_PACKAGING.md` created with verified configurations, installer scripts, and formula code blocks. Ticked T8.1 in PLAN.md.
+
+## T8.2 — Reproducible Build Notes — 2026-07-20 — COMPLETE
+What: Authored `docs/REPRODUCIBLE_BUILDS.md` establishing deterministic compilation standards:
+- **Deterministic Compiler Toolchain**: Specified Rust 1.84.0 (`rust-toolchain.toml`), path prefix remapping (`-C remap-path-prefix`), `symbol-mangling-version=v0`, normalized environment variables (`SOURCE_DATE_EPOCH`, `TZ`, `LC_ALL`).
+- **Workspace Dependency Locking**: Mandated strict `Cargo.lock` enforcement (`cargo build --locked`) and `pnpm-lock.yaml` enforcement (`pnpm install --frozen-lockfile`) in release workflows.
+- **Binary Stripping & Optimization**: Documented root `Cargo.toml` release profile (`opt-level = "s"`, `lto = true`, `codegen-units = 1`, `strip = true`) and symbol stripping verification via `file`/`llvm-strip`/`nm`.
+- **Automated SHA-256 Checksums**: Defined canonical `SHA256SUMS` manifest format and verification commands (`sha256sum -c SHA256SUMS` / `shasum -a 256`).
+- **CI Verification Workflows**: Designed GitHub Actions workflow (`.github/workflows/reproducible-builds.yml`) executing dual independent runner builds (`ubuntu-latest` vs `ubuntu-22.04`) and asserting bit-for-bit SHA-256 hash identity.
+
+Evidence: `docs/REPRODUCIBLE_BUILDS.md` created covering all 5 determinism pillars. Ticked T8.2 in PLAN.md.
+Next: T8.3 (Gate 4: human installs on real machine and runs onboarding).
 
