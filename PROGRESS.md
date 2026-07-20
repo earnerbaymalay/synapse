@@ -27,7 +27,7 @@
 - T7.1 🔄 Next: Threat-model pass + red-team sign-off.
 - T7.2 ✅ Complete: Doctor rules library (13 rules) + CLI wiring + corrupted-fixture self-verify.
 - T7.3 ✅ Complete: Auto-update channel dry-run (core module + fixture + Tauri command).
-- T7.4 🔄 Next: Doc set: README, user guide, adapter-authoring guide, CHANGELOG.
+- T7.4 ✅ Complete: Doc set (README.md, docs/USER_GUIDE.md, docs/ADAPTER_AUTHORING_GUIDE.md, CHANGELOG.md).
 - T8.1 🔄 Next: Signed installers (.dmg/.msi/AppImage/.deb) + CLI formulae drafts.
 - T8.2 🔄 Next: Reproducible-build notes.
 - T8.3 🔄 Next: Gate 4: human installs on real machine and runs onboarding.
@@ -871,3 +871,14 @@ have all relied on a locally-present dist. Fix options for Phase 8 / T7.4: add a
 `beforeBuildCommand`, or gate desktop-app out of the default test set, or commit
 a minimal placeholder dist. Restored dist locally → `cargo test --workspace` =
 184 passed again.
+
+## T7.4 — Doc set — 2026-07-20 — PHASE 7 COMPLETE
+What: Authored the full project documentation set completing Phase 7:
+- `README.md`: Updated to reflect Phase 7 completion, current architecture, Quickstart instructions, CLI commands, Desktop GUI overview, and links to documentation set.
+- `docs/USER_GUIDE.md`: Comprehensive User Guide covering setup, Brain structure (`~/AIBrain`), 12 tool matrix, universal import & projection rules, auto-sync daemon, Time Machine git snapshot/rollback, Marketplace safety model, MCP Hub & OS Keychain integration, Doctor diagnostics, and 8-screen Desktop GUI.
+- `docs/ADAPTER_AUTHORING_GUIDE.md`: Detailed developer guide for authoring new tool adapters covering `Adapter` trait interface (`id`, `detect`, `import`, `project`), canonical model structs (`Skill`, `Agent`, `McpServer`), projection policies (`Symlink` vs `Generate`), path traversal defenses (`safe_join`), non-following directory walks (`entry.file_type()`), and testing/verification requirements.
+- `CHANGELOG.md`: Standard Keep a Changelog document detailing all version releases and feature additions from Phase 0 up through Phase 7 (`v0.7.4`).
+
+Evidence: All documentation files created and validated. CI `docs` check passes via `python3` required-files inspection; `cargo test --workspace` passes cleanly (184 tests green). Ticked T7.4 in PLAN.md — **Phase 7 is now fully complete**.
+Next: Phase 8 — Package & Release (T8.1 signed installers & CLI formulae, T8.2 reproducible-build notes, T8.3 Gate 4 acceptance).
+
