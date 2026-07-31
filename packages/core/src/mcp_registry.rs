@@ -155,20 +155,28 @@ fn map_record(record: ServerRecord) -> Option<(McpServer, String, String)> {
         .flat_map(|p| p.environment_variables.iter().map(|v| v.name.clone()))
         .collect();
 
-    let (transport, command_or_url) = if let Some(remote) = record.remotes.first() {
-        (remote.remote_type.clone(), remote.url.clone())
-    } else if let Some(pkg) = record.packages.iter().find(|p| p.registry_type == "npm") {
-        let runner = if pkg.runtime_hint.is_empty() {
-            "npx"
-        } else {
-            &pkg.runtime_hint
-        };
-        (
-            "stdio".to_string(),
-            format!("{} -y {}", runner, pkg.identifier),
-        )
-    } else {
-        return None;
+    let (transport, command_or_url) = match (
+        record.remotes.first(),
+        record.packages.iter().find(|p| p.registry_type == "npm"),
+    ) {
+        // Remote endpoints win over packages when both are present (no
+        // local install needed). Stdio entries map to the `npx -y
+        // <identifier>` invocation their `runtimeHint` describes. Records
+        // with neither are unusable; the caller drops them — this match
+        // is structured so the unreachable case is `None`/`None`.
+        (Some(remote), _) => (remote.remote_type.clone(), remote.url.clone()),
+        (None, Some(pkg)) => {
+            let runner = if pkg.runtime_hint.is_empty() {
+                "npx"
+            } else {
+                &pkg.runtime_hint
+            };
+            (
+                "stdio".to_string(),
+                format!("{} -y {}", runner, pkg.identifier),
+            )
+        }
+        (None, None) => return None,
     };
 
     Some((

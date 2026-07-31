@@ -10,8 +10,8 @@ fn parse_frontmatter(content: &str) -> (Option<String>, String) {
     let lines: Vec<&str> = content.lines().collect();
     if lines.len() >= 2 && lines[0].trim() == "---" {
         let mut fm_end = None;
-        for i in 1..lines.len() {
-            if lines[i].trim() == "---" {
+        for (i, line) in lines.iter().enumerate().skip(1) {
+            if line.trim() == "---" {
                 fm_end = Some(i);
                 break;
             }
@@ -37,8 +37,8 @@ fn parse_yaml_frontmatter(fm: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
             continue;
         }
 
-        if line_trimmed.starts_with('-') {
-            let val = line_trimmed[1..]
+        if let Some(stripped) = line_trimmed.strip_prefix('-') {
+            let val = stripped
                 .trim()
                 .trim_matches('"')
                 .trim_matches('\'')

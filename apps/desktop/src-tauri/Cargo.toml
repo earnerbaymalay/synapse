@@ -29,10 +29,9 @@ neurosurgeon-core = { path = "../../../packages/core" }
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
-[profile.release]
-codegen-units = 1
-incremental = false
-lto = true
-panic = "abort"
-opt-level = "s"
-strip = true
+# Release profile is configured in the workspace root (see ../../../Cargo.toml).
+# Defining it again here would trigger:
+#   warning: profiles for the non root package will be ignored
+# which is the symptom of the duplicate table; the workspace root
+# carries `panic = "abort"` so the desktop Tauri binary still aborts on panic
+# (Tauri-recommended for release) without a local override.

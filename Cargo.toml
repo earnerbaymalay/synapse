@@ -8,6 +8,8 @@ members = [
 
 [profile.release]
 codegen-units = 1
+incremental = false
 lto = true
 opt-level = "s"
+panic = "abort"
 strip = true
