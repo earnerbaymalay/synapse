@@ -105,7 +105,13 @@ pub fn rollback(brain_root: &Path, commit: &str) -> Result<String, SnapshotError
 
     // Resolve up front so the recorded message and file-list diff are
     // pinned to one exact commit even if `commit` was a relative ref.
-    let target = run_git(brain_root, &["rev-parse", commit])?;
+    // `--end-of-options` stops a crafted revision beginning with `-` from
+    // being parsed as a git flag (argument injection); `--verify` ensures
+    // exactly one real object comes back.
+    let target = run_git(
+        brain_root,
+        &["rev-parse", "--verify", "--end-of-options", commit],
+    )?;
 
     // Restores every path present in the target commit's tree.
     run_git(brain_root, &["checkout", &target, "--", "."])?;
@@ -313,6 +319,25 @@ mod tests {
         let log = run_git(dir.path(), &["log", "--oneline"]).unwrap();
         assert_eq!(log.lines().count(), 3);
         assert_ne!(rollback_sha, snapshot_one);
+    }
+
+    /// A revision that looks like a git flag must be treated as a (bad)
+    /// revision, not parsed as an option — `--end-of-options` in
+    /// `rollback` makes flag-injection via the `commit` argument
+    /// impossible.
+    #[test]
+    fn rollback_rejects_flag_shaped_revisions_instead_of_parsing_them() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.yaml"), "version: 1").unwrap();
+        snapshot(dir.path(), "initial").unwrap();
+
+        for injected in ["--help", "-h", "--output=/tmp/pwned", "--exec=touch x"] {
+            let result = rollback(dir.path(), injected);
+            assert!(
+                matches!(result, Err(SnapshotError::Command(_))),
+                "flag-shaped revision {injected:?} must fail as a bad revision, got {result:?}"
+            );
+        }
     }
 
     #[test]

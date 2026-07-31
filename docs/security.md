@@ -290,3 +290,49 @@ code lands** — it is the open item this sign-off is conditional on.
 network tests importing live skills + registry servers, and a real
 gnome-keyring round trip under `--features os-keychain`). `cargo fmt --all
 -- --check` clean. No build warnings.
+
+---
+
+# Hardening addendum — enable-gate + snapshot audit (2026-07-21)
+
+**Scope:** closes the tracked condition from the T7.1 sign-off (§1's
+enable-gate) and two smaller items surfaced in an external review.
+
+## A1. Enable-gate is now code-enforced — T7.1's open condition CLOSED
+**Where:** `mcp_registry.rs`.
+**Change:** `health_check_stdio()` / `health_check_remote()` are now
+**private** to the module. The only public entry point is
+`health_check(&InstalledMcpServer, timeout)`, which returns
+`Err(HealthCheckBlocked)` before any spawn or network probe when the
+server is not enabled. `InstalledMcpServer::install()` always constructs
+disabled (mirroring `MarketplaceSkill`'s quarantine pattern), so
+"user-enable toggle default OFF" is enforced by the type system, not by
+caller discipline. The GUI/CLI install pipeline physically cannot
+health-check a disabled server.
+**Tests:** `health_check_refuses_disabled_server_without_spawning` proves
+non-execution with a sentinel-file fixture (the probe command would create
+a file if it ever ran; the test asserts the file does not exist), and
+`health_check_probes_enabled_server_through_the_gate` proves the gate
+passes an explicitly-enabled server through to a real handshake.
+
+## A2. Snapshot rollback: git argument injection — FIXED
+**Where:** `snapshot.rs::rollback()`.
+**What:** the `commit` argument was passed to `git rev-parse <commit>`
+verbatim; a flag-shaped revision (`--help`, `--output=...`) would have been
+parsed as a git option rather than a revision. All other `run_git` call
+sites use static string literals; the commit *message* is safe because it
+is always preceded by `-m` as a distinct argv entry and no shell is
+involved.
+**Fix:** `git rev-parse --verify --end-of-options <commit>` — everything
+after `--end-of-options` is treated as a revision, never an option, and
+`--verify` requires exactly one real object.
+**Test:** `rollback_rejects_flag_shaped_revisions_instead_of_parsing_them`
+covers `--help`, `-h`, `--output=`, `--exec=`.
+
+## A3. Secrets ship-default — keychain ON in release builds
+**Where:** `.github/workflows/build.yml`.
+**Change:** release binaries (CLI + desktop) are built with
+`--features neurosurgeon-core/os-keychain`, so shipped builds default to
+the OS keychain backend. `MemorySecretStore` remains the dev/test fixture
+only. Linux release deps now include `libdbus-1-dev` for the
+secret-service backend.

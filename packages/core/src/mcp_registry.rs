@@ -185,6 +185,83 @@ fn map_record(record: ServerRecord) -> Option<(McpServer, String, String)> {
     ))
 }
 
+// ---- Enable gate ----
+
+/// A registry server after the user chose to install it. Mirrors the
+/// `MarketplaceSkill` quarantine pattern: **always starts disabled**, and
+/// the only public health-check entry point ([`health_check`]) refuses to
+/// touch a disabled server — so "user-enable toggle default OFF"
+/// (MASTER_PROMPT.md pillar 6) is enforced by this type, not by caller
+/// discipline. See docs/security.md §1.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstalledMcpServer {
+    pub server: McpServer,
+    enabled: bool,
+}
+
+impl InstalledMcpServer {
+    /// Installing never enables: third-party server definitions are
+    /// untrusted until a human flips the toggle.
+    pub fn install(server: McpServer) -> Self {
+        Self {
+            server,
+            enabled: false,
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn enable(&mut self) {
+        self.enabled = true;
+    }
+
+    pub fn disable(&mut self) {
+        self.enabled = false;
+    }
+}
+
+/// Refusal returned when something asks to health-check (and therefore
+/// spawn) a server the user has not enabled.
+#[derive(Debug, PartialEq, Eq)]
+pub struct HealthCheckBlocked {
+    pub server_id: String,
+}
+
+impl std::fmt::Display for HealthCheckBlocked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "refusing to health-check disabled MCP server '{}' — enable it first",
+            self.server_id
+        )
+    }
+}
+
+impl std::error::Error for HealthCheckBlocked {}
+
+/// The only public health-check entry point. Dispatches on transport
+/// (stdio spawns the command; anything HTTP-shaped is probed remotely) —
+/// but **only for a server the user has explicitly enabled**. A disabled
+/// server is never spawned and never contacted; the raw probes below are
+/// private to this module for exactly that reason.
+pub fn health_check(
+    installed: &InstalledMcpServer,
+    timeout: Duration,
+) -> Result<HealthStatus, HealthCheckBlocked> {
+    if !installed.enabled {
+        return Err(HealthCheckBlocked {
+            server_id: installed.server.id.clone(),
+        });
+    }
+    Ok(if installed.server.transport == "stdio" {
+        health_check_stdio(&installed.server.command_or_url, timeout)
+    } else {
+        health_check_remote(&installed.server.command_or_url, timeout)
+    })
+}
+
 // ---- Health check: spawn + MCP initialize handshake ----
 
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
@@ -230,7 +307,10 @@ fn is_initialize_response(line: &str) -> bool {
 /// metacharacters — the blast radius is bounded to extra arguments passed
 /// to the named program — but the named program still runs. See
 /// docs/security.md §T7.1.
-pub fn health_check_stdio(command_or_url: &str, timeout: Duration) -> HealthStatus {
+///
+/// Private on purpose: external callers must go through [`health_check`],
+/// which refuses disabled servers.
+fn health_check_stdio(command_or_url: &str, timeout: Duration) -> HealthStatus {
     let parts: Vec<&str> = command_or_url.split_whitespace().collect();
     let Some((program, args)) = parts.split_first() else {
         return HealthStatus::Unreachable;
@@ -293,7 +373,10 @@ pub fn health_check_stdio(command_or_url: &str, timeout: Duration) -> HealthStat
 /// has no credentials for, an HTTP 401/403 also counts as Healthy — the
 /// server is alive and speaking HTTP; it just wants a key. Connection
 /// failures, timeouts, and non-MCP responses are Unreachable.
-pub fn health_check_remote(url: &str, timeout: Duration) -> HealthStatus {
+///
+/// Private on purpose: external callers must go through [`health_check`],
+/// which refuses disabled servers.
+fn health_check_remote(url: &str, timeout: Duration) -> HealthStatus {
     let response = ureq::post(url)
         .set("User-Agent", "llm-neurosurgeon")
         .set("Content-Type", "application/json")
@@ -420,6 +503,96 @@ mod tests {
     fn health_check_stdio_reports_unreachable_for_a_dead_command() {
         let status = health_check_stdio("/nonexistent-binary-xyz", Duration::from_secs(1));
         assert_eq!(status, HealthStatus::Unreachable);
+    }
+
+    #[test]
+    fn installed_server_starts_disabled_and_round_trips_the_toggle() {
+        let mut installed = InstalledMcpServer::install(McpServer {
+            id: "example/fs".into(),
+            transport: "stdio".into(),
+            command_or_url: "npx -y fs-mcp-server".into(),
+            env_placeholders: vec![],
+            targets: vec![],
+            health: HealthStatus::Unknown,
+        });
+        assert!(!installed.enabled(), "install must never enable");
+        installed.enable();
+        assert!(installed.enabled());
+        installed.disable();
+        assert!(!installed.enabled());
+    }
+
+    /// The enable-gate's core guarantee: a disabled server is refused
+    /// before any spawn. The fixture command would create a sentinel file
+    /// if it ever ran — asserting the file's absence proves no process
+    /// was launched, not just that an error came back.
+    #[cfg(unix)]
+    #[test]
+    fn health_check_refuses_disabled_server_without_spawning() {
+        let dir = tempfile::tempdir().unwrap();
+        let sentinel = dir.path().join("spawned");
+        let script = dir.path().join("sentinel.sh");
+        std::fs::write(
+            &script,
+            format!("#!/bin/sh\ntouch {}\n", sentinel.display()),
+        )
+        .unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let installed = InstalledMcpServer::install(McpServer {
+            id: "example/sentinel".into(),
+            transport: "stdio".into(),
+            command_or_url: script.display().to_string(),
+            env_placeholders: vec![],
+            targets: vec![],
+            health: HealthStatus::Unknown,
+        });
+
+        let result = health_check(&installed, Duration::from_secs(1));
+        assert_eq!(
+            result,
+            Err(HealthCheckBlocked {
+                server_id: "example/sentinel".into()
+            })
+        );
+        assert!(
+            !sentinel.exists(),
+            "disabled server must never be spawned, but the sentinel file exists"
+        );
+    }
+
+    /// After an explicit enable, the same server goes through the gate
+    /// and the probe actually runs.
+    #[cfg(unix)]
+    #[test]
+    fn health_check_probes_enabled_server_through_the_gate() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("fixture-mcp.sh");
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nread _line\nprintf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"0.0.1\"}}}'\nsleep 5\n",
+        )
+        .unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let mut installed = InstalledMcpServer::install(McpServer {
+            id: "example/fixture".into(),
+            transport: "stdio".into(),
+            command_or_url: script.display().to_string(),
+            env_placeholders: vec![],
+            targets: vec![],
+            health: HealthStatus::Unknown,
+        });
+        installed.enable();
+
+        let status = health_check(&installed, Duration::from_secs(5)).unwrap();
+        assert_eq!(status, HealthStatus::Healthy);
     }
 
     #[cfg(unix)]
