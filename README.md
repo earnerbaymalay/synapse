@@ -7,17 +7,17 @@
 **A local-first desktop app + CLI that unifies the configuration of every AI coding tool on your machine into one canonical, git-backed "Brain" — then keeps every tool in sync with it, automatically.**
 
 [![CI](https://github.com/earnerbaymalay/llm-neuro-surgeon/actions/workflows/ci.yml/badge.svg)](https://github.com/earnerbaymalay/llm-neuro-surgeon/actions/workflows/ci.yml)
-[![Status: Phase 7 Complete](https://img.shields.io/badge/status-Phase%207%20Complete%20(v0.7.4)-success)](PROGRESS.md)
+[![Status: Feature-complete, pre-release](https://img.shields.io/badge/status-feature--complete%20·%20pre--release%20(v0.7.4)-blue)](PROGRESS.md)
 [![Stack: Tauri 2 + Rust + React](https://img.shields.io/badge/stack-Tauri%202%20·%20Rust%20·%20React--TS-6C5CE7)](#-tech-stack)
-[![License: TBD](https://img.shields.io/badge/license-TBD-lightgrey)](#-license)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Project Status: Phase 7 Complete (v0.7.4 / v1.0.0-rc1).**
-> The core Rust engine (`packages/core`), CLI (`apps/cli`), Tauri v2 desktop GUI (`apps/desktop`), 12 tool adapters, projection engine, auto-sync watcher & 3-way merge, Doctor diagnostic engine, Marketplace importer, MCP Hub with OS Keychain secrets, and complete documentation set are fully implemented and verified green.
+> **Project Status: Feature-complete, pre-release (v0.7.4).**
+> The core Rust engine (`packages/core`), CLI (`apps/cli`), Tauri v2 desktop GUI (`apps/desktop`), 12 tool adapters, projection engine, auto-sync watcher & 3-way merge, Doctor diagnostic engine, Marketplace importer, MCP Hub with OS Keychain secrets, and documentation set are implemented with tests passing in CI. Signed installers and a real-machine onboarding pass (Gate 4) remain before v1.0.
 
 ---
 
@@ -195,4 +195,6 @@ This project is built following the **RALPH loop** (file-state autonomous agent 
 
 ## 📄 License
 
-TBD (See [`CHANGELOG.md`](CHANGELOG.md) and repository updates).
+[MIT](LICENSE) © 2026 earnerbaymalay.
+
+Imported third-party skills, agents, and configurations retain the licenses of their upstream sources — the Marketplace importer surfaces license cards and SHA-256 provenance for anything it ingests.

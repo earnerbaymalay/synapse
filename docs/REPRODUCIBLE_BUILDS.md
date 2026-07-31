@@ -24,16 +24,12 @@ The compiler version, components, and target triples are strictly pinned in the 
 
 ```toml
 [toolchain]
-channel = "1.84.0"
-components = ["rustc", "cargo", "rustfmt", "clippy", "llvm-tools-preview"]
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "aarch64-apple-darwin",
-    "x86_64-pc-windows-msvc"
-]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
 profile = "minimal"
 ```
+
+Per-platform target triples (`x86_64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`) are installed by the release workflow on the matching runner rather than listed here, so a plain `cargo build` on any host does not download foreign targets.
 
 ### 2.2 Path Prefix Remapping & Compiler Flags (`.cargo/config.toml`)
 Host-specific directory structures (e.g. `/home/user/...` or `C:\Users\...`) must not be embedded into binary symbols. The workspace `.cargo/config.toml` enforces prefix remapping:
