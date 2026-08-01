@@ -904,3 +904,28 @@ What: Authored `docs/REPRODUCIBLE_BUILDS.md` establishing deterministic compilat
 Evidence: `docs/REPRODUCIBLE_BUILDS.md` created covering all 5 determinism pillars. Ticked T8.2 in PLAN.md.
 Next: T8.3 (Gate 4: human installs on real machine and runs onboarding).
 
+## 2026-08-01 — Resume session: sync, clippy fixes, state report
+
+**Context:** Resumed work on the repo after a gap. Local `main` was 2 commits ahead of `origin/main` (security fix 382ef43 + release chore fd008d3). A stale worktree branch `chore/clippy-fixes-v0.7.4` existed with useful clippy lint fixes but was based on an old base (dcd8ef6).
+
+**What was done:**
+- **State assessment:** Local `main` ahead of `origin/main` by 2 commits. 187 tests green (13 CLI + 154 core lib + 17 stress + 3 updater), 0 ignored. Phases 0–7 complete. Only T8.3 (Gate 4) remains in PLAN.md.
+- **Clippy fixes cherry-picked:** Extracted the code improvements from `chore/clippy-fixes-v0.7.4` (af9da8e) — `strip_prefix` over manual slicing, `enumerate().skip(1)` over index loops, `match` tuple over nested `if let`, `incremental=false`/`panic=abort` in workspace release profile, deduplicated desktop release profile (was causing cargo warning). Skipped the CI workflow regressions (build.yml/ci.yml were reverting to Tauri 1.x deps). Committed as d2b5063.
+- **Stale worktree cleaned:** Removed `.claude/worktrees/clippy-fixes` worktree, deleted local branch. Remote `origin/chore/clippy-fixes-v0.7.4` still exists.
+- **Test suite verified:** `cargo test -p neurosurgeon-core -p neurosurgeon` — 187/187 green, 0 ignored, `cargo fmt --check` clean.
+
+**Current state:**
+| Dimension | Status |
+|-----------|--------|
+| Local vs Remote | `main` is **3 commits ahead** of `origin/main` (security + release + clippy) |
+| Test Suite | **187 tests green**, 0 ignored |
+| Phases 0–7 | ✅ ALL COMPLETE |
+| Phase 8 | T8.1 ✅, T8.2 ✅, **T8.3 (Gate 4) ⏳ PENDING** |
+| Stale remote branch | `origin/chore/clippy-fixes-v0.7.4` — can be deleted |
+
+**Future dev path (suggested):**
+1. **T8.3 — Gate 4:** Human installs on a real machine and runs onboarding. This is the only remaining PLAN.md task. Requires a real macOS/Linux/Windows machine with Tauri system deps (libwebkit2gtk-4.1, etc.) — cannot be done in this sandbox.
+2. **Phase 5 GUI (T5.1–T5.3):** The 8-screen desktop app from DESIGN_PACK.md. Blocked on Tauri v2 system libraries (GTK, WebKit) that aren't available in this sandbox. Needs a real dev machine with `libwebkit2gtk-4.1-dev` installed.
+3. **`packages/e2e` cross-tool suite:** The Vitest-based E2E tests scaffolded in T3.1 Milestone 1 were never fully wired — 68 pass, 74 are stubbed CLI assertions. Worth completing once the CLI is stable.
+4. **`cargo test --workspace` hermeticity:** The desktop-app crate requires `apps/desktop/dist` (gitignored) to compile. A `beforeBuildCommand` or conditional compilation would fix this for CI.
+
