@@ -1,0 +1,47 @@
+# Synapse — Taglines
+# A collection of one-liners for marketing, social media, and presentations.
+
+---
+
+## Core Brand Taglines
+
+One Brain. All Models.
+Effortless AI Configuration.
+Surgical precision. Zero friction.
+The Minimalist Approach to AI Configuration.
+
+## Product-Focused
+
+Your AI tools, one Brain.
+Configure once. Sync everywhere.
+The universal config for every AI coding tool.
+Stop maintaining configs. Start shipping.
+One source of truth for every model on your machine.
+
+## Developer-Focused
+
+Your rules. Your tools. One Brain.
+Write once. Run on every model.
+The config layer your AI stack was missing.
+No more copy-paste for your AI tools.
+
+## Short & Punchy (Social Media)
+
+One Brain. All Models.
+Configure once.
+Sync everything.
+Your AI, unified.
+Zero friction.
+
+## Feature-Specific
+
+Scan. Import. Project. Sync. Done.
+Your AI configuration, version-controlled.
+Time Machine for your AI configs.
+Doctor on call. 24/7.
+MCP Hub: One dashboard, every server.
+
+## Comparison / Competitive
+
+Not another AI tool. The config for all of them.
+Your AI tools don't need another config format. They need one Brain.

@@ -1,89 +1,64 @@
 # LLM Neurosurgeon — User Guide
 
-Welcome to **LLM Neurosurgeon**, the local-first desktop application and CLI tool that unifies the configuration of every AI coding tool on your machine into one canonical, git-backed "Brain" — and keeps every tool in sync automatically.
+> **Surgical precision. Zero friction.**  
+> **One Brain. All Models.**  
+> *The Minimalist Approach*
+
+Welcome to **LLM Neurosurgeon** — the local-first desktop application and CLI tool that unifies the configuration of every AI coding tool on your machine into one canonical, git-backed **Brain**, and keeps every tool in sync automatically.
 
 ---
 
 ## Table of Contents
 
-- [1. Overview & Core Philosophy](#1-overview--core-philosophy)
-- [2. Installation & Quickstart](#2-installation--quickstart)
-- [3. The Canonical Brain Layout](#3-the-canonical-brain-layout)
-- [4. Supported AI Tools Matrix](#4-supported-ai-tools-matrix)
-- [5. Universal Import & Scanning](#5-universal-import--scanning)
-- [6. Projection Engine & Policy Rules](#6-projection-engine--policy-rules)
-- [7. Auto-Sync Daemon & Time Machine](#7-auto-sync-daemon--time-machine)
-- [8. Marketplace & Untrusted Skill Ingestion](#8-marketplace--untrusted-skill-ingestion)
-- [9. MCP Hub & Secrets Management](#9-mcp-hub--secrets-management)
-- [10. Vitals & Doctor Diagnostics](#10-vitals--doctor-diagnostics)
-- [11. Graphical Desktop Interface](#11-graphical-desktop-interface)
-- [12. FAQ & Safety Guarantees](#12-faq--safety-guarantees)
+- [Phase 1: The Hook — Why Your AI Configs Are Bleeding Out](#phase-1-the-hook--why-your-ai-configs-are-bleeding-out)
+- [Phase 2: The Solution — One Brain to Rule Them All](#phase-2-the-solution--one-brain-to-rule-them-all)
+  - [The Canonical Brain Layout](#the-canonical-brain-layout)
+  - [Supported AI Tools Matrix](#supported-ai-tools-matrix)
+- [Phase 3: Immediate Value — Scan, Import, Project](#phase-3-immediate-value--scan-import-project)
+  - [Quick Start](#quick-start)
+  - [Universal Import & Scanning](#universal-import--scanning)
+  - [Projection Engine & Policy Rules](#projection-engine--policy-rules)
+  - [Graphical Desktop Interface](#graphical-desktop-interface)
+- [Phase 4: Long-term Power — Time Machine, MCP Hub, Doctor](#phase-4-long-term-power--time-machine-mcp-hub-doctor)
+  - [Auto-Sync Daemon & Time Machine](#auto-sync-daemon--time-machine)
+  - [MCP Hub & Secrets Management](#mcp-hub--secrets-management)
+  - [Vitals & Doctor Diagnostics](#vitals--doctor-diagnostics)
+  - [Marketplace & Untrusted Skill Ingestion](#marketplace--untrusted-skill-ingestion)
+  - [FAQ & Safety Guarantees](#faq--safety-guarantees)
 
 ---
 
-## 1. Overview & Core Philosophy
+# Phase 1: The Hook — Why Your AI Configs Are Bleeding Out
 
-Developers using multiple AI coding assistants (such as Claude Code, Cursor, Gemini CLI, Aider, GitHub Copilot, or Windsurf) often face a frustrating problem: **configuration fragmentation**.
+Picture this: it's 2 AM. You've just crafted the perfect system prompt for Claude Code — 47 lines of surgical precision that captures your entire Rust coding philosophy. You test it. It works. You close your laptop.
 
-Each tool uses its own format and location for system prompts, rule files, custom agents, memory, and MCP server configurations:
-- Claude Code uses `CLAUDE.md`, `.claude/skills/`, and `.claude/agents/`
-- Gemini CLI uses `GEMINI.md` and `.gemini/settings.json`
-- Cursor uses `.cursorrules` and `.cursor/rules/*.mdc`
-- Aider uses `CONVENTIONS.md` and `.aider.conf.yml`
-- OpenAI Codex uses `.codex/config.toml`
+Next morning, you open Cursor to refactor a module. Your custom instructions are gone. Cursor doesn't know about your Rust conventions. You spend 20 minutes hunting down where you saved that prompt, then manually copy-paste it into `.cursorrules`. By Friday, you've done this dance five times — once for each tool. The prompts drift. The skills diverge. Your carefully curated AI personality fragments across a dozen config files, each in its own format, its own directory, its own reality.
 
-Over time, your custom instructions drift, skills become outdated in some tools while updated in others, and there is no single source of truth.
+> [!WARNING]
+> **Configuration Fragmentation** — Every AI coding tool speaks its own config language. Claude Code reads `CLAUDE.md` and `.claude/skills/`. Cursor wants `.cursorrules`. Gemini CLI expects `GEMINI.md`. Aider looks for `CONVENTIONS.md`. OpenAI Codex parses `.codex/config.toml`. You maintain the same rules in five different formats, in five different places, and they *will* drift apart. This is the fragmentation tax — and you're paying it every day.
 
-**LLM Neurosurgeon solves this by acting as a universal neural bridge**:
-1. **Scans** your project or home directory for existing tool configurations.
-2. **Imports** rules, skills, agents, memory, and MCP servers into a single canonical directory: **the Brain** (`~/AIBrain` by default).
-3. **Projects** the Brain back out to every tool on your machine — using symlinks where tolerated or generated files stamped with provenance headers where necessary.
-4. **Monitors & Syncs** changes bidirectionally using a debounced filesystem watcher and OS scheduler background sweeps.
-5. **Tracks History** via Git commits for every sync, giving you a full "Time Machine" to inspect, diff, or roll back your AI configurations.
+Over time, your custom instructions rot. Skills become outdated in some tools while updated in others. There is no single source of truth. Your AI tools are speaking different dialects, and you're the translator.
+
+**There is a better way.**
 
 ---
 
-## 2. Installation & Quickstart
+# Phase 2: The Solution — One Brain to Rule Them All
 
-### Prerequisites
+LLM Neurosurgeon solves fragmentation by acting as a **universal neural bridge** — a single, canonical source of truth for every AI tool on your machine.
 
-- **Rust**: 1.75+ (installed via `rustup`)
-- **Node.js**: 20+ and `pnpm` (or `npm`)
-- **Git**: Installed and available in your `$PATH`
-- **System Dependencies (Linux)**: `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libssl-dev`
+> [!TIP]
+> **One Brain. All Models.** — Define your rules, skills, agents, memory, and MCP servers once in the Brain. Every tool on your machine reads from the same source. No drift. No duplication. No 2 AM copy-paste sessions.
 
-### Building from Source
+Here's how it works:
 
-```bash
-# Clone the repository
-git clone https://github.com/earnerbaymalay/llm-neuro-surgeon.git
-cd llm-neuro-surgeon
+1. **Scan** — Inspects your project or home directory for every existing AI tool configuration it can find.
+2. **Import** — Ingests rules, skills, agents, memory, and MCP servers into a single canonical directory: **the Brain** (`~/AIBrain` by default).
+3. **Project** — Emits the Brain back out to every tool on your machine — using symlinks where tolerated, or generated files stamped with provenance headers where necessary.
+4. **Monitor & Sync** — Watches for changes bidirectionally using a debounced filesystem watcher and OS scheduler background sweeps.
+5. **Track History** — Every sync is a Git commit, giving you a full **Time Machine** to inspect, diff, or roll back your AI configurations.
 
-# Build the Rust workspace (CLI + Core + Desktop Backend)
-cargo build --workspace --release
-
-# Run CLI scan
-cargo run -p neurosurgeon -- scan
-
-# Run CLI dry-run import
-cargo run -p neurosurgeon -- import --dry-run
-```
-
-### Running the Desktop GUI
-
-```bash
-# Install frontend dependencies and start Vite dev server
-cd apps/desktop
-pnpm install
-pnpm dev
-
-# Or launch the Tauri application wrapper
-pnpm tauri dev
-```
-
----
-
-## 3. The Canonical Brain Layout
+## The Canonical Brain Layout
 
 The **Brain** is a human-readable, plain-text directory (defaulting to `~/AIBrain`, configurable via `$NEUROSURGEON_BRAIN` or settings). It is organized as follows:
 
@@ -114,9 +89,10 @@ AIBrain/
 └── .git/                         # Git repository for historical snapshot & rollback
 ```
 
----
+> [!NOTE]
+> Every file in the Brain is plain text. No binary blobs, no proprietary formats. Your configuration is yours — readable, diffable, and portable.
 
-## 4. Supported AI Tools Matrix
+## Supported AI Tools Matrix
 
 LLM Neurosurgeon includes **12 built-in adapters** covering major AI development tools:
 
@@ -137,7 +113,59 @@ LLM Neurosurgeon includes **12 built-in adapters** covering major AI development
 
 ---
 
-## 5. Universal Import & Scanning
+# Phase 3: Immediate Value — Scan, Import, Project
+
+You don't need to read the rest of this guide to get value. Here's your 5-minute path to a unified Brain.
+
+## Quick Start
+
+### Prerequisites
+
+- **Rust**: 1.75+ (installed via `rustup`)
+- **Node.js**: 20+ and `pnpm` (or `npm`)
+- **Git**: Installed and available in your `$PATH`
+- **System Dependencies (Linux)**: `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libssl-dev`
+
+### Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/earnerbaymalay/llm-neuro-surgeon.git
+cd llm-neuro-surgeon
+
+# Build the Rust workspace (CLI + Core + Desktop Backend)
+cargo build --workspace --release
+```
+
+### The 3-Command Onboarding Loop
+
+```bash
+# 1. See what's out there
+cargo run -p neurosurgeon -- scan
+
+# 2. Preview what would be imported (zero writes)
+cargo run -p neurosurgeon -- import --dry-run
+
+# 3. When you're ready, run import for real
+cargo run -p neurosurgeon -- import
+```
+
+> [!TIP]
+> **Dry-run is your safety net.** The `--dry-run` flag reports every file that would be ingested without touching your disk. Run it early, run it often.
+
+### Desktop GUI (Optional)
+
+```bash
+# Install frontend dependencies and start Vite dev server
+cd apps/desktop
+pnpm install
+pnpm dev
+
+# Or launch the Tauri application wrapper
+pnpm tauri dev
+```
+
+## Universal Import & Scanning
 
 ### Scanning for Tools
 
@@ -171,9 +199,7 @@ Migration Report (Dry Run):
   Status: Dry run clean — 0 files written to disk.
 ```
 
----
-
-## 6. Projection Engine & Policy Rules
+## Projection Engine & Policy Rules
 
 Once configs are stored in the Brain, the **Projection Engine** emits them back to each tool's preferred location.
 
@@ -193,9 +219,26 @@ Once configs are stored in the Brain, the **Projection Engine** emits them back 
    ```
    This prevents accidental manual edits in target files and alerts users to edit the Brain source file instead.
 
+## Graphical Desktop Interface
+
+The Tauri-powered Desktop GUI provides an intuitive visual management console divided into 8 core screens:
+
+1. **Main Dashboard (Vitals)**: Overview of Brain health, total skills/agents/rules, capability coverage matrix (Tool × Capability), and quick sync status.
+2. **Configuration Manager**: Tree view and editor for skills, rules, agents, and prompts with tool target toggles.
+3. **Adapter Inspector**: Detailed status of all 12 tool adapters, detected file paths, active projection policies, and drift status.
+4. **Status Monitor**: Real-time sync event log, watcher status, active background schedules, and file change indicators.
+5. **Debug Console**: Monospace diagnostic logs, raw IPC payload inspector, and daemon status controls.
+6. **Onboarding Wizard**: Step-by-step guided setup (Environment Select → Scan & Dry Run Report → Brain Creation & Tool Link).
+7. **Marketplace**: Browse community skills (`anthropics/skills`), view diff previews, provenance metadata, and security warnings.
+8. **MCP Hub**: Search MCP registries, toggle active servers, view health check indicators, and manage Keychain credentials.
+
 ---
 
-## 7. Auto-Sync Daemon & Time Machine
+# Phase 4: Long-term Power — Time Machine, MCP Hub, Doctor
+
+Once your Brain is live, these are the tools that keep it healthy, secure, and evolving.
+
+## Auto-Sync Daemon & Time Machine
 
 ### Background Watching & Schedulers
 
@@ -224,23 +267,10 @@ $ neurosurgeon rollback a1b2c3d
 Rolled back Brain state to snapshot a1b2c3d. Working tree restored byte-identically.
 ```
 
----
+> [!NOTE]
+> **Snapshot Before Destroy** — A Git snapshot is automatically committed prior to any destructive operation. You can always go back.
 
-## 8. Marketplace & Untrusted Skill Ingestion
-
-LLM Neurosurgeon allows importing community-created skills and agents from repositories like `anthropics/skills` or external Git URLs.
-
-### Safety Model for Untrusted Skills
-
-To protect your environment against prompt injection or malicious code execution:
-1. **Disabled by Default**: Ingested marketplace skills are set to `enabled: false` upon import.
-2. **Provenance Tracking**: Each imported skill stores its original source URL, author, and license note in `skill.yaml`.
-3. **SHA-256 Checksums**: Content hashes are recorded and verified upon import.
-4. **Executable Content Inspection**: Skills containing scripts (`.sh`, `.py`, `.js`, `.bin`) are flagged with an **Executable Content** warning card in the UI before activation.
-
----
-
-## 9. MCP Hub & Secrets Management
+## MCP Hub & Secrets Management
 
 The **MCP Hub** centralizes Model Context Protocol (MCP) server management across all installed AI tools.
 
@@ -271,9 +301,10 @@ LLM Neurosurgeon ensures API keys and secrets are **never hardcoded in plain-tex
    ```
 3. At execution runtime, environment variables are dynamically injected from the Keychain.
 
----
+> [!WARNING]
+> Secrets are **never** written to disk in plain text. They live in your OS Keychain. Config files contain only environment variable placeholders.
 
-## 10. Vitals & Doctor Diagnostics
+## Vitals & Doctor Diagnostics
 
 The **Doctor Engine** continuously monitors your Brain and tool projections for drift, broken symlinks, checksum mismatches, or missing files.
 
@@ -300,24 +331,22 @@ Updated mappings.json checksums.
 Brain health restored: 0 critical errors remaining.
 ```
 
----
+## Marketplace & Untrusted Skill Ingestion
 
-## 11. Graphical Desktop Interface
+LLM Neurosurgeon allows importing community-created skills and agents from repositories like `anthropics/skills` or external Git URLs.
 
-The Tauri-powered Desktop GUI provides an intuitive visual management console divided into 8 core screens:
+### Safety Model for Untrusted Skills
 
-1. **Main Dashboard (Vitals)**: Overview of Brain health, total skills/agents/rules, capability coverage matrix (Tool × Capability), and quick sync status.
-2. **Configuration Manager**: Tree view and editor for skills, rules, agents, and prompts with tool target toggles.
-3. **Adapter Inspector**: Detailed status of all 12 tool adapters, detected file paths, active projection policies, and drift status.
-4. **Status Monitor**: Real-time sync event log, watcher status, active background schedules, and file change indicators.
-5. **Debug Console**: Monospace diagnostic logs, raw IPC payload inspector, and daemon status controls.
-6. **Onboarding Wizard**: Step-by-step guided setup (Environment Select → Scan & Dry Run Report → Brain Creation & Tool Link).
-7. **Marketplace**: Browse community skills (`anthropics/skills`), view diff previews, provenance metadata, and security warnings.
-8. **MCP Hub**: Search MCP registries, toggle active servers, view health check indicators, and manage Keychain credentials.
+To protect your environment against prompt injection or malicious code execution:
+1. **Disabled by Default**: Ingested marketplace skills are set to `enabled: false` upon import.
+2. **Provenance Tracking**: Each imported skill stores its original source URL, author, and license note in `skill.yaml`.
+3. **SHA-256 Checksums**: Content hashes are recorded and verified upon import.
+4. **Executable Content Inspection**: Skills containing scripts (`.sh`, `.py`, `.js`, `.bin`) are flagged with an **Executable Content** warning card in the UI before activation.
 
----
+> [!WARNING]
+> Marketplace skills are **disabled by default** and require explicit activation. Every skill carries provenance metadata and SHA-256 checksums so you know exactly what you're importing and where it came from.
 
-## 12. FAQ & Safety Guarantees
+## FAQ & Safety Guarantees
 
 ### Safety Commitments
 
@@ -336,3 +365,6 @@ A: If the file is a symlink, your edit modifies the file in the Brain directly! 
 
 **Q: How do I change the default Brain directory?**  
 A: Set the `$NEUROSURGEON_BRAIN` environment variable or specify `--brain /path/to/custom/brain` in CLI commands.
+
+**Q: Is this safe for production use?**  
+A: Yes. Every destructive operation is preceded by a Git snapshot. The default mode is dry-run. No telemetry. No network calls unless you explicitly trigger them. Your configs never leave your machine.

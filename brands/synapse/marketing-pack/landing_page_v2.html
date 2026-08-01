@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synapse | LLM Neurosurgeon</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --text: #c9d1d9;
+      --text-secondary: #8b949e;
+      --accent: #58a6ff;
+      --accent-glow: rgba(88, 166, 255, 0.35);
+      --border: #30363d;
+      --card-bg: rgba(22, 27, 34, 0.65);
+      --card-border: rgba(48, 54, 61, 0.6);
+      --font: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Background Grid Overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(48, 54, 61, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(48, 54, 61, 0.15) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* ── Animated Gradient Top Bar ── */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      z-index: 100;
+      background: linear-gradient(90deg, #ff7b72, var(--accent), #3fb950, var(--accent), #ff7b72);
+      background-size: 300% 100%;
+      animation: bar-shimmer 4s ease-in-out infinite;
+    }
+    @keyframes bar-shimmer {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* ── Utility ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    section { padding: 5rem 0; }
+
+    .section-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    .section-sub {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 6rem 1.5rem 4rem;
+    }
+
+    .hero-content { max-width: 720px; }
+
+    .hero-logo {
+      font-size: clamp(3.5rem, 10vw, 6rem);
+      font-weight: 800;
+      color: var(--accent);
+      text-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(88, 166, 255, 0.15);
+      letter-spacing: 6px;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+
+    .hero-tagline {
+      font-size: clamp(1.25rem, 3vw, 1.75rem);
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-sub {
+      font-size: clamp(0.9rem, 2vw, 1.1rem);
+      color: var(--text-secondary);
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 2rem;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      border: 1.5px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover {
+      background: #79b8ff;
+      border-color: #79b8ff;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--accent-glow);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .btn-outline:hover {
+      background: rgba(88, 166, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    /* ── Problem Section ── */
+    .problem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    .problem-text p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+
+    .problem-stat {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+
+    .problem-stat-value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #ff7b72;
+      margin-bottom: 0.5rem;
+    }
+
+    .problem-stat-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+    }
+
+    .problem-stat-detail {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    /* ── Solution / Flow Section ── */
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+      margin-top: 2.5rem;
+    }
+
+    .flow-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .flow-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--accent);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .flow-card-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .flow-card-step {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      padding: 0.2rem 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .flow-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .flow-card p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* ── Features Section ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-top: 2.5rem;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .feature-card-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .feature-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature-card p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(88, 166, 255, 0.12);
+      border: 1px solid rgba(88, 166, 255, 0.25);
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 0;
+      margin-top: 2rem;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .footer-copy {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .footer-links a {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--accent); }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .problem-grid { grid-template-columns: 1fr; gap: 2rem; }
+      .flow-grid { grid-template-columns: repeat(2, 1fr); }
+      .features-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 540px) {
+      section { padding: 3rem 0; }
+      .section-title { font-size: 1.5rem; }
+      .flow-grid { grid-template-columns: 1fr; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      .btn { width: 100%; max-width: 280px; justify-content: center; }
+      .footer-inner { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Animated Gradient Top Bar -->
+  <div class="top-bar"></div>
+
+  <!-- ════════════════════════════════════════════════════
+       HERO
+       ════════════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-logo">SYNAPSE</h1>
+      <p class="hero-tagline">One Brain. All Models.</p>
+      <p class="hero-sub">Effortless AI Configuration. Surgical precision. Zero friction.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary">Get Started</a>
+        <a href="#" class="btn btn-outline">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════
+       PROBLEM
+       ════════════════════════════════════════════════════ -->
+  <section>
+    <div class="container">
+      <span class="section-label">The Problem</span>
+      <h2 class="section-title">The Fragmentation Tax</h2>
+      <div class="problem-grid">
+        <div class="problem-text">
+          <p>
+            Every AI tool speaks its own config language. GitHub Copilot wants
+            <code style="color:var(--accent)">.github/copilot-instructions.md</code>.
+            Zed expects <code style="color:var(--accent)">.zed/agents.md</code>.
+            Cline reads <code style="color:var(--accent)">.clinerules</code>.
+          </p>
+          <p>
+            You end up repeating the same rules across a dozen formats — and
+            they <em>always</em> drift out of sync. That's the fragmentation tax.
+          </p>
+        </div>
+        <div class="problem-stat">
+          <div class="problem-stat-value">7 tools × 5 configs</div>
+          <div class="problem-stat-label">= 35 places to maintain</div>
+          <div class="problem-stat-detail">
+            One change. Dozens of edits. Every. Single. Time.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════
+       SOLUTION / FLOW
+       ══════���═════════════════════════════════════════════ -->
+  <section>
+    <div class="container">
+      <span class="section-label">The Solution</span>
+      <h2 class="section-title">One Brain. All Models.</h2>
+      <p class="section-sub">
+        Write once. Deploy everywhere. Synapse is the universal config layer
+        for your AI toolchain.
+      </p>
+
+      <div class="flow-grid">
+        <div class="flow-card">
+          <span class="flow-card-step">STEP 1</span>
+          <span class="flow-card-icon">🔍</span>
+          <h3>Scan</h3>
+          <p>Discover every AI config across your workspace — adapters, agents, rules.</p>
+        </div>
+
+        <div class="flow-card">
+          <span class="flow-card-step">STEP 2</span>
+          <span class="flow-card-icon">📦</span>
+          <h3>Import</h3>
+          <p>Parse and normalize into a single, canonical format with zero data loss.</p>
+        </div>
+
+        <div class="flow-card">
+          <span class="flow-card-step">STEP 3</span>
+          <span class="flow-card-icon">🧠</span>
+          <h3>Project</h3>
+          <p>Edit your unified config once. Synapse understands every adapter dialect.</p>
+        </div>
+
+        <div class="flow-card">
+          <span class="flow-card-step">STEP 4</span>
+          <span class="flow-card-icon">🔄</span>
+          <h3>Sync</h3>
+          <p>Push changes to all targets automatically. Every tool stays in lockstep.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════
+       FEATURES
+       ════════════════════════════════════════════════════ -->
+  <section>
+    <div class="container">
+      <span class="section-label">Capabilities</span>
+      <h2 class="section-title">Feature Pillars</h2>
+      <p class="section-sub">
+        Purpose-built for the multi-tool AI era.
+      </p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="feature-card-icon">🔌</span>
+          <h3>Universal Import</h3>
+          <p>12 built-in adapters — GitHub Copilot, Zed, Cline, Cursor, Windsurf, Claude Code, Gemini CLI, Continue.dev, Aider, Roo, OpenHands, and more.</p>
+          <span class="feature-badge">12 Adapters</span>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-card-icon">⚡</span>
+          <h3>Auto-Sync Daemon</h3>
+          <p>Runs in the background. Watches your unified config for changes and propagates them to every target in real time. No manual exports.</p>
+          <span class="feature-badge">Real-time</span>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-card-icon">⏱️</span>
+          <h3>Time Machine</h3>
+          <p>Every sync is a Git snapshot. Roll back any config to any point in time. Diff, review, and restore with surgical precision.</p>
+          <span class="feature-badge">Git-backed</span>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-card-icon">🔐</span>
+          <h3>MCP Hub &amp; Secrets</h3>
+          <p>Manage MCP server endpoints, API keys, and environment variables from one place. Encrypted storage with pluggable backends.</p>
+          <span class="feature-badge">Zero Leaks</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════
+       FOOTER
+       ═══════════════���════════════════════════════════════ -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <span class="footer-copy">© 2026 — Built with RALPH</span>
+        <div class="footer-links">
+          <a href="#">GitHub</a>
+          <a href="#">Docs</a>
+          <a href="#">Changelog</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
