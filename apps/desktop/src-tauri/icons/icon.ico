@@ -1,0 +1,5 @@
+PLACEHOLDER — Replace with a real ICO file.
+Generate it on the build machine with:
+  png2ico icons/icon.ico icons/icon.png
+or with ImageMagick:
+  convert icons/icon.png icons/icon.ico

@@ -1,0 +1,5 @@
+PLACEHOLDER — Replace with a real ICNS file.
+Generate it on the build machine with:
+  png2icns icons/icon.icns icons/icon.png
+or with ImageMagick:
+  convert icons/icon.png icons/icon.icns

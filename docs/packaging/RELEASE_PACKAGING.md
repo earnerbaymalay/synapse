@@ -1,3 +1,54 @@
+# Quick Start — Build Installers
+
+## Prerequisites
+- Rust 1.75+ (via rustup)
+- Node.js 20+ and pnpm
+- System libraries (Linux):
+  ```bash
+  sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev
+  ```
+- macOS: Xcode Command Line Tools
+- Windows: Visual Studio Build Tools + WebView2
+
+## Build All Artifacts
+```bash
+# 1. Build the CLI binary
+cargo build -p neurosurgeon --release
+# Binary at: target/release/neurosurgeon
+
+# 2. Build the desktop frontend
+cd apps/desktop
+pnpm install
+pnpm build
+# Frontend dist at: apps/desktop/dist/
+
+# 3. Generate icons (run once)
+cd src-tauri
+python3 build-icons.py
+
+# 4. Build the Tauri desktop app + installers
+cargo build --release
+pnpm tauri build
+# Installers at: apps/desktop/src-tauri/target/release/bundle/
+```
+
+## Platform Installers
+| Platform | Format | Location |
+|---|---|---|
+| Linux | .deb | `.../bundle/deb/llm-neurosurgeon_0.7.4_amd64.deb` |
+| Linux | .AppImage | `.../bundle/appimage/LLM_Neurosurgeon_0.7.4_amd64.AppImage` |
+| macOS | .dmg | `.../bundle/dmg/LLM_Neurosurgeon_0.7.4_x64.dmg` (requires Apple Developer ID) |
+| Windows | .msi | `.../bundle/msi/LLM_Neurosurgeon_0.7.4_x64_en-US.msi` (requires code signing cert) |
+
+## CLI Only (no desktop)
+If you only need the CLI, you can skip the Tauri build entirely:
+```bash
+cargo build -p neurosurgeon --release
+sudo cp target/release/neurosurgeon /usr/local/bin/
+```
+
+---
+
 # LLM Neurosurgeon — Release Packaging & Distribution Guide
 
 This document specifies the release packaging configurations, installer scripts, platform bundlers, code signing workflows, and package manager formulae for **LLM Neurosurgeon** (Desktop GUI and CLI engine).
