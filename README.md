@@ -128,6 +128,7 @@ AIBrain/
 - **Rust**: 1.75+
 - **Node.js**: 20+ (`pnpm` workspace)
 - **Git**
+- **System Dependencies (Linux)**: `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libssl-dev`, `libdbus-1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`
 
 ### CLI Commands
 
