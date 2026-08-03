@@ -133,7 +133,7 @@ check_system_libs() {
 
     # Linux: check common Tauri system libraries
     if [ "$(uname -s)" = "Linux" ]; then
-        for lib in libgtk-3.so libwebkit2gtk-4.1.so libayatana-appindicator3.so; do
+        for lib in libgtk-3.so libwebkit2gtk-4.1.so libayatana-appindicator3.so libdbus-1.so libjavascriptcoregtk-4.1.so libsoup-3.0.so; do
             if ! ldconfig -p 2>/dev/null | grep -q "${lib}"; then
                 missing_libs="${missing_libs}  ${lib}"
             fi
@@ -144,7 +144,7 @@ check_system_libs() {
             echo ""
             echo "  On Debian/Ubuntu, install:"
             echo "    sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev \\"
-            echo "      libayatana-appindicator3-dev librsvg2-dev"
+            echo "      libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev"
             echo ""
             echo "  On Fedora, install:"
             echo "    sudo dnf install gtk3-devel webkit2gtk4.1-devel \\"

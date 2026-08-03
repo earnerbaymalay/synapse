@@ -5,7 +5,7 @@
 - Node.js 20+ and pnpm
 - System libraries (Linux):
   ```bash
-  sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev
+  sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libdbus-1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
   ```
 - macOS: Xcode Command Line Tools
 - Windows: Visual Studio Build Tools + WebView2

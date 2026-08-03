@@ -124,7 +124,7 @@ You don't need to read the rest of this guide to get value. Here's your 5-minute
 - **Rust**: 1.75+ (installed via `rustup`)
 - **Node.js**: 20+ and `pnpm` (or `npm`)
 - **Git**: Installed and available in your `$PATH`
-- **System Dependencies (Linux)**: `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libssl-dev`
+- **System Dependencies (Linux)**: `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libssl-dev`, `libdbus-1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`
 
 ### Build from Source
 
