@@ -493,7 +493,7 @@ mod tests {
         let script = dir.path().join("fixture-mcp.sh");
         std::fs::write(
             &script,
-            "#!/bin/sh\nread _line\nprintf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"0.0.1\"}}}'\nsleep 5\n",
+            "#!/bin/sh\nsleep 0.05\nread _line\nprintf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"0.0.1\"}}}'\nsleep 5\n",
         )
         .unwrap();
         #[allow(clippy::permissions_set_readonly_false)]
@@ -502,7 +502,7 @@ mod tests {
             std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let status = health_check_stdio(&script.display().to_string(), Duration::from_secs(5));
+        let status = health_check_stdio(&script.display().to_string(), Duration::from_millis(250));
         assert_eq!(status, HealthStatus::Healthy);
     }
 
