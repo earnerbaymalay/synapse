@@ -7,7 +7,7 @@ use std::path::Path;
 
 pub struct ClaudeCodeAdapter;
 
-const MEMORY_SKILL_ID: &str = "claude-code-memory";
+const MEMORY_SKILL_ID: &str = "claude-rules";
 const SKILL_ID_PREFIX: &str = "claude-skill-";
 const AGENT_SKILL_ID_PREFIX: &str = "claude-agent-";
 

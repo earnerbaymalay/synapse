@@ -363,7 +363,7 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN") {
+    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN_PATH").or_else(|| std::env::var_os("NEUROSURGEON_BRAIN")) {
         return Ok(PathBuf::from(env));
     }
     dirs::home_dir()
@@ -372,13 +372,12 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 }
 
 /// Resolves the tool config root that projection paths are relative to.
-/// Precedence: `--tool-root`, then `$NEUROSURGEON_TOOL_ROOT`, then the home
-/// directory (tool configs like `.cursor/…` live under `$HOME`).
+/// Precedence: `--tool-root`, then `$NEUROSURGEON_WORKSPACE_PATH` / `$NEUROSURGEON_TOOL_ROOT`, then home.
 fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_TOOL_ROOT") {
+    if let Some(env) = std::env::var_os("NEUROSURGEON_WORKSPACE_PATH").or_else(|| std::env::var_os("NEUROSURGEON_TOOL_ROOT")) {
         return Ok(PathBuf::from(env));
     }
     dirs::home_dir()

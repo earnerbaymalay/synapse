@@ -79,7 +79,7 @@ impl Adapter for AiderAdapter {
             let content = strip_provenance(&raw);
             let sha256 = compute_sha256(&content);
             skills.push(Skill {
-                id: "aider-conventions".to_string(),
+                id: "conventions".to_string(),
                 version: "1.0.0".to_string(),
                 triggers: vec!["*".to_string()],
                 targets: vec!["aider".to_string()],
@@ -183,7 +183,7 @@ mod tests {
 
         let imported = adapter.import(dir.path()).unwrap();
         assert_eq!(imported.skills.len(), 1);
-        assert_eq!(imported.skills[0].id, "aider-conventions");
+        assert_eq!(imported.skills[0].id, "conventions");
         assert_eq!(imported.skills[0].source, "Use snake_case for Python.");
 
         let out_dir = tempdir().unwrap();

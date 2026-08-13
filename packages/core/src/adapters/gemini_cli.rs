@@ -27,7 +27,7 @@ impl Adapter for GeminiCliAdapter {
             let content = strip_provenance(&raw);
             let sha256 = compute_sha256(&content);
             skills.push(Skill {
-                id: "gemini-cli-memory".to_string(),
+                id: "gemini-rules".to_string(),
                 version: "1.0.0".to_string(),
                 triggers: vec!["*".to_string()],
                 targets: vec!["gemini-cli".to_string()],
@@ -248,7 +248,7 @@ mod tests {
 
         let imported = adapter.import(dir.path()).unwrap();
         assert_eq!(imported.skills.len(), 1);
-        assert_eq!(imported.skills[0].id, "gemini-cli-memory");
+        assert_eq!(imported.skills[0].id, "gemini-rules");
         assert_eq!(imported.skills[0].source, "Project memory instructions");
 
         assert_eq!(imported.mcp_servers.len(), 1);

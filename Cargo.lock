@@ -658,7 +658,7 @@ dependencies = [
 
 [[package]]
 name = "desktop-app"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "directories",
@@ -2038,7 +2038,7 @@ dependencies = [
 
 [[package]]
 name = "neurosurgeon"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "dirs",
@@ -2049,7 +2049,7 @@ dependencies = [
 
 [[package]]
 name = "neurosurgeon-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "diffy",

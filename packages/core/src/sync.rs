@@ -41,13 +41,23 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             .import(root)
             .map_err(|e| format!("Adapter {} import failed: {e}", adapter.id()))?;
 
-        for skill in import_res.skills {
+        for mut skill in import_res.skills {
+            if skill.targets.is_empty() {
+                skill.targets = all_adapters().iter().map(|a| a.id().to_string()).collect();
+            }
             let skill_dir = brain_root.join("skills").join(&skill.id);
             fs::create_dir_all(&skill_dir)
                 .map_err(|e| format!("Failed to create skill dir: {e}"))?;
+
             let skill_file = skill_dir.join("SKILL.md");
             fs::write(&skill_file, &skill.source)
                 .map_err(|e| format!("Failed to write skill file: {e}"))?;
+
+            let skill_yaml = skill_dir.join("skill.yaml");
+            let yaml_content = serde_json::to_string_pretty(&skill)
+                .map_err(|e| format!("Failed to serialize skill.yaml: {e}"))?;
+            fs::write(&skill_yaml, yaml_content)
+                .map_err(|e| format!("Failed to write skill.yaml: {e}"))?;
 
             let rel_path = format!("skills/{}/SKILL.md", skill.id);
             imported_paths.push(rel_path.clone());
@@ -113,7 +123,20 @@ pub fn perform_project(brain_root: &Path, tool_root: &Path) -> Result<Vec<String
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
+                    let skill_yaml = path.join("skill.yaml");
                     let skill_md = path.join("SKILL.md");
+
+                    if skill_yaml.exists() {
+                        if let Ok(raw) = fs::read_to_string(&skill_yaml) {
+                            if let Ok(mut skill) = serde_json::from_str::<Skill>(&raw) {
+                                // Expand targets so all adapters project matching skills
+                                skill.targets = all_adapters().iter().map(|a| a.id().to_string()).collect();
+                                skills.push(skill);
+                                continue;
+                            }
+                        }
+                    }
+
                     if skill_md.exists() {
                         if let Ok(raw) = fs::read_to_string(&skill_md) {
                             let id = path.file_name().unwrap().to_string_lossy().to_string();
@@ -207,6 +230,7 @@ mod tests {
         let imported = perform_import(root.path(), brain.path()).unwrap();
         assert!(!imported.is_empty());
         assert!(brain.path().join("skills/agy-cli-memory/SKILL.md").exists());
+        assert!(brain.path().join("skills/agy-cli-memory/skill.yaml").exists());
 
         let projected = perform_project(brain.path(), tool_root.path()).unwrap();
         assert!(!projected.is_empty());

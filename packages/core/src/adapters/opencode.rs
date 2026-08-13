@@ -152,7 +152,7 @@ impl Adapter for OpenCodeAdapter {
 
             let sha256 = compute_sha256(&body);
             skills.push(Skill {
-                id: "opencode-agent-instructions".to_string(),
+                id: "opencode-rules".to_string(),
                 version: "1.0.0".to_string(),
                 triggers: vec!["*".to_string()],
                 targets: vec!["opencode".to_string()],
@@ -274,7 +274,7 @@ over multiple lines."#;
         assert_eq!(imported.agents[0].model_hints, vec!["claude-3-5-sonnet"]);
 
         assert_eq!(imported.skills.len(), 1);
-        assert_eq!(imported.skills[0].id, "opencode-agent-instructions");
+        assert_eq!(imported.skills[0].id, "opencode-rules");
         assert_eq!(
             imported.skills[0].source,
             "Some system instructions\nover multiple lines."
