@@ -117,7 +117,7 @@ impl Adapter for ContinueAdapter {
                 let body = body.trim().to_string();
                 let sha256 = compute_sha256(&body);
                 skills.push(Skill {
-                    id: format!("{}{}", RULE_ID_PREFIX, stem),
+                    id: stem.to_string(),
                     version: "1.0.0".to_string(),
                     triggers,
                     targets: vec!["continue".to_string()],
@@ -228,7 +228,7 @@ impl Adapter for ContinueAdapter {
         let rule_skills: Vec<&Skill> = skills
             .iter()
             .filter(|s| {
-                s.targets.contains(&"continue".to_string()) && s.id.starts_with(RULE_ID_PREFIX)
+                s.targets.contains(&"continue".to_string()) && s.id != "continue-config"
             })
             .collect();
 
@@ -239,7 +239,7 @@ impl Adapter for ContinueAdapter {
             })?;
 
             for skill in rule_skills {
-                let slug = &skill.id[RULE_ID_PREFIX.len()..];
+                let slug = skill.id.strip_prefix(RULE_ID_PREFIX).unwrap_or(&skill.id);
                 let fm = MdcFrontmatter {
                     globs: skill.triggers.clone(),
                     always_apply: skill.triggers == vec!["*".to_string()],
@@ -324,7 +324,7 @@ mod tests {
         assert_eq!(imported.mcp_servers[0].command_or_url, "uvx search-mcp");
 
         assert_eq!(imported.skills.len(), 1);
-        assert_eq!(imported.skills[0].id, "continue-rule-01-style");
+        assert_eq!(imported.skills[0].id, "01-style");
         assert_eq!(imported.skills[0].triggers, vec!["*.ts".to_string()]);
         assert!(imported.skills[0].source.contains("2-space indentation"));
 

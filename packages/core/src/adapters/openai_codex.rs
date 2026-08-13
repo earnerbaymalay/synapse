@@ -1,7 +1,7 @@
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, HealthStatus, McpServer, Skill};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use toml::{Table, Value};
 
 pub struct OpenAiCodexAdapter;
@@ -20,10 +20,15 @@ impl Adapter for OpenAiCodexAdapter {
     }
 
     fn detect(&self, root: &Path) -> bool {
-        root.join(".codex/config.toml").exists()
+        let in_root = root.join(".codex/config.toml").exists() || root.join(".codex/config.json").exists();
+        let in_home = std::env::var_os("HOME").map(PathBuf::from).map_or(false, |h| {
+            h.join(".codex/config.toml").exists() || h.join(".codex/config.json").exists()
+        });
+        in_root || in_home
     }
 
     fn import(&self, root: &Path) -> Result<ImportResult, AdapterError> {
+        let skills = Vec::new();
         let mut mcp_servers = Vec::new();
 
         let config_path = root.join(".codex/config.toml");
@@ -85,7 +90,7 @@ impl Adapter for OpenAiCodexAdapter {
         }
 
         Ok(ImportResult {
-            skills: Vec::new(),
+            skills,
             agents: Vec::new(),
             mcp_servers,
         })

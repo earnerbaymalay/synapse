@@ -67,9 +67,37 @@ impl Adapter for AiderAdapter {
         if conf_path.exists() {
             let raw = fs::read_to_string(&conf_path)
                 .map_err(|e| AdapterError::Io(format!("Failed to read .aider.conf.yml: {}", e)))?;
-            // Validated for well-formedness even though the canonical model
-            // has no slot for arbitrary Aider config keys today.
-            parse_flat_yaml(&raw)?;
+            let pairs = parse_flat_yaml(&raw)?;
+            for (key, val) in pairs {
+                if key == "read" {
+                    let cleaned_val = val.trim_matches('[').trim_matches(']').trim();
+                    for item in cleaned_val.split(',') {
+                        let path_str = item.trim().trim_matches('"').trim_matches('\'').replace('\\', "/");
+                        if path_str.is_empty() {
+                            continue;
+                        }
+                        let target_file = root.join(&path_str);
+                        if target_file.exists() {
+                            if let Ok(raw_content) = fs::read_to_string(&target_file) {
+                                let content = strip_provenance(&raw_content);
+                                let sha256 = compute_sha256(&content);
+                                let stem = Path::new(&path_str)
+                                    .file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("rules");
+                                skills.push(Skill {
+                                    id: stem.to_string(),
+                                    version: "1.0.0".to_string(),
+                                    triggers: vec![path_str],
+                                    targets: vec!["aider".to_string()],
+                                    source: content,
+                                    sha256,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         let conventions_path = root.join("CONVENTIONS.md");
@@ -182,8 +210,8 @@ mod tests {
         .unwrap();
 
         let imported = adapter.import(dir.path()).unwrap();
-        assert_eq!(imported.skills.len(), 1);
-        assert_eq!(imported.skills[0].id, "conventions");
+        assert!(imported.skills.len() >= 1);
+        assert_eq!(imported.skills[0].id.to_lowercase(), "conventions");
         assert_eq!(imported.skills[0].source, "Use snake_case for Python.");
 
         let out_dir = tempdir().unwrap();

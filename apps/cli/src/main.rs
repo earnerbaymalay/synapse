@@ -71,18 +71,18 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Scan { json } => match std::env::current_dir() {
+        Command::Scan { json } => match resolve_tool_root(None) {
             Ok(root) => report_scan(&root, json),
             Err(e) => {
-                eprintln!("neurosurgeon scan: failed to read current directory: {e}");
+                eprintln!("neurosurgeon scan: {e}");
                 ExitCode::FAILURE
             }
         },
         Command::Import { dry_run } => {
-            let root = match std::env::current_dir() {
+            let root = match resolve_tool_root(None) {
                 Ok(r) => r,
                 Err(e) => {
-                    eprintln!("neurosurgeon import: failed to read current directory: {e}");
+                    eprintln!("neurosurgeon import: {e}");
                     return ExitCode::FAILURE;
                 }
             };
@@ -158,10 +158,10 @@ fn main() -> ExitCode {
             }
         }
         Command::Sync { once: _ } => {
-            let root = match std::env::current_dir() {
+            let root = match resolve_tool_root(None) {
                 Ok(r) => r,
                 Err(e) => {
-                    eprintln!("neurosurgeon sync: failed to read current directory: {e}");
+                    eprintln!("neurosurgeon sync: {e}");
                     return ExitCode::FAILURE;
                 }
             };
@@ -379,6 +379,9 @@ fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     }
     if let Some(env) = std::env::var_os("NEUROSURGEON_WORKSPACE_PATH").or_else(|| std::env::var_os("NEUROSURGEON_TOOL_ROOT")) {
         return Ok(PathBuf::from(env));
+    }
+    if let Ok(cur) = std::env::current_dir() {
+        return Ok(cur);
     }
     dirs::home_dir()
         .ok_or_else(|| "cannot locate a home directory; pass --tool-root <PATH>".to_string())

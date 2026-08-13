@@ -18,7 +18,9 @@ impl Adapter for CursorAdapter {
     }
 
     fn detect(&self, root: &Path) -> bool {
-        root.join(".cursorrules").exists() || root.join(".cursor/rules").is_dir()
+        root.join(".cursorrules").exists()
+            || root.join(".cursor/rules").is_dir()
+            || root.join(".cursor/settings.json").exists()
     }
 
     fn import(&self, root: &Path) -> Result<ImportResult, AdapterError> {
@@ -85,7 +87,7 @@ impl Adapter for CursorAdapter {
                 let body = body.trim().to_string();
                 let sha256 = compute_sha256(&body);
                 skills.push(Skill {
-                    id: format!("{}{}", RULE_ID_PREFIX, stem),
+                    id: stem.to_string(),
                     version: "1.0.0".to_string(),
                     triggers,
                     targets: vec!["cursor".to_string()],
@@ -128,7 +130,7 @@ impl Adapter for CursorAdapter {
 
         let rule_skills: Vec<&&Skill> = cursor_skills
             .iter()
-            .filter(|s| s.id.starts_with(RULE_ID_PREFIX))
+            .filter(|s| s.id != LEGACY_SKILL_ID)
             .collect();
 
         if !rule_skills.is_empty() {
@@ -137,7 +139,7 @@ impl Adapter for CursorAdapter {
                 .map_err(|e| AdapterError::Io(format!("Failed to create .cursor/rules: {}", e)))?;
 
             for skill in rule_skills {
-                let slug = &skill.id[RULE_ID_PREFIX.len()..];
+                let slug = skill.id.strip_prefix(RULE_ID_PREFIX).unwrap_or(&skill.id);
                 let fm = MdcFrontmatter {
                     globs: skill.triggers.clone(),
                     always_apply: skill.triggers == vec!["*".to_string()],
@@ -229,7 +231,7 @@ mod tests {
         let rule = imported
             .skills
             .iter()
-            .find(|s| s.id == "cursor-rule-repo-conventions")
+            .find(|s| s.id == "repo-conventions")
             .unwrap();
         assert_eq!(rule.triggers, vec!["*.rs".to_string()]);
         assert!(rule.source.contains("Prefer editing existing files."));
@@ -304,7 +306,7 @@ mod tests {
         let rule = imported
             .skills
             .iter()
-            .find(|s| s.id == "cursor-rule-repo-conventions")
+            .find(|s| s.id == "repo-conventions")
             .unwrap();
         assert_eq!(rule.triggers, vec!["*.rs".to_string()]);
         assert!(rule.source.contains("Repo Conventions"));

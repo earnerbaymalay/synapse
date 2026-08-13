@@ -14,6 +14,8 @@ impl Adapter for WindsurfAdapter {
 
     fn detect(&self, root: &Path) -> bool {
         root.join(".windsurfrules").exists()
+            || root.join(".codeium/windsurf/mcp.json").exists()
+            || get_windsurf_mcp_path().map_or(false, |p| p.exists())
     }
 
     fn import(&self, root: &Path) -> Result<ImportResult, AdapterError> {
@@ -36,7 +38,14 @@ impl Adapter for WindsurfAdapter {
             });
         }
 
-        if let Some(mcp_path) = get_windsurf_mcp_path() {
+        let root_mcp = root.join(".codeium/windsurf/mcp.json");
+        let target_mcp = if root_mcp.exists() {
+            Some(root_mcp)
+        } else {
+            get_windsurf_mcp_path()
+        };
+
+        if let Some(mcp_path) = target_mcp {
             if mcp_path.exists() {
                 let raw_json = fs::read_to_string(&mcp_path).map_err(|e| {
                     AdapterError::Io(format!("Failed to read Windsurf mcp.json: {}", e))
