@@ -62,6 +62,10 @@ pub enum Artifact {
 /// Derived by reading every adapter's `project()` method in
 /// `packages/core/src/adapters/*.rs` — see PROGRESS.md's T3.2 entry.
 const POLICY_TABLE: &[(&str, Artifact, bool)] = &[
+    ("agy-cli", Artifact::Rules, true),
+    ("agy-cli", Artifact::Skill, true),
+    ("agy-cli", Artifact::Agent, true),
+    ("agy-cli", Artifact::MergedConfig, false),
     ("aider", Artifact::Rules, true),
     ("aider", Artifact::MergedConfig, false),
     ("claude-code", Artifact::Rules, true),

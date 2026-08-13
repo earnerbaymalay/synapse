@@ -64,6 +64,9 @@ enum Command {
     },
 }
 
+use neurosurgeon_core::snapshot::{rollback, snapshot};
+use neurosurgeon_core::sync::{perform_import, perform_project};
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
@@ -76,25 +79,126 @@ fn main() -> ExitCode {
             }
         },
         Command::Import { dry_run } => {
-            if !dry_run {
-                eprintln!(
-                    "neurosurgeon import: only --dry-run is implemented so far — \
-                     writing into the Brain is Phase 4 scope, see PLAN.md T4.x"
-                );
-                return ExitCode::FAILURE;
-            }
-            match std::env::current_dir() {
-                Ok(root) => report_import_dry_run(&root),
+            let root = match std::env::current_dir() {
+                Ok(r) => r,
                 Err(e) => {
                     eprintln!("neurosurgeon import: failed to read current directory: {e}");
-                    ExitCode::FAILURE
+                    return ExitCode::FAILURE;
+                }
+            };
+            if dry_run {
+                report_import_dry_run(&root)
+            } else {
+                let brain_root = match resolve_brain_root(None) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        eprintln!("neurosurgeon import: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                match perform_import(&root, &brain_root) {
+                    Ok(paths) => {
+                        println!(
+                            "Imported {} artifact(s) into Brain at {}:",
+                            paths.len(),
+                            brain_root.display()
+                        );
+                        for p in &paths {
+                            println!("  - {p}");
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        eprintln!("neurosurgeon import: {e}");
+                        ExitCode::FAILURE
+                    }
                 }
             }
         }
         Command::Project { dry_run } => {
-            not_yet_implemented("project", &format!("dry_run={dry_run}"))
+            let brain_root = match resolve_brain_root(None) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("neurosurgeon project: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let tool_root = match resolve_tool_root(None) {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("neurosurgeon project: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            if dry_run {
+                println!(
+                    "Dry run — projecting from {} to {}",
+                    brain_root.display(),
+                    tool_root.display()
+                );
+                ExitCode::SUCCESS
+            } else {
+                match perform_project(&brain_root, &tool_root) {
+                    Ok(paths) => {
+                        println!(
+                            "Projected {} file(s) from Brain into {}:",
+                            paths.len(),
+                            tool_root.display()
+                        );
+                        for p in &paths {
+                            println!("  - {p}");
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        eprintln!("neurosurgeon project: {e}");
+                        ExitCode::FAILURE
+                    }
+                }
+            }
         }
-        Command::Sync { once } => not_yet_implemented("sync", &format!("once={once}")),
+        Command::Sync { once: _ } => {
+            let root = match std::env::current_dir() {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("neurosurgeon sync: failed to read current directory: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let brain_root = match resolve_brain_root(None) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("neurosurgeon sync: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let tool_root = match resolve_tool_root(None) {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("neurosurgeon sync: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            match perform_import(&root, &brain_root) {
+                Ok(imported) => {
+                    println!("Sync: imported {} item(s).", imported.len());
+                }
+                Err(e) => {
+                    eprintln!("neurosurgeon sync import phase failed: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+            match perform_project(&brain_root, &tool_root) {
+                Ok(projected) => {
+                    println!("Sync: projected {} item(s).", projected.len());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("neurosurgeon sync project phase failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Command::Doctor {
             fix,
             brain,
@@ -117,10 +221,43 @@ fn main() -> ExitCode {
             run_doctor(&brain_root, &tool_root, fix)
         }
         Command::Snapshot { message } => {
-            not_yet_implemented("snapshot", &format!("message={message:?}"))
+            let brain_root = match resolve_brain_root(None) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("neurosurgeon snapshot: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let msg = message.as_deref().unwrap_or("Manual snapshot");
+            match snapshot(&brain_root, msg) {
+                Ok(sha) => {
+                    println!("Snapshot created: {sha}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("neurosurgeon snapshot: {e}");
+                    ExitCode::FAILURE
+                }
+            }
         }
-        Command::Rollback { snapshot } => {
-            not_yet_implemented("rollback", &format!("snapshot={snapshot}"))
+        Command::Rollback { snapshot: snapshot_ref } => {
+            let brain_root = match resolve_brain_root(None) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("neurosurgeon rollback: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            match rollback(&brain_root, &snapshot_ref) {
+                Ok(sha) => {
+                    println!("Rollback successful, new commit: {sha}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("neurosurgeon rollback: {e}");
+                    ExitCode::FAILURE
+                }
+            }
         }
     }
 }

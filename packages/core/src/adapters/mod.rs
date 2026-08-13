@@ -2,6 +2,7 @@ use crate::adapter::{Adapter, AdapterError};
 use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
 
+pub mod agy_cli;
 pub mod aider;
 pub mod claude_code;
 pub mod cline;
@@ -15,9 +16,10 @@ pub mod roo_code;
 pub mod windsurf;
 pub mod zed;
 
-/// Returns all 12 implemented adapters (Phase 3 Milestones 1-3).
+/// Returns all 13 implemented adapters.
 pub fn all_adapters() -> Vec<Box<dyn Adapter>> {
     vec![
+        Box::new(agy_cli::AgyCliAdapter),
         Box::new(cline::ClineAdapter),
         Box::new(opencode::OpenCodeAdapter),
         Box::new(github_copilot::GitHubCopilotAdapter),
@@ -231,9 +233,9 @@ mod registry_tests {
     use tempfile::tempdir;
 
     #[test]
-    fn all_12_adapters_registered_with_unique_ids() {
+    fn all_13_adapters_registered_with_unique_ids() {
         let adapters = all_adapters();
-        assert_eq!(adapters.len(), 12);
+        assert_eq!(adapters.len(), 13);
 
         let mut ids: Vec<&str> = adapters.iter().map(|a| a.id()).collect();
         let before = ids.len();

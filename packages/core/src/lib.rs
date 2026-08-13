@@ -39,6 +39,6 @@ pub use scanner::ScanResult;
 pub use scheduler::{ScheduledJob, SchedulerOs};
 pub use secrets::{MemorySecretStore, SecretError, SecretStore};
 pub use snapshot::{SnapshotError, SnapshotLock};
-pub use sync::SyncOutcome;
+pub use sync::{perform_import, perform_project, SyncOutcome};
 pub use updater::{check_for_update, Channel, ReleaseManifest, UpdateDecision, UpdateError};
 pub use watcher::{DebouncedEvent, DebouncedWatcher};

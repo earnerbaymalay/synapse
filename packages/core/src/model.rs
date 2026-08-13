@@ -2,8 +2,10 @@
 //! MASTER_PROMPT.md §1. Every adapter imports into these types and projects
 //! out of them; no tool-specific format leaks past the adapter boundary.
 
+use serde::{Deserialize, Serialize};
+
 /// `AIBrain/skills/<slug>/skill.yaml`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Skill {
     pub id: String,
     pub version: String,
@@ -14,7 +16,7 @@ pub struct Skill {
 }
 
 /// `AIBrain/agents/<slug>.md` frontmatter
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Agent {
     pub slug: String,
     pub tools: Vec<String>,
@@ -23,7 +25,7 @@ pub struct Agent {
 }
 
 /// `AIBrain/mcp/servers/<id>.yaml`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McpServer {
     pub id: String,
     pub transport: String,
@@ -33,7 +35,7 @@ pub struct McpServer {
     pub health: HealthStatus,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HealthStatus {
     Unknown,
     Healthy,
