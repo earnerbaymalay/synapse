@@ -42,7 +42,7 @@ jobs:
             libayatana-appindicator3-dev librsvg2-dev libxdo-dev
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 8.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -54,6 +54,49 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo test --workspace
         run: cargo test --workspace --locked
+
+  javascript-test:
+    name: JavaScript tests & desktop build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Desktop tests
+        run: pnpm --filter desktop-app test
+      - name: Schema tests
+        run: pnpm --filter @llm-neurosurgeon/schema test
+      - name: Desktop production build
+        run: pnpm --filter desktop-app build
+
+  e2e-test:
+    name: End-to-end baseline
+    runs-on: ubuntu-latest
+    # The committed E2E suite currently specifies CLI write paths that are not
+    # implemented yet. Keep it visible on every change without misreporting it
+    # as a release gate until that backlog reaches zero failures.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - uses: Swatinem/rust-cache@v2
+      - name: End-to-end tests
+        continue-on-error: true
+        run: pnpm --filter @llm-neurosurgeon/e2e test
 
   shell:
     name: Shell lint

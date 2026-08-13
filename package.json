@@ -2,6 +2,12 @@
   "name": "llm-neurosurgeon",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@8.15.9",
+  "pnpm": {
+    "overrides": {
+      "nanoid": "3.3.17"
+    }
+  },
   "description": "Monorepo root — see PLAN.md for phase status",
   "scripts": {
     "test": "pnpm -r test"
