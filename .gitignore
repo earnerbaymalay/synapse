@@ -6,3 +6,5 @@ apps/desktop/src-tauri/gen/
 .agents/
 .claudinio.json
 .claudinio/
+bin/
+release-artifacts/

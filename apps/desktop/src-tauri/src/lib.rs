@@ -7,7 +7,6 @@ pub mod state;
 
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, Submenu};
-use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 use state::AppState;
 
@@ -31,13 +30,6 @@ pub fn run() {
                 &[&file_menu, &edit_menu, &view_menu, &tools_menu, &help_menu],
             )?;
             app.set_menu(menu)?;
-
-            let _window =
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("LLM Neurosurgeon")
-                    .inner_size(1200.0, 800.0)
-                    .min_inner_size(800.0, 600.0)
-                    .build()?;
 
             let _config = config::load_config()?;
 
