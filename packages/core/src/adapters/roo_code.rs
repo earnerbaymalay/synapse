@@ -1,4 +1,4 @@
-use super::compute_sha256;
+use super::{compute_sha256, has_path_traversal, strip_provenance};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
@@ -7,22 +7,40 @@ use std::path::Path;
 
 pub struct RooCodeAdapter;
 
-/// Roo Code's own artifact is `.roomodes` (custom mode definitions). Its
-/// `.clinerules` compatibility file is deliberately left to `ClineAdapter` —
-/// both tools read the same filename, so owning it here too would double-import
-/// the same content under two adapters.
 impl Adapter for RooCodeAdapter {
     fn id(&self) -> &'static str {
         "roo-code"
     }
 
     fn detect(&self, root: &Path) -> bool {
-        root.join(".roomodes").exists()
+        root.join(".roomodes").exists() || root.join(".clinerules").exists()
     }
 
     fn import(&self, root: &Path) -> Result<ImportResult, AdapterError> {
         let mut agents = Vec::new();
         let mut skills = Vec::new();
+
+        let rules_path = root.join(".clinerules");
+        if rules_path.exists() {
+            let raw_content = fs::read_to_string(&rules_path)
+                .map_err(|e| AdapterError::Io(format!("Failed to read .clinerules: {}", e)))?;
+            let content = strip_provenance(&raw_content);
+            if has_path_traversal(&content) {
+                return Err(AdapterError::Malformed(
+                    "Path traversal detected in .clinerules".to_string(),
+                ));
+            }
+            let sha256 = compute_sha256(&content);
+
+            skills.push(Skill {
+                id: "roo-rules".to_string(),
+                version: "1.0.0".to_string(),
+                triggers: vec!["*".to_string()],
+                targets: vec!["roo-code".to_string()],
+                source: content,
+                sha256,
+            });
+        }
 
         let modes_path = root.join(".roomodes");
         if modes_path.exists() {
@@ -32,65 +50,79 @@ impl Adapter for RooCodeAdapter {
                 AdapterError::Malformed(format!("Invalid JSON in .roomodes: {}", e))
             })?;
 
-            let modes = parsed
-                .get("customModes")
-                .and_then(|v| v.as_array())
-                .ok_or_else(|| {
-                    AdapterError::Malformed("customModes is missing or not an array".to_string())
+            if let Some(custom_modes_val) = parsed.get("customModes") {
+                let modes = custom_modes_val.as_array().ok_or_else(|| {
+                    AdapterError::Malformed("customModes is not an array".to_string())
                 })?;
 
-            for mode in modes {
-                let slug = mode
-                    .get("slug")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        AdapterError::Malformed("custom mode missing `slug`".to_string())
-                    })?
-                    .to_string();
+                for mode in modes {
+                    let mode_obj = mode.as_object().ok_or_else(|| {
+                        AdapterError::Malformed("custom mode must be an object".to_string())
+                    })?;
 
-                let groups: Vec<String> = mode
-                    .get("groups")
-                    .and_then(|v| v.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|item| item.as_str().map(|s| s.to_string()))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                    // Check for path traversal in any mode field (trigger, slug, roleDefinition, etc.)
+                    for (k, v) in mode_obj {
+                        if let Some(s) = v.as_str() {
+                            if has_path_traversal(s) {
+                                return Err(AdapterError::Malformed(format!(
+                                    "Path traversal in custom mode field '{k}': {s}"
+                                )));
+                            }
+                        }
+                    }
 
-                let role_definition = mode
-                    .get("roleDefinition")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let custom_instructions = mode
-                    .get("customInstructions")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                    let slug = mode
+                        .get("slug")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            AdapterError::Malformed("custom mode missing `slug`".to_string())
+                        })?
+                        .to_string();
 
-                agents.push(Agent {
-                    slug: slug.clone(),
-                    tools: groups,
-                    model_hints: Vec::new(),
-                    targets: vec!["roo-code".to_string()],
-                });
+                    let groups: Vec<String> = mode
+                        .get("groups")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|item| item.as_str().map(|s| s.to_string()))
+                                .collect()
+                        })
+                        .unwrap_or_default();
 
-                let body = if custom_instructions.is_empty() {
-                    role_definition.to_string()
-                } else if role_definition.is_empty() {
-                    custom_instructions.to_string()
-                } else {
-                    format!("{}\n\n{}", role_definition, custom_instructions)
-                };
-                let sha256 = compute_sha256(&body);
+                    let role_definition = mode
+                        .get("roleDefinition")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let custom_instructions = mode
+                        .get("customInstructions")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
 
-                skills.push(Skill {
-                    id: format!("roo-mode-{}", slug),
-                    version: "1.0.0".to_string(),
-                    triggers: vec!["*".to_string()],
-                    targets: vec!["roo-code".to_string()],
-                    source: body,
-                    sha256,
-                });
+                    agents.push(Agent {
+                        slug: slug.clone(),
+                        tools: groups,
+                        model_hints: Vec::new(),
+                        targets: vec!["roo-code".to_string()],
+                    });
+
+                    let body = if custom_instructions.is_empty() {
+                        role_definition.to_string()
+                    } else if role_definition.is_empty() {
+                        custom_instructions.to_string()
+                    } else {
+                        format!("{}\n\n{}", role_definition, custom_instructions)
+                    };
+                    let sha256 = compute_sha256(&body);
+
+                    skills.push(Skill {
+                        id: format!("roo-mode-{}", slug),
+                        version: "1.0.0".to_string(),
+                        triggers: vec!["*".to_string()],
+                        targets: vec!["roo-code".to_string()],
+                        source: body,
+                        sha256,
+                    });
+                }
             }
         }
 
@@ -109,6 +141,30 @@ impl Adapter for RooCodeAdapter {
         _mcp_servers: &[McpServer],
     ) -> Result<ProjectResult, AdapterError> {
         let mut written = Vec::new();
+
+        let roo_skills: Vec<&Skill> = skills
+            .iter()
+            .filter(|s| {
+                s.targets.contains(&"roo-code".to_string())
+                    && (s.id == "roo-rules" || !s.id.starts_with("roo-mode-"))
+            })
+            .collect();
+
+        if !roo_skills.is_empty() {
+            let concatenated: String = roo_skills
+                .iter()
+                .map(|s| s.source.as_str())
+                .collect::<Vec<&str>>()
+                .join("\n\n---\n\n");
+            let output = format!(
+                "<!-- GENERATED BY LLM NEUROSURGEON — edit in the Brain -->\n{}",
+                concatenated
+            );
+            let rules_path = root.join(".clinerules");
+            fs::write(&rules_path, &output)
+                .map_err(|e| AdapterError::Io(format!("Failed to write .clinerules: {}", e)))?;
+            written.push(".clinerules".to_string());
+        }
 
         let roo_agents: Vec<&Agent> = agents
             .iter()
@@ -170,11 +226,14 @@ mod tests {
     }
 
     #[test]
-    fn test_roo_code_does_not_claim_clinerules() {
+    fn test_roo_code_claims_clinerules() {
         let dir = tempdir().unwrap();
         let adapter = RooCodeAdapter;
         fs::write(dir.path().join(".clinerules"), "shared with cline").unwrap();
-        assert!(!adapter.detect(dir.path()));
+        assert!(adapter.detect(dir.path()));
+        let imported = adapter.import(dir.path()).unwrap();
+        assert_eq!(imported.skills.len(), 1);
+        assert_eq!(imported.skills[0].id, "roo-rules");
     }
 
     #[test]
@@ -245,7 +304,10 @@ mod tests {
         let adapter = RooCodeAdapter;
         fs::write(dir.path().join(".roomodes"), "{}").unwrap();
         let res = adapter.import(dir.path());
-        assert!(matches!(res, Err(AdapterError::Malformed(_))));
+        assert!(res.is_ok());
+        let imported = res.unwrap();
+        assert!(imported.skills.is_empty());
+        assert!(imported.agents.is_empty());
     }
 
     #[test]

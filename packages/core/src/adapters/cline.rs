@@ -1,6 +1,8 @@
-use super::{clean_jsonc, compute_sha256, strip_provenance};
+use super::{
+    clean_jsonc, compute_sha256, parse_and_validate_mcp_server, strip_provenance, write_if_changed,
+};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -47,45 +49,13 @@ impl Adapter for ClineAdapter {
                 AdapterError::Malformed(format!("Invalid JSON in cline_mcp_settings.json: {}", e))
             })?;
 
-            if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
+            if let Some(mcp_servers_val) = parsed
+                .get("mcpServers")
+                .or_else(|| parsed.get("mcp_servers"))
+                .and_then(|v| v.as_object())
+            {
                 for (id, val) in mcp_servers_val {
-                    let command = val
-                        .get("command")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let args: Vec<String> = val
-                        .get("args")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .map(|item| item.as_str().unwrap_or("").to_string())
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    let command_or_url = if args.is_empty() {
-                        command
-                    } else {
-                        format!("{} {}", command, args.join(" "))
-                    };
-
-                    let mut env_placeholders = Vec::new();
-                    if let Some(env_obj) = val.get("env").and_then(|v| v.as_object()) {
-                        for key in env_obj.keys() {
-                            env_placeholders.push(key.clone());
-                        }
-                    }
-                    env_placeholders.sort(); // Deterministic ordering
-
-                    mcp_servers.push(McpServer {
-                        id: id.clone(),
-                        transport: "stdio".to_string(),
-                        command_or_url,
-                        env_placeholders,
-                        targets: vec!["cline".to_string()],
-                        health: HealthStatus::Unknown,
-                    });
+                    parse_and_validate_mcp_server(id, val, "cline", &mut mcp_servers)?;
                 }
             }
         }
@@ -123,7 +93,7 @@ impl Adapter for ClineAdapter {
                 concatenated
             );
             let rules_path = root.join(".clinerules");
-            fs::write(&rules_path, output)
+            write_if_changed(&rules_path, output)
                 .map_err(|e| AdapterError::Io(format!("Failed to write .clinerules: {}", e)))?;
             written.push(".clinerules".to_string());
         }
@@ -198,7 +168,7 @@ impl Adapter for ClineAdapter {
 
             let pretty = serde_json::to_string_pretty(&current_json)
                 .map_err(|e| AdapterError::Malformed(format!("Failed to serialize JSON: {}", e)))?;
-            fs::write(&mcp_path, pretty).map_err(|e| {
+            write_if_changed(&mcp_path, pretty).map_err(|e| {
                 AdapterError::Io(format!("Failed to write cline_mcp_settings.json: {}", e))
             })?;
             written.push("cline_mcp_settings.json".to_string());
@@ -214,6 +184,7 @@ impl Adapter for ClineAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::HealthStatus;
     use std::fs;
     use tempfile::tempdir;
 

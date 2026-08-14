@@ -1,6 +1,8 @@
-use super::{clean_jsonc, compute_sha256, safe_join, strip_provenance};
+use super::{
+    clean_jsonc, compute_sha256, parse_and_validate_mcp_server, safe_join, strip_provenance,
+};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -154,43 +156,7 @@ impl Adapter for GitHubCopilotAdapter {
 
             if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
                 for (id, val) in mcp_servers_val {
-                    let command = val
-                        .get("command")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let args: Vec<String> = val
-                        .get("args")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .map(|item| item.as_str().unwrap_or("").to_string())
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    let command_or_url = if args.is_empty() {
-                        command
-                    } else {
-                        format!("{} {}", command, args.join(" "))
-                    };
-
-                    let mut env_placeholders = Vec::new();
-                    if let Some(env_obj) = val.get("env").and_then(|v| v.as_object()) {
-                        for key in env_obj.keys() {
-                            env_placeholders.push(key.clone());
-                        }
-                    }
-                    env_placeholders.sort();
-
-                    mcp_servers.push(McpServer {
-                        id: id.clone(),
-                        transport: "stdio".to_string(),
-                        command_or_url,
-                        env_placeholders,
-                        targets: vec!["github-copilot".to_string()],
-                        health: HealthStatus::Unknown,
-                    });
+                    parse_and_validate_mcp_server(id, val, "github-copilot", &mut mcp_servers)?;
                 }
             }
         }

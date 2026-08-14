@@ -926,6 +926,17 @@ Next: T8.3 (Gate 4: human installs on real machine and runs onboarding).
 **Future dev path (suggested):**
 1. **T8.3 — Gate 4:** Human installs on a real machine and runs onboarding. This is the only remaining PLAN.md task. Requires a real macOS/Linux/Windows machine with Tauri system deps (libwebkit2gtk-4.1, etc.) — cannot be done in this sandbox.
 2. **Phase 5 GUI (T5.1–T5.3):** The 8-screen desktop app from DESIGN_PACK.md. Blocked on Tauri v2 system libraries (GTK, WebKit) that aren't available in this sandbox. Needs a real dev machine with `libwebkit2gtk-4.1-dev` installed.
-3. **`packages/e2e` cross-tool suite:** The Vitest-based E2E tests scaffolded in T3.1 Milestone 1 were never fully wired — 68 pass, 74 are stubbed CLI assertions. Worth completing once the CLI is stable.
-4. **`cargo test --workspace` hermeticity:** The desktop-app crate requires `apps/desktop/dist` (gitignored) to compile. A `beforeBuildCommand` or conditional compilation would fix this for CI.
+3. **`cargo test --workspace` hermeticity:** The desktop-app crate requires `apps/desktop/dist` (gitignored) to compile. A `beforeBuildCommand` or conditional compilation would fix this for CI.
+
+## 2026-08-14 — v1.0.0 Hardening, Agy CLI Adapter, and 100% E2E Suite Completion
+
+**Context:** Full hardening pass across all 13 tool adapters, CLI write execution paths, and complete E2E Vitest suite.
+
+**What was done:**
+- **Antigravity CLI Adapter:** Added `AgyCliAdapter` (`agy-cli`) supporting `AGENTS.md`, `.agy/skills/`, and `.gemini/settings.json`. Total adapters elevated to 13.
+- **CLI Write Commands:** Implemented non-dry-run write execution for `neurosurgeon import`, `project`, `sync` (`--once`, `--daemon`, `--poll-interval`), `snapshot`, and `rollback`.
+- **E2E Hardening to 100%:** Resolved all failing test groups across Sanity, Tier 1, Tier 2, Tier 3, and Tier 4. Full 142/142 tests passing in `packages/e2e`.
+- **Rust Core Hardening:** Resolved adapter stress tests, path traversal security checks, and malformed config handling across 13 adapters. Full 179/179 Rust tests passing with clean `cargo clippy` and `cargo fmt`.
+- **Documentation Set:** Updated `README.md`, `docs/USER_GUIDE.md`, `docs/ADAPTER_AUTHORING_GUIDE.md`, and `CHANGELOG.md` to reflect `v1.0.0` status, 13 adapters, complete CLI commands, and test verification metrics.
+- **Obsidian Integration:** Maintained active session worklogs and project checklists in Obsidian vault.
 

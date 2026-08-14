@@ -77,33 +77,41 @@ Found in `packages/core/src/model.rs`:
 
 ```rust
 /// Canonical representation of a skill or instruction set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Skill {
     pub id: String,
-    pub name: String,
-    pub description: String,
-    pub content: String,
+    pub version: String,
     pub triggers: Vec<String>,
     pub targets: Vec<String>,
-    pub source: Option<String>,
-    pub content_sha256: String,
-    pub enabled: bool,
+    pub source: String,
+    pub sha256: String,
 }
 
 /// Canonical representation of a custom AI agent persona.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Agent {
-    pub id: String,
-    pub name: String,
-    pub prompt: String,
+    pub slug: String,
     pub tools: Vec<String>,
-    pub model_hint: Option<String>,
+    pub model_hints: Vec<String>,
     pub targets: Vec<String>,
 }
 
 /// Canonical representation of an MCP server.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McpServer {
     pub id: String,
-    pub transport: McpTransport, // Stdio { command, args, env } or Remote { url, headers }
+    pub transport: String,
+    pub command_or_url: String,
+    pub env_placeholders: Vec<String>,
     pub targets: Vec<String>,
+    pub health: HealthStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HealthStatus {
+    Unknown,
+    Healthy,
+    Unreachable,
 }
 ```
 
@@ -121,7 +129,7 @@ Create `packages/core/src/adapters/my_tool.rs`:
 use std::fs;
 use std::path::Path;
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::adapters::{compute_sha256, safe_join, strip_provenance};
+use crate::adapters::{compute_sha256, safe_join, strip_provenance, write_if_changed};
 use crate::model::{Agent, McpServer, Skill};
 
 pub struct MyToolAdapter;
@@ -152,14 +160,11 @@ impl Adapter for MyToolAdapter {
 
         let skill = Skill {
             id: "my-tool-rules".to_string(),
-            name: "MyTool Rules".to_string(),
-            description: "Imported rules from .mytoolrules".to_string(),
-            content: clean_content.clone(),
-            triggers: vec![],
+            version: "1.0.0".to_string(),
+            triggers: vec!["*".to_string()],
             targets: vec!["my-tool".to_string()],
-            source: Some(".mytoolrules".to_string()),
-            content_sha256: compute_sha256(&clean_content),
-            enabled: true,
+            source: clean_content.clone(),
+            sha256: compute_sha256(&clean_content),
         };
 
         Ok(ImportResult {
@@ -181,16 +186,16 @@ impl Adapter for MyToolAdapter {
 
         for skill in skills {
             if skill.targets.is_empty() || skill.targets.contains(&"my-tool".to_string()) {
-                combined_content.push_str(&skill.content);
+                combined_content.push_str(&skill.source);
                 combined_content.push_str("\n\n");
             }
         }
 
-        fs::write(&target_path, combined_content)
+        let written = write_if_changed(&target_path, combined_content.as_bytes())
             .map_err(|e| AdapterError::Io(e.to_string()))?;
 
         Ok(ProjectResult {
-            written: vec![".mytoolrules".to_string()],
+            written: if written { vec![".mytoolrules".to_string()] } else { vec![] },
             symlinked: vec![],
         })
     }
@@ -206,7 +211,7 @@ pub mod my_tool;
 
 pub fn all_adapters() -> Vec<Box<dyn Adapter>> {
     vec![
-        // ... existing adapters ...
+        // ... existing 13 adapters ...
         Box::new(my_tool::MyToolAdapter),
     ]
 }
@@ -243,7 +248,7 @@ LLM Neurosurgeon enforces strict rules on how projections are created:
 
 All adapters undergo strict security review. You MUST adhere to these rules:
 
-### Rule 1: Path Traversal Protection with `safe_join`
+### Rule 1: Path Traversal Protection with `safe_join` & `has_path_traversal`
 
 NEVER construct output file paths by raw `root.join(user_supplied_slug)`. An attacker could name a skill `../../.bashrc` or `/etc/passwd`.
 
@@ -258,6 +263,7 @@ let bad_path = root.join(user_slug);
 ```
 
 `safe_join` verifies that all path components are normal relative filenames and that the resulting path remains inside `root`.
+For command strings, URLs, or argument lists, use `adapters::has_path_traversal(arg)` to reject path navigation attacks (`../`, `..\`).
 
 ### Rule 2: Symlink Loop Protection in Directory Walks
 
@@ -280,6 +286,10 @@ for entry in fs::read_dir(rules_dir)? {
 
 Use `adapters::clean_jsonc()` to sanitize JSON inputs containing single/multi-line comments or trailing commas before passing them to `serde_json::from_str`.
 
+### Rule 4: Centralized MCP Server Validation
+
+Use `adapters::parse_and_validate_mcp_server(id, val, target_adapter, &mut out_servers)?` to validate MCP server configurations across standard JSON/TOML/YAML formats. It enforces required `command`/`url` fields, detects path traversal in commands and arguments, and extracts environment variable placeholders.
+
 ---
 
 ## 7. Helpful Adapter Utilities
@@ -288,9 +298,14 @@ Use `adapters::clean_jsonc()` to sanitize JSON inputs containing single/multi-li
 
 - **`compute_sha256(content: &str) -> String`**: Computes hex-encoded SHA-256 digest of text.
 - **`strip_provenance(content: &str) -> String`**: Strips the LLM Neurosurgeon generated header if present.
+- **`write_if_changed(path: &Path, content: impl AsRef<[u8]>) -> io::Result<bool>`**: Writes only when content differs, preserving mtimes.
 - **`clean_jsonc(input: &str) -> String`**: Strips comments and trailing commas from JSONC files.
-- **`safe_join(root: &Path, target: &str) -> Result<PathBuf, AdapterError>`**: Path traversal defense.
+- **`safe_join(root: &Path, target: &str) -> Result<PathBuf, AdapterError>`**: Path traversal defense for filesystem paths.
+- **`has_path_traversal(input: &str) -> bool`**: Returns true if string contains `..` path components.
+- **`parse_and_validate_mcp_server(...)`**: Validates JSON objects for MCP commands, URLs, args, and env keys.
 - **`split_frontmatter(content: &str) -> (Option<String>, String)`**: Extracts YAML frontmatter blocks (`--- ... ---`).
+- **`parse_mdc_frontmatter(fm: &str) -> Result<MdcFrontmatter, AdapterError>`**: Parses `.mdc` style `globs` and `alwaysApply` fields.
+- **`get_home_dir() -> Option<PathBuf>`**: Resolves current user's `$HOME` / `$USERPROFILE` path.
 
 ---
 
@@ -303,13 +318,15 @@ Before submitting a new adapter, make sure all of the following pass:
    ```bash
    cargo test -p neurosurgeon-core adapters::registry_tests
    ```
-   Verifies all 12+ adapters have unique IDs and do not false-detect an empty root directory.
+   Verifies all 13 adapters have unique IDs and do not false-detect an empty root directory.
 3. **Semantic Round-Trip Test**:
    Ensure `import() -> Canonical -> project()` produces semantically identical configurations.
 4. **Stress & Red-Team Tests**:
    Ensure your adapter handles missing files, malformed JSON/TOML, empty files, and malicious path components gracefully without panicking.
-5. **Code Formatting & Linting**:
+5. **E2E Integration Test**:
+   Verify integration coverage in `packages/e2e/src/suites/tier1_feature.test.ts` and `tier2_boundary.test.ts`.
+6. **Code Formatting & Linting**:
    ```bash
    cargo fmt --all --check
-   cargo test --workspace
+   cargo clippy --package neurosurgeon-core --package neurosurgeon
    ```

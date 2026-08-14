@@ -1,7 +1,7 @@
 use neurosurgeon_core::adapter::{Adapter, AdapterError};
 use neurosurgeon_core::adapters::{
     cline::ClineAdapter, github_copilot::GitHubCopilotAdapter, opencode::OpenCodeAdapter,
-    windsurf::WindsurfAdapter,
+    windsurf::WindsurfAdapter, zed::ZedAdapter,
 };
 use neurosurgeon_core::model::Skill;
 use std::fs;
@@ -383,4 +383,76 @@ fn test_windsurf_adapter_writes_outside_root() {
     // Verify it wrote to the HOME directory (which is outside the project root `dir.path()`)
     let mcp_path = home_dir.path().join(".codeium/windsurf/mcp.json");
     assert!(mcp_path.exists());
+}
+
+#[test]
+fn test_windsurf_adapter_path_traversal_and_missing() {
+    let dir = tempdir().unwrap();
+    let adapter = WindsurfAdapter;
+
+    let mcp_dir = dir.path().join(".codeium/windsurf");
+    fs::create_dir_all(&mcp_dir).unwrap();
+
+    // Path traversal in command
+    fs::write(
+        mcp_dir.join("mcp.json"),
+        r#"{"mcpServers": {"test": {"command": "../../../../sh"}}}"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        adapter.import(dir.path()),
+        Err(AdapterError::Malformed(_))
+    ));
+
+    // Missing command
+    fs::write(
+        mcp_dir.join("mcp.json"),
+        r#"{"mcpServers": {"sqlite": {}}}"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        adapter.import(dir.path()),
+        Err(AdapterError::Malformed(_))
+    ));
+}
+
+#[test]
+fn test_zed_adapter_boundary_cases() {
+    let _guard = HOME_ENV_LOCK.lock().unwrap();
+    let dir = tempdir().unwrap();
+    let adapter = ZedAdapter;
+
+    let home_dir = tempdir().unwrap();
+    std::env::set_var("HOME", home_dir.path());
+    let zed_config = home_dir.path().join(".config/zed");
+    fs::create_dir_all(&zed_config).unwrap();
+
+    // Malformed json
+    fs::write(zed_config.join("settings.json"), "{invalid}").unwrap();
+    assert!(matches!(
+        adapter.import(dir.path()),
+        Err(AdapterError::Malformed(_))
+    ));
+
+    // Path traversal
+    fs::write(
+        zed_config.join("settings.json"),
+        r#"{"context_servers": {"test": {"command": "../../../../sh"}}}"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        adapter.import(dir.path()),
+        Err(AdapterError::Malformed(_))
+    ));
+
+    // Missing command
+    fs::write(
+        zed_config.join("settings.json"),
+        r#"{"context_servers": {"sqlite": {}}}"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        adapter.import(dir.path()),
+        Err(AdapterError::Malformed(_))
+    ));
 }

@@ -12,7 +12,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -74,3 +74,23 @@ jobs:
             target/release/desktop-app
             target/release/desktop-app.exe
           if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: release-artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-artifacts/**/*
+          generate_release_notes: true

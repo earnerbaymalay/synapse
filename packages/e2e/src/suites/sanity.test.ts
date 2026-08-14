@@ -35,11 +35,10 @@ describe('E2E Sanity Tests', () => {
     }
   });
 
-  it('should fail running implemented command but capture output', async () => {
+  it('should fail running invalid command but capture output', async () => {
     const sandbox = createSandbox('cli-fail-test');
     try {
-      // Currently scan is not fully implemented in CLI and exits with Failure
-      await expect(runCLI(['scan'], { sandbox })).rejects.toThrow();
+      await expect(runCLI(['invalid-subcommand'], { sandbox })).rejects.toThrow();
     } finally {
       sandbox.cleanup();
     }

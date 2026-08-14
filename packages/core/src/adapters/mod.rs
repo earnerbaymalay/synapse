@@ -35,11 +35,26 @@ pub fn all_adapters() -> Vec<Box<dyn Adapter>> {
     ]
 }
 
+use std::fs;
+
 /// Helper to compute SHA256 of string content.
 pub fn compute_sha256(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
     hex::encode(hasher.finalize())
+}
+
+/// Helper to write file contents only if they have changed, preserving mtime on idempotent writes.
+pub fn write_if_changed(path: &Path, content: impl AsRef<[u8]>) -> std::io::Result<bool> {
+    if path.exists() {
+        if let Ok(existing) = fs::read(path) {
+            if existing == content.as_ref() {
+                return Ok(false);
+            }
+        }
+    }
+    fs::write(path, content)?;
+    Ok(true)
 }
 
 /// Helper to strip the LLM Neurosurgeon provenance header from imported rules.
@@ -149,17 +164,28 @@ pub struct MdcFrontmatter {
     pub always_apply: bool,
 }
 
-pub fn parse_mdc_frontmatter(fm: &str) -> MdcFrontmatter {
+pub fn parse_mdc_frontmatter(fm: &str) -> Result<MdcFrontmatter, AdapterError> {
     let mut result = MdcFrontmatter::default();
+    let mut has_recognized_key = false;
     for line in fm.lines() {
         let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
         let Some(colon_idx) = line.find(':') else {
             continue;
         };
         let key = line[..colon_idx].trim();
         let val = line[colon_idx + 1..].trim();
+        if !key.is_empty() {
+            has_recognized_key = true;
+        }
         match key {
+            "description" => {
+                has_recognized_key = true;
+            }
             "globs" => {
+                has_recognized_key = true;
                 if val.starts_with('[') && val.ends_with(']') {
                     result.globs = val[1..val.len() - 1]
                         .split(',')
@@ -169,14 +195,27 @@ pub fn parse_mdc_frontmatter(fm: &str) -> MdcFrontmatter {
                 } else if !val.is_empty() {
                     result.globs = vec![val.trim_matches('"').trim_matches('\'').to_string()];
                 }
+                for g in &result.globs {
+                    if has_path_traversal(g) {
+                        return Err(AdapterError::Malformed(format!(
+                            "Path traversal in rule globs: {g}"
+                        )));
+                    }
+                }
             }
-            "alwaysApply" => {
+            "alwaysApply" | "always_apply" => {
+                has_recognized_key = true;
                 result.always_apply = val == "true";
             }
             _ => {}
         }
     }
-    result
+    if !has_recognized_key && !fm.trim().is_empty() {
+        return Err(AdapterError::Malformed(
+            "Frontmatter is missing required keys (description, globs, or alwaysApply)".to_string(),
+        ));
+    }
+    Ok(result)
 }
 
 pub fn serialize_mdc_frontmatter(fm: &MdcFrontmatter) -> String {
@@ -190,6 +229,121 @@ pub fn serialize_mdc_frontmatter(fm: &MdcFrontmatter) -> String {
         "---\ndescription: \nglobs: [{}]\nalwaysApply: {}\n---",
         globs_str, fm.always_apply
     )
+}
+
+/// Helper to detect if a path string or command contains path traversal (`..` or escaping directory).
+pub fn has_path_traversal(s: &str) -> bool {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if trimmed.contains("../")
+        || trimmed.contains("..\\")
+        || trimmed == ".."
+        || trimmed.ends_with("/..")
+        || trimmed.ends_with("\\..")
+        || trimmed.contains("/../")
+        || trimmed.contains("\\..\\")
+    {
+        return true;
+    }
+    for component in Path::new(trimmed).components() {
+        if matches!(component, Component::ParentDir) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Helper to parse and validate an MCP server entry from JSON.
+/// Returns Malformed error if missing command/url or if command/args has path traversal.
+pub fn parse_and_validate_mcp_server(
+    id: &str,
+    val: &serde_json::Value,
+    target_adapter: &str,
+    out_servers: &mut Vec<crate::model::McpServer>,
+) -> Result<(), AdapterError> {
+    let Some(obj) = val.as_object() else {
+        return Err(AdapterError::Malformed(format!(
+            "MCP server '{id}' is not an object"
+        )));
+    };
+
+    let url_opt = obj.get("url").and_then(|v| v.as_str());
+    let command_opt = obj.get("command").and_then(|v| v.as_str());
+
+    let (transport, command_or_url) = if let Some(url) = url_opt {
+        if url.trim().is_empty() {
+            return Err(AdapterError::Malformed(format!(
+                "MCP server '{id}' has empty url"
+            )));
+        }
+        if has_path_traversal(url) {
+            return Err(AdapterError::Malformed(format!(
+                "Path traversal in MCP server '{id}' url: {url}"
+            )));
+        }
+        ("http".to_string(), url.to_string())
+    } else if let Some(command) = command_opt {
+        if command.trim().is_empty() {
+            return Err(AdapterError::Malformed(format!(
+                "MCP server '{id}' has empty command"
+            )));
+        }
+        if has_path_traversal(command) {
+            return Err(AdapterError::Malformed(format!(
+                "Path traversal in MCP server '{id}' command: {command}"
+            )));
+        }
+
+        let args: Vec<String> = obj
+            .get("args")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .map(|item| item.as_str().unwrap_or("").to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        for arg in &args {
+            if has_path_traversal(arg) {
+                return Err(AdapterError::Malformed(format!(
+                    "Path traversal in MCP server '{id}' arg: {arg}"
+                )));
+            }
+        }
+
+        let full = if args.is_empty() {
+            command.to_string()
+        } else {
+            format!("{} {}", command, args.join(" "))
+        };
+        ("stdio".to_string(), full)
+    } else {
+        return Err(AdapterError::Malformed(format!(
+            "MCP server '{id}' is missing required `command` or `url`"
+        )));
+    };
+
+    let mut env_placeholders = Vec::new();
+    if let Some(env_obj) = obj.get("env").and_then(|v| v.as_object()) {
+        for key in env_obj.keys() {
+            env_placeholders.push(key.clone());
+        }
+    }
+    env_placeholders.sort();
+
+    out_servers.push(crate::model::McpServer {
+        id: id.to_string(),
+        transport,
+        command_or_url,
+        env_placeholders,
+        targets: vec![target_adapter.to_string()],
+        health: crate::model::HealthStatus::Unknown,
+    });
+
+    Ok(())
 }
 
 /// Helper to get the Windsurf mcp.json path.

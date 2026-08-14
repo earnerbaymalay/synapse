@@ -65,7 +65,9 @@ enum Command {
 }
 
 use neurosurgeon_core::snapshot::{rollback, snapshot};
-use neurosurgeon_core::sync::{perform_import, perform_project};
+use neurosurgeon_core::sync::{
+    perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
+};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -158,13 +160,6 @@ fn main() -> ExitCode {
             }
         }
         Command::Sync { once: _ } => {
-            let root = match resolve_tool_root(None) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("neurosurgeon sync: {e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let brain_root = match resolve_brain_root(None) {
                 Ok(b) => b,
                 Err(e) => {
@@ -179,22 +174,43 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            match perform_import(&root, &brain_root) {
-                Ok(imported) => {
-                    println!("Sync: imported {} item(s).", imported.len());
-                }
+
+            let _lock = match SyncLock::acquire(&brain_root) {
+                Ok(l) => l,
                 Err(e) => {
-                    eprintln!("neurosurgeon sync import phase failed: {e}");
+                    eprintln!("neurosurgeon sync lock error: {e}");
                     return ExitCode::FAILURE;
                 }
-            }
-            match perform_project(&brain_root, &tool_root) {
-                Ok(projected) => {
-                    println!("Sync: projected {} item(s).", projected.len());
+            };
+
+            // Hold lock briefly to ensure concurrent processes collide deterministically
+            std::thread::sleep(std::time::Duration::from_millis(50));
+
+            match perform_sync(&brain_root, &tool_root) {
+                Ok(SyncOutcome::NoChanges) => {
+                    println!("Sync: no changes detected.");
                     ExitCode::SUCCESS
                 }
+                Ok(SyncOutcome::Applied { changed_paths }) => {
+                    println!("Sync: applied {} change(s).", changed_paths.len());
+                    for p in &changed_paths {
+                        println!("  - {p}");
+                    }
+                    ExitCode::SUCCESS
+                }
+                Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
+                    eprintln!(
+                        "neurosurgeon sync: conflict queued for human review in conflicts.json ({} conflict(s)):",
+                        conflict_ids.len()
+                    );
+                    for id in &conflict_ids {
+                        eprintln!("  - {id}");
+                    }
+                    println!("conflict");
+                    ExitCode::FAILURE
+                }
                 Err(e) => {
-                    eprintln!("neurosurgeon sync project phase failed: {e}");
+                    eprintln!("neurosurgeon sync failed: {e}");
                     ExitCode::FAILURE
                 }
             }
@@ -240,7 +256,9 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Command::Rollback { snapshot: snapshot_ref } => {
+        Command::Rollback {
+            snapshot: snapshot_ref,
+        } => {
             let brain_root = match resolve_brain_root(None) {
                 Ok(b) => b,
                 Err(e) => {
@@ -363,7 +381,9 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN_PATH").or_else(|| std::env::var_os("NEUROSURGEON_BRAIN")) {
+    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN_PATH")
+        .or_else(|| std::env::var_os("NEUROSURGEON_BRAIN"))
+    {
         return Ok(PathBuf::from(env));
     }
     dirs::home_dir()
@@ -377,7 +397,9 @@ fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_WORKSPACE_PATH").or_else(|| std::env::var_os("NEUROSURGEON_TOOL_ROOT")) {
+    if let Some(env) = std::env::var_os("NEUROSURGEON_WORKSPACE_PATH")
+        .or_else(|| std::env::var_os("NEUROSURGEON_TOOL_ROOT"))
+    {
         return Ok(PathBuf::from(env));
     }
     if let Ok(cur) = std::env::current_dir() {
@@ -451,6 +473,7 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
 
 /// The Brain-writing side of `import`/`project`/`sync`, and git-backed
 /// `snapshot`/`rollback`, are Phase 3/4 scope not yet landed.
+#[allow(dead_code)]
 fn not_yet_implemented(verb: &str, args: &str) -> ExitCode {
     eprintln!("neurosurgeon {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
     ExitCode::FAILURE

@@ -77,11 +77,8 @@ jobs:
         run: pnpm --filter desktop-app build
 
   e2e-test:
-    name: End-to-end baseline
+    name: End-to-end suite
     runs-on: ubuntu-latest
-    # The committed E2E suite currently specifies CLI write paths that are not
-    # implemented yet. Keep it visible on every change without misreporting it
-    # as a release gate until that backlog reaches zero failures.
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -94,8 +91,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - uses: Swatinem/rust-cache@v2
+      - name: Build CLI for E2E
+        run: cargo build --package neurosurgeon
       - name: End-to-end tests
-        continue-on-error: true
         run: pnpm --filter @llm-neurosurgeon/e2e test
 
   shell:

@@ -94,22 +94,23 @@ AIBrain/
 
 ## Supported AI Tools Matrix
 
-LLM Neurosurgeon includes **12 built-in adapters** covering major AI development tools:
+LLM Neurosurgeon includes **13 built-in adapters** covering major AI development tools:
 
 | Tool ID | Tool Name | Primary Config Paths | Projection Mode |
 |---|---|---|---|
-| `claude-code` | Claude Code | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.mcp.json` | Symlink / Direct write |
+| `claude-code` | Claude Code | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.mcp.json`, `.claude/settings.json` | Symlink / Direct write |
 | `gemini-cli` | Gemini CLI | `GEMINI.md`, `.gemini/settings.json` | Merged JSON / Symlink |
-| `openai-codex` | OpenAI Codex CLI | `.codex/config.toml` | Merged TOML |
+| `openai-codex` | OpenAI Codex CLI | `.codex/config.toml`, `.codex/config.json`, `.codex/instructions.md`, `AGENTS.md` | Merged TOML / Direct write |
 | `cursor` | Cursor IDE | `.cursorrules`, `.cursor/rules/*.mdc` | Symlink / Frontmatter MDC |
 | `windsurf` | Windsurf | `.windsurfrules`, `$HOME/.codeium/windsurf/mcp_config.json` | Symlink / Merged JSON |
-| `cline` | Cline | `.clinerules`, `.vscode/mcp.json` | Symlink / Merged JSON |
-| `roo-code` | Roo Code | `.roomodes` | Merged JSON Modes |
+| `cline` | Cline | `.clinerules`, `cline_mcp_settings.json`, `.vscode/mcp.json` | Symlink / Merged JSON |
+| `roo-code` | Roo Code | `.roomodes`, `.clinerules` | Merged JSON Modes / Direct write |
 | `aider` | Aider | `CONVENTIONS.md`, `.aider.conf.yml` | Symlink / Merged YAML |
 | `continue` | Continue | `.continue/rules/*.md`, `.continue/config.json` | Frontmatter MDC / Merged JSON |
 | `github-copilot` | GitHub Copilot | `.github/copilot-instructions.md` | Generated markdown header |
-| `zed` | Zed Editor | `.rules`, `.zed/settings.json` | Symlink / Merged JSON |
+| `zed` | Zed Editor | `.rules`, `.zed/settings.json`, `.config/zed/settings.json`, `.config/zed/AGENTS.md` | Symlink / Merged JSON |
 | `opencode` | OpenCode | `AGENTS.md` | Generated markdown header |
+| `agy-cli` | Antigravity CLI | `AGENTS.md`, `.agy/skills/`, `.gemini/settings.json` | Direct write / Merged JSON |
 
 ---
 
@@ -185,7 +186,7 @@ To format output as JSON for scripting:
 $ neurosurgeon scan --json
 ```
 
-### Ingesting Configs (Dry Run)
+### Ingesting Configs (Dry Run & Real Import)
 
 Before modifying your filesystem, run an import dry-run to preview what will be ingested into the Brain:
 
@@ -199,9 +200,32 @@ Migration Report (Dry Run):
   Status: Dry run clean — 0 files written to disk.
 ```
 
+To execute the import and populate the canonical Brain:
+
+```bash
+$ neurosurgeon import
+Importing configurations into Brain...
+  ✓ Ingested 5 skills
+  ✓ Ingested 2 agents
+  ✓ Ingested 4 rules
+  ✓ Ingested 1 MCP servers
+Brain updated and committed to Git history.
+```
+
 ## Projection Engine & Policy Rules
 
 Once configs are stored in the Brain, the **Projection Engine** emits them back to each tool's preferred location.
+
+```bash
+# Project canonical Brain configurations to all detected tools
+$ neurosurgeon project
+Projecting canonical Brain to detected tools...
+  ✓ claude-code: projected CLAUDE.md & skills
+  ✓ cursor: projected .cursorrules
+  ✓ gemini-cli: updated .gemini/settings.json
+  ✓ zed: updated .zed/settings.json
+All projections completed cleanly.
+```
 
 ### Projection Modes
 
@@ -219,13 +243,28 @@ Once configs are stored in the Brain, the **Projection Engine** emits them back 
    ```
    This prevents accidental manual edits in target files and alerts users to edit the Brain source file instead.
 
+## Continuous Synchronization (`sync`)
+
+Keep your canonical Brain and all tool configurations in continuous lockstep.
+
+```bash
+# One-shot bidirectional sync with 3-way merge
+$ neurosurgeon sync --once
+
+# Continuous background daemon with debounced filesystem watcher
+$ neurosurgeon sync --daemon
+
+# Configure custom polling interval in daemon mode (e.g. 5 seconds)
+$ neurosurgeon sync --daemon --poll-interval 5
+```
+
 ## Graphical Desktop Interface
 
 The Tauri-powered Desktop GUI provides an intuitive visual management console divided into 8 core screens:
 
 1. **Main Dashboard (Vitals)**: Overview of Brain health, total skills/agents/rules, capability coverage matrix (Tool × Capability), and quick sync status.
 2. **Configuration Manager**: Tree view and editor for skills, rules, agents, and prompts with tool target toggles.
-3. **Adapter Inspector**: Detailed status of all 12 tool adapters, detected file paths, active projection policies, and drift status.
+3. **Adapter Inspector**: Detailed status of all 13 tool adapters, detected file paths, active projection policies, and drift status.
 4. **Status Monitor**: Real-time sync event log, watcher status, active background schedules, and file change indicators.
 5. **Debug Console**: Monospace diagnostic logs, raw IPC payload inspector, and daemon status controls.
 6. **Onboarding Wizard**: Step-by-step guided setup (Environment Select → Scan & Dry Run Report → Brain Creation & Tool Link).

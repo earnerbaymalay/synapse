@@ -1,6 +1,9 @@
-use super::{clean_jsonc, compute_sha256, get_windsurf_mcp_path, strip_provenance};
+use super::{
+    clean_jsonc, compute_sha256, get_windsurf_mcp_path, parse_and_validate_mcp_server,
+    strip_provenance,
+};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -15,7 +18,7 @@ impl Adapter for WindsurfAdapter {
     fn detect(&self, root: &Path) -> bool {
         root.join(".windsurfrules").exists()
             || root.join(".codeium/windsurf/mcp.json").exists()
-            || get_windsurf_mcp_path().map_or(false, |p| p.exists())
+            || get_windsurf_mcp_path().is_some_and(|p| p.exists())
     }
 
     fn import(&self, root: &Path) -> Result<ImportResult, AdapterError> {
@@ -58,43 +61,7 @@ impl Adapter for WindsurfAdapter {
                 if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object())
                 {
                     for (id, val) in mcp_servers_val {
-                        let command = val
-                            .get("command")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let args: Vec<String> = val
-                            .get("args")
-                            .and_then(|v| v.as_array())
-                            .map(|arr| {
-                                arr.iter()
-                                    .map(|item| item.as_str().unwrap_or("").to_string())
-                                    .collect()
-                            })
-                            .unwrap_or_default();
-
-                        let command_or_url = if args.is_empty() {
-                            command
-                        } else {
-                            format!("{} {}", command, args.join(" "))
-                        };
-
-                        let mut env_placeholders = Vec::new();
-                        if let Some(env_obj) = val.get("env").and_then(|v| v.as_object()) {
-                            for key in env_obj.keys() {
-                                env_placeholders.push(key.clone());
-                            }
-                        }
-                        env_placeholders.sort();
-
-                        mcp_servers.push(McpServer {
-                            id: id.clone(),
-                            transport: "stdio".to_string(),
-                            command_or_url,
-                            env_placeholders,
-                            targets: vec!["windsurf".to_string()],
-                            health: HealthStatus::Unknown,
-                        });
+                        parse_and_validate_mcp_server(id, val, "windsurf", &mut mcp_servers)?;
                     }
                 }
             }
@@ -238,6 +205,8 @@ mod tests {
     #[test]
     fn test_windsurf_detect() {
         let dir = tempdir().unwrap();
+        let home_dir = tempdir().unwrap();
+        std::env::set_var("HOME", home_dir.path());
         let adapter = WindsurfAdapter;
         assert!(!adapter.detect(dir.path()));
 

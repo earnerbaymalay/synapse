@@ -1,4 +1,4 @@
-use super::{compute_sha256, strip_provenance};
+use super::{compute_sha256, has_path_traversal, strip_provenance};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, McpServer, Skill};
 use std::fs;
@@ -130,6 +130,24 @@ impl Adapter for OpenCodeAdapter {
             let raw_content = fs::read_to_string(&agents_path)
                 .map_err(|e| AdapterError::Io(format!("Failed to read AGENTS.md: {}", e)))?;
             let content = strip_provenance(&raw_content);
+
+            if has_path_traversal(&content) {
+                return Err(AdapterError::Malformed(
+                    "Path traversal detected in AGENTS.md".to_string(),
+                ));
+            }
+
+            // Check for unclosed code fence markers (e.g. ```yaml without closing ```)
+            let fence_count = content
+                .lines()
+                .filter(|l| l.trim().starts_with("```"))
+                .count();
+            if fence_count % 2 != 0 {
+                return Err(AdapterError::Malformed(
+                    "Malformed AGENTS.md: unclosed code block".to_string(),
+                ));
+            }
+
             let (fm_opt, body_raw) = parse_frontmatter(&content);
             let body = body_raw.trim().to_string();
 

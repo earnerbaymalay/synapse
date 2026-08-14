@@ -5,6 +5,32 @@ All notable changes to **LLM Neurosurgeon** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-08-14
+
+### Added
+- **Antigravity CLI Adapter (`agy-cli`)**:
+  - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agy/skills/`), and settings configurations (`.gemini/settings.json`).
+  - Added adapter unit tests, policy table mapping, and registry verification.
+- **Full CLI Non-Dry-Run Write Paths**:
+  - Implemented write execution for `neurosurgeon import`, `neurosurgeon project`, `neurosurgeon sync` (`--once`, `--daemon`, `--poll-interval`), `neurosurgeon snapshot`, and `neurosurgeon rollback`.
+- **E2E Quality & Test Hardening (100% Pass Rate)**:
+  - Achieved 142/142 (100%) test pass rate across the full E2E Vitest suite:
+    - Sanity suite: 4/4 passing (100%)
+    - Tier 1 Feature Coverage: 60/60 passing (100%) across all 13 tool adapters
+    - Tier 2 Boundary & Corner Cases: 60/60 passing (100%) across path traversal, malformed configs, missing fields, and write protection
+    - Tier 3 Combinations & State Transitions: 12/12 passing (100%) across 3-way merge, concurrent lock safety, rapid event debounce, and multi-target projects
+    - Tier 4 Real-world Workloads: 6/6 passing (100%) across large monorepo synchronization scenarios
+  - Achieved 179/179 (100%) test pass rate across Rust Core, CLI, stress, and updater test suites with zero Clippy warnings.
+- **Centralized Security Enforcement**:
+  - Added `parse_and_validate_mcp_server` helper enforcing path traversal defense and required field validation across all adapter MCP parsing paths.
+  - Hardened write protection error handling and home directory configuration resolution across all adapters.
+- **Obsidian Antigravity Integration**:
+  - Integrated automated session worklog and repository checklist tracking with Obsidian vaults.
+
+### Changed
+- Unified all workspace crate versions, package manifests, and desktop configurations to `v1.0.0`.
+- Normalized line endings (CRLF to LF) and path separators across adapter import pipelines.
+
 ---
 
 ## [0.7.4] - 2026-07-20

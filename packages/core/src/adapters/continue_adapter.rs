@@ -1,9 +1,9 @@
 use super::{
-    compute_sha256, parse_mdc_frontmatter, safe_join, serialize_mdc_frontmatter, split_frontmatter,
-    strip_provenance, MdcFrontmatter,
+    compute_sha256, parse_and_validate_mcp_server, parse_mdc_frontmatter, safe_join,
+    serialize_mdc_frontmatter, split_frontmatter, strip_provenance, MdcFrontmatter,
 };
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -36,42 +36,7 @@ impl Adapter for ContinueAdapter {
 
             if let Some(servers) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
                 for (id, val) in servers {
-                    let command = val
-                        .get("command")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let args: Vec<String> = val
-                        .get("args")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .map(|item| item.as_str().unwrap_or("").to_string())
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    let command_or_url = if args.is_empty() {
-                        command
-                    } else {
-                        format!("{} {}", command, args.join(" "))
-                    };
-
-                    let mut env_placeholders = Vec::new();
-                    if let Some(env_obj) = val.get("env").and_then(|v| v.as_object()) {
-                        for key in env_obj.keys() {
-                            env_placeholders.push(key.clone());
-                        }
-                    }
-                    env_placeholders.sort();
-
-                    mcp_servers.push(McpServer {
-                        id: id.clone(),
-                        transport: "stdio".to_string(),
-                        command_or_url,
-                        env_placeholders,
-                        targets: vec!["continue".to_string()],
-                        health: HealthStatus::Unknown,
-                    });
+                    parse_and_validate_mcp_server(id, val, "continue", &mut mcp_servers)?;
                 }
             }
         }
@@ -102,9 +67,11 @@ impl Adapter for ContinueAdapter {
                 })?;
                 let content = strip_provenance(&raw);
                 let (fm_opt, body) = split_frontmatter(&content);
-                let fm = fm_opt
-                    .map(|fm| parse_mdc_frontmatter(&fm))
-                    .unwrap_or_default();
+                let fm = if let Some(fm_str) = fm_opt {
+                    parse_mdc_frontmatter(&fm_str)?
+                } else {
+                    MdcFrontmatter::default()
+                };
 
                 let triggers = if !fm.globs.is_empty() {
                     fm.globs
@@ -227,9 +194,7 @@ impl Adapter for ContinueAdapter {
 
         let rule_skills: Vec<&Skill> = skills
             .iter()
-            .filter(|s| {
-                s.targets.contains(&"continue".to_string()) && s.id != "continue-config"
-            })
+            .filter(|s| s.targets.contains(&"continue".to_string()) && s.id != "continue-config")
             .collect();
 
         if !rule_skills.is_empty() {

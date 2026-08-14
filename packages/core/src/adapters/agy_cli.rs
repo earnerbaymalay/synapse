@@ -63,7 +63,11 @@ impl Adapter for AgyCliAdapter {
                     let skill_md = path.join("SKILL.md");
                     if skill_md.exists() {
                         let raw = fs::read_to_string(&skill_md).map_err(|e| {
-                            AdapterError::Io(format!("Failed to read {}: {}", skill_md.display(), e))
+                            AdapterError::Io(format!(
+                                "Failed to read {}: {}",
+                                skill_md.display(),
+                                e
+                            ))
                         })?;
                         let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
                         let sha256 = compute_sha256(&raw);
@@ -92,12 +96,8 @@ impl Adapter for AgyCliAdapter {
                     AdapterError::Io(format!("Failed to read agent directory entry: {}", e))
                 })?;
                 let path = entry.path();
-                if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
-                    let slug = path
-                        .file_stem()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string();
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
+                    let slug = path.file_stem().unwrap().to_string_lossy().to_string();
                     agents.push(Agent {
                         slug,
                         tools: vec!["*".to_string()],
@@ -198,10 +198,7 @@ impl Adapter for AgyCliAdapter {
             if skill.id == "agy-cli-memory" {
                 continue;
             }
-            let slug = skill
-                .id
-                .strip_prefix("agy-skill-")
-                .unwrap_or(&skill.id);
+            let slug = skill.id.strip_prefix("agy-skill-").unwrap_or(&skill.id);
 
             let skill_dir_rel = format!(".agents/skills/{slug}");
             let skill_dir = safe_join(root, &skill_dir_rel)?;
@@ -233,9 +230,8 @@ impl Adapter for AgyCliAdapter {
 
         if !agy_agents.is_empty() {
             let agents_dir = root.join(".agents/agents");
-            fs::create_dir_all(&agents_dir).map_err(|e| {
-                AdapterError::Io(format!("Failed to create .agents/agents: {}", e))
-            })?;
+            fs::create_dir_all(&agents_dir)
+                .map_err(|e| AdapterError::Io(format!("Failed to create .agents/agents: {}", e)))?;
 
             for agent in agy_agents {
                 let agent_file_rel = format!(".agents/agents/{}.md", agent.slug);
@@ -245,9 +241,8 @@ impl Adapter for AgyCliAdapter {
                     agent.slug,
                     agent.model_hints.first().map_or("auto", |s| s.as_str())
                 );
-                fs::write(&agent_file, content).map_err(|e| {
-                    AdapterError::Io(format!("Failed to write agent file: {}", e))
-                })?;
+                fs::write(&agent_file, content)
+                    .map_err(|e| AdapterError::Io(format!("Failed to write agent file: {}", e)))?;
                 written.push(agent_file_rel);
             }
         }
@@ -270,7 +265,10 @@ impl Adapter for AgyCliAdapter {
                     AdapterError::Io(format!("Failed to read .agents/mcp_config.json: {}", e))
                 })?;
                 serde_json::from_str(&raw_json).map_err(|e| {
-                    AdapterError::Malformed(format!("Invalid JSON in .agents/mcp_config.json: {}", e))
+                    AdapterError::Malformed(format!(
+                        "Invalid JSON in .agents/mcp_config.json: {}",
+                        e
+                    ))
                 })?
             } else {
                 json!({})
@@ -279,7 +277,9 @@ impl Adapter for AgyCliAdapter {
             let mcp_servers_map = current_json
                 .as_object_mut()
                 .ok_or_else(|| {
-                    AdapterError::Malformed(".agents/mcp_config.json root is not an object".to_string())
+                    AdapterError::Malformed(
+                        ".agents/mcp_config.json root is not an object".to_string(),
+                    )
                 })?
                 .entry("mcpServers")
                 .or_insert_with(|| json!({}))
@@ -369,6 +369,9 @@ mod tests {
 
         assert_eq!(project_res.written.len(), 2);
         assert!(out_dir.path().join("AGENTS.md").exists());
-        assert!(out_dir.path().join(".agents/skills/my-skill/SKILL.md").exists());
+        assert!(out_dir
+            .path()
+            .join(".agents/skills/my-skill/SKILL.md")
+            .exists());
     }
 }
