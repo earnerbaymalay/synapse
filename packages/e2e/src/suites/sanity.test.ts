@@ -27,7 +27,7 @@ describe('E2E Sanity Tests', () => {
       // --help should exit with 0 and print usage instructions
       const result = await runCLI(['--help'], { sandbox });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('neurosurgeon');
+      expect(result.stdout).toContain('synapse');
       expect(result.stdout).toContain('scan');
       expect(result.stdout).toContain('import');
     } finally {

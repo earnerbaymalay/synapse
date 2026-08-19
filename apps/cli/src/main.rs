@@ -10,7 +10,7 @@ use neurosurgeon_core::doctor::{apply_fixes, diagnose, DoctorContext, Severity};
 /// LLM Neurosurgeon — scan, import, project, and sync AI tool configs
 /// through one canonical Brain.
 #[derive(Debug, Parser)]
-#[command(name = "neurosurgeon", version, about, long_about = None)]
+#[command(name = "synapse", version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -114,12 +114,12 @@ fn main() -> ExitCode {
                                 "{} now in the Brain.",
                                 chart::plural(paths.len(), "artifact"),
                             ),
-                            Some("neurosurgeon snapshot \"after import\""),
+                            Some("synapse snapshot \"after import\""),
                         );
                         ExitCode::SUCCESS
                     }
                     Err(e) => {
-                        chart::fault("intake", &e.to_string(), Some("neurosurgeon doctor"));
+                        chart::fault("intake", &e.to_string(), Some("synapse doctor"));
                         ExitCode::FAILURE
                     }
                 }
@@ -146,7 +146,7 @@ fn main() -> ExitCode {
                 chart::field("Tools", &tool_root.display().to_string());
                 chart::close(
                     "Dry run only — no file was touched.",
-                    Some("neurosurgeon project"),
+                    Some("synapse project"),
                 );
                 ExitCode::SUCCESS
             } else {
@@ -164,12 +164,12 @@ fn main() -> ExitCode {
                                 "{} projected out of the Brain.",
                                 chart::plural(paths.len(), "file"),
                             ),
-                            Some("neurosurgeon doctor"),
+                            Some("synapse doctor"),
                         );
                         ExitCode::SUCCESS
                     }
                     Err(e) => {
-                        chart::fault("graft", &e.to_string(), Some("neurosurgeon doctor"));
+                        chart::fault("graft", &e.to_string(), Some("synapse doctor"));
                         ExitCode::FAILURE
                     }
                 }
@@ -197,7 +197,7 @@ fn main() -> ExitCode {
                     chart::fault(
                         "circulation",
                         &format!("could not acquire the Brain lock: {e}"),
-                        Some("check whether another neurosurgeon is running"),
+                        Some("check whether another synapse is running"),
                     );
                     return ExitCode::FAILURE;
                 }
@@ -217,7 +217,7 @@ fn main() -> ExitCode {
                         "brain",
                         "already in sync with every tool",
                     );
-                    chart::close("Nothing to do.", Some("neurosurgeon doctor"));
+                    chart::close("Nothing to do.", Some("synapse doctor"));
                     ExitCode::SUCCESS
                 }
                 Ok(SyncOutcome::Applied { changed_paths }) => {
@@ -230,7 +230,7 @@ fn main() -> ExitCode {
                     }
                     chart::close(
                         &format!("{} applied.", chart::plural(changed_paths.len(), "change")),
-                        Some("neurosurgeon snapshot \"after sync\""),
+                        Some("synapse snapshot \"after sync\""),
                     );
                     ExitCode::SUCCESS
                 }
@@ -267,7 +267,7 @@ fn main() -> ExitCode {
                     ExitCode::FAILURE
                 }
                 Err(e) => {
-                    chart::fault("circulation", &e.to_string(), Some("neurosurgeon doctor"));
+                    chart::fault("circulation", &e.to_string(), Some("synapse doctor"));
                     ExitCode::FAILURE
                 }
             }
@@ -311,7 +311,7 @@ fn main() -> ExitCode {
                     chart::row(chart::Mark::Present, "snapshot", &sha);
                     chart::close(
                         "The Brain can be returned to this state.",
-                        Some(&format!("neurosurgeon rollback {sha}")),
+                        Some(&format!("synapse rollback {sha}")),
                     );
                     ExitCode::SUCCESS
                 }
@@ -340,7 +340,7 @@ fn main() -> ExitCode {
                     chart::row(chart::Mark::Present, "restored", &sha);
                     chart::close(
                         "Tools still hold the old projection.",
-                        Some("neurosurgeon project"),
+                        Some("synapse project"),
                     );
                     ExitCode::SUCCESS
                 }
@@ -411,7 +411,7 @@ fn report_scan(root: &Path, json: bool) -> ExitCode {
     let next = if detected.is_empty() {
         None
     } else {
-        Some("neurosurgeon import --dry-run")
+        Some("synapse import --dry-run")
     };
     chart::close(&finding, next);
 
@@ -483,7 +483,7 @@ fn report_import_dry_run(root: &Path) -> ExitCode {
             "(none)",
             "no supported tool configs under this site",
         );
-        chart::close("Nothing to import.", Some("neurosurgeon scan"));
+        chart::close("Nothing to import.", Some("synapse scan"));
         return ExitCode::SUCCESS;
     }
 
@@ -499,10 +499,10 @@ fn report_import_dry_run(root: &Path) -> ExitCode {
     );
 
     if had_error {
-        chart::close(&finding, Some("neurosurgeon doctor"));
+        chart::close(&finding, Some("synapse doctor"));
         ExitCode::FAILURE
     } else {
-        chart::close(&finding, Some("neurosurgeon import"));
+        chart::close(&finding, Some("synapse import"));
         ExitCode::SUCCESS
     }
 }
@@ -598,7 +598,7 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
 
     if diagnoses.is_empty() {
         chart::row(chart::Mark::Present, "brain", "no drift, no faults");
-        chart::close("Clean bill of health.", Some("neurosurgeon sync --once"));
+        chart::close("Clean bill of health.", Some("synapse sync --once"));
         return ExitCode::SUCCESS;
     }
 
@@ -630,11 +630,11 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
     };
 
     let next = if fixable > 0 && !fix {
-        Some("neurosurgeon doctor --fix")
+        Some("synapse doctor --fix")
     } else if criticals > 0 {
         None
     } else {
-        Some("neurosurgeon sync --once")
+        Some("synapse sync --once")
     };
     chart::close(&finding, next);
 
@@ -649,7 +649,7 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
 /// `snapshot`/`rollback`, are Phase 3/4 scope not yet landed.
 #[allow(dead_code)]
 fn not_yet_implemented(verb: &str, args: &str) -> ExitCode {
-    eprintln!("neurosurgeon {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
+    eprintln!("synapse {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
     ExitCode::FAILURE
 }
 
@@ -675,23 +675,23 @@ mod tests {
 
     #[test]
     fn parses_each_verb() {
-        assert!(Cli::try_parse_from(["neurosurgeon", "scan"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "import", "--dry-run"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "project"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "sync", "--once"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "doctor", "--fix"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "snapshot", "before upgrade"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "rollback", "abc123"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "scan"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "import", "--dry-run"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "project"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "sync", "--once"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "doctor", "--fix"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "snapshot", "before upgrade"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "rollback", "abc123"]).is_ok());
     }
 
     #[test]
     fn rejects_unknown_verb() {
-        assert!(Cli::try_parse_from(["neurosurgeon", "frobnicate"]).is_err());
+        assert!(Cli::try_parse_from(["synapse", "frobnicate"]).is_err());
     }
 
     #[test]
     fn rollback_requires_a_snapshot_argument() {
-        assert!(Cli::try_parse_from(["neurosurgeon", "rollback"]).is_err());
+        assert!(Cli::try_parse_from(["synapse", "rollback"]).is_err());
     }
 
     #[test]

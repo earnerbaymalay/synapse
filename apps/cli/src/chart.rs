@@ -33,14 +33,19 @@ fn color_enabled() -> bool {
     })
 }
 
-/// The IDENTITY.md palette, mapped to the 256-colour cube so it survives
-/// terminals that do not support truecolour.
+/// The SYNAPSE palette (brands/synapse/tokens.json), mapped to the 256
+/// -colour cube so it survives terminals without truecolour support.
 #[derive(Clone, Copy)]
 pub enum Paint {
     /// Secondary text: units, hints, absent rows.
     InkSoft,
-    /// The single accent — surgical drape teal.
+    /// The one working UI accent — Synapse Blue. Links, the wordmark, the
+    /// next-command hint. Never status: see `Success`.
     Drape,
+    /// Healthy / present. Deliberately not the same colour as `Drape` — the
+    /// brand book scopes accent to links/buttons/focus, status gets its own
+    /// semantic green.
+    Success,
     /// Critical only. Never decorative.
     Alarm,
     /// Warning.
@@ -55,7 +60,8 @@ impl Paint {
     fn code(self) -> &'static str {
         match self {
             Paint::InkSoft => "\x1b[38;5;245m",
-            Paint::Drape => "\x1b[38;5;36m",
+            Paint::Drape => "\x1b[38;5;33m",
+            Paint::Success => "\x1b[38;5;77m",
             Paint::Alarm => "\x1b[38;5;167m",
             Paint::Caution => "\x1b[38;5;179m",
             Paint::Rule => "\x1b[38;5;240m",
@@ -109,7 +115,7 @@ impl Mark {
 
     fn tint(self) -> Paint {
         match self {
-            Mark::Present => Paint::Drape,
+            Mark::Present => Paint::Success,
             Mark::Partial | Mark::Warning => Paint::Caution,
             Mark::Critical => Paint::Alarm,
             Mark::Absent | Mark::NotApplicable => Paint::InkSoft,
@@ -127,11 +133,11 @@ impl Mark {
 /// Opens a chart: the procedure name, right-aligned context, and a rule.
 ///
 /// ```text
-///   NEUROSURGEON · INTAKE                          4 of 13 present
+///   SYNAPSE · INTAKE                               4 of 13 present
 ///   ──────────────────────────────────────────────────────────────
 /// ```
 pub fn open(procedure: &str, context: &str) {
-    let title = format!("NEUROSURGEON · {}", procedure.to_uppercase());
+    let title = format!("SYNAPSE · {}", procedure.to_uppercase());
     let pad = WIDTH.saturating_sub(title.chars().count() + context.chars().count());
     println!();
     println!(
