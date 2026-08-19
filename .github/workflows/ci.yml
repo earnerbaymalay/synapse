@@ -139,9 +139,9 @@ jobs:
           python3 - <<'PY'
           import os, sys
           required = [
-              "README.md", "CLAUDE.md", "MASTER_PROMPT.md", "PLAN.md",
-              "PROGRESS.md", "DECISIONS.md", "DESIGN_PACK.md",
-              "RALPH_PROMPT.md", "docs/CODE_REVIEW.md",
+              "README.md", "CLAUDE.md", ".ai/MASTER_PROMPT.md", ".ai/PLAN.md",
+              ".ai/PROGRESS.md", "docs/DECISIONS.md", "docs/DESIGN_PACK.md",
+              ".ai/RALPH_PROMPT.md", "docs/CODE_REVIEW.md",
           ]
           missing = [f for f in required if not os.path.isfile(f)]
           for f in required:
