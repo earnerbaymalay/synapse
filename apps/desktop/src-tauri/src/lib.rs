@@ -42,10 +42,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_version,
             commands::check_for_update,
-            commands::open_settings,
-            commands::run_adapter_command,
-            commands::import_config,
-            commands::export_config,
+            commands::intake,
+            commands::examine,
             dry_run::scan_dry_run,
         ])
         .run(tauri::generate_context!())

@@ -2,16 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  color-scheme: dark;
+/*
+ * The Operating Theatre palette — see IDENTITY.md.
+ *
+ * Light is the default because the reference is a paper chart clipped to the
+ * end of the bed, not a terminal. Dark follows the viewer's system setting.
+ * Red is load-bearing: if `--alarm` appears anywhere that is not a critical
+ * finding, the palette is broken.
+ */
+:root {
+  --ground: #f4f2ed;
+  --chart: #ffffff;
+  --rule: #d9d5cc;
+  --ink: #14171a;
+  --ink-soft: #5c6068;
+  --drape: #0e7c6b;
+  --alarm: #b3261e;
+  --caution: #8a6100;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #14171a;
+    --chart: #1b1f23;
+    --rule: #2c3238;
+    --ink: #e8e6e1;
+    --ink-soft: #9aa0a6;
+    --drape: #2dbfa5;
+    --alarm: #f2685c;
+    --caution: #e0a62b;
+    color-scheme: dark;
+  }
 }
 
 body {
   margin: 0;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
-    'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  @apply bg-slate-950 text-slate-200;
+  @apply bg-ground text-ink font-sans;
+}
+
+/* Charts are dense; the scrollbar should not shout. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
