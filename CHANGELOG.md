@@ -1,36 +1,28 @@
 # Changelog
 
-All notable changes to **LLM Neurosurgeon** will be documented in this file.
+All notable changes to **SYNAPSE / llm-neuro-surgeon** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Changed
-- **SYNAPSE rebrand**: adopted the SYNAPSE brand system (`brands/synapse/`) as
-  canonical, superseding the prior Cortex/Synapse/Cerebra three-way
-  exploration and the ad-hoc "Operating Theatre" placeholder identity.
-  - CLI binary renamed `neurosurgeon` → `synapse` (the internal
-    `neurosurgeon-core` library crate and `NEUROSURGEON_*` env vars are
-    unchanged).
-  - Desktop app repainted in the SYNAPSE palette (ink/accent-blue, semantic
-    green for status, gold reserved for marketing only), three-font system
-    (Rubik Mono One, Inter, JetBrains Mono) vendored locally rather than
-    fetched from a CDN, and a blueprint corner-mark frame around each chart.
-  - README, `docs/ONBOARDING.md`, and the full `brands/synapse/marketing-pack/`
-    content set replaced/added.
-  - See `IDENTITY.md` for what's brand-specific versus what's a permanent
-    rule (no emoji, no placeholder data, absence-is-a-finding).
-
-## [1.0.0] - 2026-08-14
+## [1.0.0] - 2026-08-19
 
 ### Added
+- **SYNAPSE Rebrand Package & Visual Identity**:
+  - Integrated complete SYNAPSE brand identity (`SYNAPSE / llm-neuro-surgeon: One Brain. All Models.`).
+  - Applied design tokens: Synapse Blue accent (`#1d9bf0`), dark ink interface (`#06080b`), Inter, JetBrains Mono, and Rubik Mono One typography, and "Surgical precision. Zero friction." tone anchor.
+- **Clinical Record React Desktop UI (`chart.tsx`, `Intake.tsx`, `Examination.tsx`)**:
+  - Implemented the clinical operating theatre record identity per `IDENTITY.md` backed by live `neurosurgeon-core` calls with zero fabricated sample data.
+- **4-Phase Onboarding Journey Guide (`docs/ONBOARDING.md`)**:
+  - Authored structured 4-phase journey covering Phase 1 (The Hook), Phase 2 (The Solution - The Brain), Phase 3 (Immediate Value - `synapse scan` / `import` / `project`), and Phase 4 (Long-Term Power - Time Machine, Auto-Sync Daemon, Doctor, MCP Hub, Marketplace).
+- **Interactive Cyber-Dark GitHub Pages Landing Site (`docs/index.html`)**:
+  - Standalone interactive terminal simulator with tabbed verbs (`scan`, `import`, `project`, `sync`, `doctor`), live ECG vitals pulse, and 13 tool adapter specifications.
+- **CLI Binary Alias Integration**:
+  - Exposed binary aliases `synapse` and `neurosurgeon` across CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
 - **Antigravity CLI Adapter (`agy-cli`)**:
   - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agy/skills/`), and settings configurations (`.gemini/settings.json`).
-  - Added adapter unit tests, policy table mapping, and registry verification.
 - **Full CLI Non-Dry-Run Write Paths**:
-  - Implemented write execution for `neurosurgeon import`, `neurosurgeon project`, `neurosurgeon sync` (`--once`, `--daemon`, `--poll-interval`), `neurosurgeon snapshot`, and `neurosurgeon rollback`.
+  - Implemented write execution for `synapse import`, `synapse project`, `synapse sync` (`--once`, `--daemon`, `--poll-interval`), `synapse snapshot`, and `synapse rollback`.
 - **E2E Quality & Test Hardening (100% Pass Rate)**:
   - Achieved 142/142 (100%) test pass rate across the full E2E Vitest suite:
     - Sanity suite: 4/4 passing (100%)
@@ -38,8 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Tier 2 Boundary & Corner Cases: 60/60 passing (100%) across path traversal, malformed configs, missing fields, and write protection
     - Tier 3 Combinations & State Transitions: 12/12 passing (100%) across 3-way merge, concurrent lock safety, rapid event debounce, and multi-target projects
     - Tier 4 Real-world Workloads: 6/6 passing (100%) across large monorepo synchronization scenarios
-  - Achieved 179/179 (100%) test pass rate across Rust Core, CLI, stress, and updater test suites with zero Clippy warnings.
-- **Centralized Security Enforcement**:
+  - Achieved 203/203 (100%) test pass rate across Rust Core, CLI, stress, and updater test suites with zero Clippy warnings.
+- **Centralized Security Enforcement & Dependabot Resolution**:
+  - Resolved `nanoid` CVE advisory (`GHSA-2v37-7h3g-55p8`) by updating overrides to `^3.3.18`.
   - Added `parse_and_validate_mcp_server` helper enforcing path traversal defense and required field validation across all adapter MCP parsing paths.
   - Hardened write protection error handling and home directory configuration resolution across all adapters.
 - **Obsidian Antigravity Integration**:

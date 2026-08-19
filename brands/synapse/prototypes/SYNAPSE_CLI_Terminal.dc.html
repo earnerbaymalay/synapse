@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLI — SYNAPSE</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Rubik+Mono+One&display=swap');
+    :root {
+      --bg-primary: #0b0e13; --bg-terminal: #05070a; --bg-card: #171c25; --border: #262c37;
+      --accent: #1d9bf0; --accent-light: #5cb2f5; --success: #3fb950; --warning: #d29922; --error: #ff7b72;
+      --text-primary: #d4dae2; --text-secondary: #8b949e; --text-muted: #4b5361;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.5; }
+    @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 8px rgba(29,155,240,0.15);} 50% { box-shadow: 0 0 16px rgba(29,155,240,0.3);} }
+    @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+    @keyframes node-pulse { 0%,100% { opacity: 0.15; } 50% { opacity: 0.6; } }
+    .app { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; position: relative; }
+    .sidebar { background: var(--bg-primary); border-right: 1px solid var(--border); padding: 1.5rem; display: flex; flex-direction: column; gap: 2rem; overflow-y: auto; z-index: 2; }
+    .logo { display: flex; align-items: center; gap: 0.7rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .logo svg { width: 34px; height: 34px; flex-shrink: 0; }
+    .logo-text { font-family: 'Rubik Mono One', monospace; font-size: 0.92rem; letter-spacing: 1px; text-transform: uppercase; }
+    .logo-tagline { font-size: 0.62rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
+    .nav-section { display: flex; flex-direction: column; gap: 0.35rem; }
+    .nav-title { font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.6px; padding: 0 0.75rem 0.4rem; font-family: 'JetBrains Mono', monospace; }
+    .nav-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.75rem; border-radius: 4px; cursor: pointer; color: var(--text-secondary); transition: all 0.25s ease; text-decoration: none; font-size: 0.87rem; font-weight: 500; }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-item:hover { background: var(--bg-card); color: var(--text-primary); }
+    .nav-item.active { background: rgba(29,155,240,0.1); color: var(--accent-light); border-left: 2px solid var(--accent); padding-left: calc(0.75rem - 2px); }
+    .main { display: flex; flex-direction: column; background: var(--bg-primary); position: relative; z-index: 2; }
+    .neuron-bg { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.5; }
+    .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1.4rem 2rem; position: relative; z-index: 2; }
+    .header-title { font-size: 1.35rem; font-weight: 800; }
+    .header-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem; }
+    .content { flex: 1; overflow-y: auto; padding: 2rem; position: relative; z-index: 2; }
+    .section { margin-bottom: 2.25rem; }
+    .section-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 1.1rem; }
+    .blueprint { position: relative; border: 1px solid var(--border); }
+    .corner { position: absolute; width: 8px; height: 8px; pointer-events: none; }
+    .corner::before, .corner::after { content: ''; position: absolute; background: var(--accent); opacity: 0.4; transition: opacity 0.25s ease; }
+    .corner::before { width: 100%; height: 1px; top: 50%; transform: translateY(-50%); }
+    .corner::after { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .corner.tl { top: -1px; left: -1px; } .corner.tr { top: -1px; right: -1px; }
+    .corner.bl { bottom: -1px; left: -1px; } .corner.br { bottom: -1px; right: -1px; }
+    .terminal { background: var(--bg-terminal); border: 1px solid var(--border); padding: 1.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.86rem; line-height: 1.85; margin-bottom: 1.4rem; }
+    .terminal-line { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .terminal-line:last-child { margin-bottom: 0; }
+    .prompt { color: var(--accent-light); font-weight: 600; }
+    .command { color: var(--text-primary); }
+    .output { color: var(--text-secondary); }
+    .output.success { color: var(--success); }
+    .cmt { color: var(--text-muted); margin: 0.8rem 0 0.3rem; }
+    .caret { display: inline-block; width: 7px; height: 1em; background: var(--accent-light); vertical-align: -2px; animation: blink 1s step-end infinite; }
+    .command-card { background: var(--bg-card); padding: 1.4rem; margin-bottom: 0; transition: all 0.25s ease; position: relative; }
+    .command-card:hover { border-color: var(--accent); }
+    .command-card:hover .corner::before, .command-card:hover .corner::after { opacity: 1; }
+    .command-name { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-light); margin-bottom: 0.45rem; font-size: 0.92rem; }
+    .command-description { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.7rem; }
+    .command-usage { background: var(--bg-primary); padding: 0.65rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; overflow-x: auto; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+    @media (max-width: 768px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</helmet>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" fill="none"><line x1="24" y1="24" x2="10" y2="12" stroke="#1d9bf0" stroke-width="1.6" opacity="0.7"/><line x1="24" y1="24" x2="38" y2="12" stroke="#1d9bf0" stroke-width="1.6" opacity="0.7"/><line x1="24" y1="24" x2="8" y2="30" stroke="#1d9bf0" stroke-width="1.6" opacity="0.5"/><line x1="24" y1="24" x2="40" y2="32" stroke="#1d9bf0" stroke-width="1.6" opacity="0.5"/><line x1="24" y1="24" x2="24" y2="42" stroke="#1d9bf0" stroke-width="1.6" opacity="0.6"/><circle cx="24" cy="24" r="7" fill="#0b0e13" stroke="#1d9bf0" stroke-width="2"/><circle cx="24" cy="24" r="2.4" fill="#1d9bf0"/><circle cx="10" cy="12" r="2.6" fill="#5cb2f5"/><circle cx="38" cy="12" r="2.6" fill="#5cb2f5"/><circle cx="8" cy="30" r="2" fill="#5cb2f5" opacity="0.8"/><circle cx="40" cy="32" r="2" fill="#5cb2f5" opacity="0.8"/><circle cx="24" cy="42" r="2.2" fill="#5cb2f5" opacity="0.9"/></svg>
+      <div><div class="logo-text">Synapse</div><div class="logo-tagline">llm-neuro-surgeon</div></div>
+    </div>
+    <nav class="nav-section">
+      <div class="nav-title">Navigation</div>
+      <a class="nav-item" href="#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+      <a class="nav-item" href="#projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>Projects</a>
+      <a class="nav-item" href="#adapters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="9" x2="6" y2="4"/><line x1="15" y1="9" x2="20" y2="5"/><line x1="14.5" y1="14" x2="19" y2="18"/><line x1="9.5" y1="14" x2="5" y2="19"/></svg>Adapters</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-title">Brain</div>
+      <a class="nav-item" href="#config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="1.8" fill="#0b0e13"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="1.8" fill="#0b0e13"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="1.8" fill="#0b0e13"/></svg>Configuration</a>
+      <a class="nav-item" href="#sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><polyline points="21 3 21 8 16 8"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><polyline points="3 21 3 16 8 16"/></svg>Sync Status</a>
+      <a class="nav-item" href="#marketplace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M20.3 12.5l-8-8H5v7.3l8 8a2 2 0 0 0 2.8 0l4.5-4.5a2 2 0 0 0 0-2.8z"/><circle cx="8.3" cy="8.3" r="1.1" fill="currentColor"/></svg>Marketplace</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-title">Tools</div>
+      <a class="nav-item active" href="#cli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>CLI Docs</a>
+      <a class="nav-item" href="#logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg>Logs</a>
+      <a class="nav-item" href="#settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M3 12h3M18 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>Settings</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <svg class="neuron-bg" viewBox="0 0 1200 1400" preserveAspectRatio="none">
+      <g stroke="#1d9bf0" stroke-width="1" fill="none">
+        <sc-for list="{{ neuronLines }}" as="ln" hint-placeholder-count="10">
+          <path d="{{ ln.d }}" opacity="{{ ln.o }}"></path>
+        </sc-for>
+      </g>
+      <g fill="#1d9bf0">
+        <sc-for list="{{ neuronNodes }}" as="n" hint-placeholder-count="24">
+          <circle cx="{{ n.x }}" cy="{{ n.y }}" r="2"><animate attributeName="opacity" values="0.1;0.5;0.1" dur="{{ n.dur }}" repeatCount="indefinite"></animate></circle>
+        </sc-for>
+      </g>
+    </svg>
+
+    <div class="header"><div class="header-title">Command Line Interface</div><div class="header-subtitle">The synapse CLI — automation, scripting, CI</div></div>
+
+    <div class="content">
+      <div class="section">
+        <div class="section-title">Quick Start</div>
+        <div class="terminal">
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse scan</span></div>
+          <div class="terminal-line"><span class="output success">✓ found 13 adapters on this machine</span></div>
+          <div class="cmt"># preview an import — zero writes</div>
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse import --dry-run</span></div>
+          <div class="terminal-line"><span class="output">would import 7 skills, 6 agents, 0 MCP servers — nothing written</span></div>
+          <div class="cmt"># commit to it</div>
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse import</span></div>
+          <div class="terminal-line"><span class="output success">✓ imported into ~/AIBrain</span></div>
+          <div class="terminal-line" style="margin-top:0.5rem;"><span class="prompt">$</span><span class="command">synapse project</span><span class="caret"></span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Core Commands</div>
+        <div class="grid-2">
+          <div class="command-card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="command-name">synapse scan</div><div class="command-description">Discover every AI tool installed on this machine</div>
+            <div class="command-usage">synapse scan [--json]</div>
+          </div>
+          <div class="command-card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="command-name">synapse import</div><div class="command-description">Ingest tool configs losslessly into the canonical Brain</div>
+            <div class="command-usage">synapse import [--dry-run]</div>
+          </div>
+          <div class="command-card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="command-name">synapse project</div><div class="command-description">Push the Brain back out to every detected tool</div>
+            <div class="command-usage">synapse project [--dry-run]</div>
+          </div>
+          <div class="command-card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="command-name">synapse sync</div><div class="command-description">Bidirectional sync with 3-way merge and conflict queue</div>
+            <div class="command-usage">synapse sync [--once | --daemon]</div>
+          </div>
+          <div class="command-card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="command-name">synapse doctor</div><div class="command-description">Diagnose drift and broken links, auto-repair what it can</div>
+            <div class="command-usage">synapse doctor [--fix]</div>
+          </div>
+          <div class="command-card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="command-name">Time Machine</div><div class="command-description">Snapshot Brain state, or roll back to any prior commit</div>
+            <div class="command-usage">synapse snapshot "message"<br>synapse rollback &lt;hash&gt;</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Full Loop Example</div>
+        <div class="terminal">
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse sync --daemon</span></div>
+          <div class="terminal-line"><span class="output">watching ~/AIBrain for changes…</span></div>
+          <div class="terminal-line"><span class="output success">✓ 13/13 adapters synced</span></div>
+          <div class="cmt"># something drifted — ask the doctor</div>
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse doctor --fix</span></div>
+          <div class="terminal-line"><span class="output success">✓ 3 issues resolved</span></div>
+          <div class="cmt"># snapshot before a risky change, roll back if needed</div>
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse snapshot "before MCP server migration"</span></div>
+          <div class="terminal-line"><span class="output success">✓ a3f8b2c committed</span></div>
+          <div class="terminal-line"><span class="prompt">$</span><span class="command">synapse rollback a3f8b2c</span><span class="caret"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: &quot;1400px&quot;, &quot;height&quot;: &quot;900px&quot;}, &quot;particleCount&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 55, &quot;min&quot;: 0, &quot;max&quot;: 100, &quot;step&quot;: 5, &quot;unit&quot;: &quot;%&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Ambient neuron field&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const maxNodes = 22;
+    const count = Math.max(0, Math.min(maxNodes, Math.round(((this.props.particleCount ?? 55) / 100) * maxNodes)));
+    const basePositions = [
+      [60,80],[140,60],[90,220],[180,180],[40,340],[160,400],[70,520],[190,600],
+      [50,700],[170,780],[90,900],[150,980],[60,1060],[180,1120],[100,1220],[40,1300],
+      [200,340],[220,560],[210,820],[230,1040],[130,140],[110,460]
+    ];
+    const neuronNodes = basePositions.slice(0, count).map(([x,y], i) => ({ x, y, dur: (3 + (i % 5) * 0.6).toFixed(1) + 's' }));
+    const lineDefs = [];
+    for (let i = 0; i < neuronNodes.length - 1; i += 2) {
+      const a = neuronNodes[i], b = neuronNodes[i + 1];
+      if (a && b) lineDefs.push({ d: `M ${a.x} ${a.y} Q ${(a.x+b.x)/2+30} ${(a.y+b.y)/2} ${b.x} ${b.y}`, o: 0.12 });
+    }
+    const showAdvanced = this.props.showAdvanced ?? true;
+    return { neuronNodes, neuronLines: lineDefs, showAdvanced };
+  }
+}
+</script>
+</body>
+</html>

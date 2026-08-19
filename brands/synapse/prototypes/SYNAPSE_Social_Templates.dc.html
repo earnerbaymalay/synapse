@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta charset="UTF-8">
+  <title>SYNAPSE — Social Templates</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rubik+Mono+One&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #05070a; padding: 40px; }
+    .label { font-family: 'JetBrains Mono', monospace; color: #8b949e; font-size: 13px; margin-bottom: 10px; letter-spacing: 0.5px; }
+    .wrap { margin-bottom: 48px; }
+
+    .card { position: relative; background: #0b0e13; overflow: hidden; border: 1px solid #262c37; }
+    .corner { position: absolute; width: 14px; height: 14px; }
+    .corner::before, .corner::after { content: ''; position: absolute; background: #1d9bf0; opacity: 0.8; }
+    .corner::before { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+    .corner::after { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .corner.tl { top: 18px; left: 18px; } .corner.tr { top: 18px; right: 18px; }
+    .corner.bl { bottom: 18px; left: 18px; } .corner.br { bottom: 18px; right: 18px; }
+
+    .field { position: absolute; inset: 0; opacity: 0.55; }
+
+    .wordmark { font-family: 'Rubik Mono One', monospace; text-transform: uppercase; background: linear-gradient(135deg, #1d9bf0, #5cb2f5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+    .subtitle { font-family: 'JetBrains Mono', monospace; color: #4b5361; letter-spacing: 3px; text-transform: uppercase; }
+    .tag { font-family: 'Inter', sans-serif; color: #8b949e; font-weight: 500; }
+
+    .pendant-mini { display: inline-block; background-image: linear-gradient(135deg, #f0d580, #d4af37 55%, #8a6d1f); color: #2a1d04; font-family: 'Rubik Mono One', monospace; padding: 6px 12px; border: 2px solid #6e5416; text-align: center; line-height: 1.25; }
+
+    .adapters-row { display: flex; gap: 10px; }
+    .mono { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: #5cb2f5; background: rgba(29,155,240,0.1); border: 1px solid rgba(29,155,240,0.3); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+  </style>
+</helmet>
+
+<div>
+  <div class="wrap">
+    <div class="label">og-card.png — 1200 × 630 — general link previews (Twitter/Slack/Discord)</div>
+    <div class="card" id="card-og" style="width:1200px; height:630px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <svg class="field" viewBox="0 0 1200 630" preserveAspectRatio="none">
+        <g stroke="#1d9bf0" stroke-width="1" fill="none" opacity="0.35">
+          <path d="M120 90 Q 220 160 260 240"/><path d="M1080 100 Q 980 170 940 250"/><path d="M150 520 Q 240 460 300 400"/><path d="M1050 540 Q 960 470 900 410"/>
+        </g>
+        <g fill="#1d9bf0"><circle cx="120" cy="90" r="3"/><circle cx="260" cy="240" r="2.4"/><circle cx="1080" cy="100" r="3"/><circle cx="940" cy="250" r="2.4"/><circle cx="150" cy="520" r="2.4"/><circle cx="300" cy="400" r="2.4"/><circle cx="1050" cy="540" r="2.4"/><circle cx="900" cy="410" r="2.4"/></g>
+      </svg>
+      <div style="position:relative; display:flex; flex-direction:column; align-items:center; gap:18px;">
+        <div class="wordmark" style="font-size:96px;">Synapse</div>
+        <div class="subtitle" style="font-size:20px;">llm-neuro-surgeon</div>
+        <div style="display:flex; align-items:center; gap:14px; margin-top:6px;">
+          <span class="tag" style="font-size:26px;">One Brain. All Models.</span>
+          <span class="pendant-mini" style="font-size:13px;">ALL<br>MODELS</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="label">github-social-preview.png — 1280 × 640 — repo Settings → Social preview</div>
+    <div class="card" id="card-github" style="width:1280px; height:640px; display:flex; flex-direction:column; justify-content:space-between; padding:64px;">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <svg class="field" viewBox="0 0 1280 640" preserveAspectRatio="none">
+        <g stroke="#1d9bf0" stroke-width="1" fill="none" opacity="0.3"><path d="M1150 80 Q 1050 150 1010 230"/><path d="M1180 560 Q 1080 500 1030 440"/></g>
+        <g fill="#1d9bf0"><circle cx="1150" cy="80" r="3"/><circle cx="1010" cy="230" r="2.4"/><circle cx="1180" cy="560" r="3"/><circle cx="1030" cy="440" r="2.4"/></g>
+      </svg>
+      <div style="position:relative;">
+        <div class="wordmark" style="font-size:80px;">Synapse</div>
+        <div class="subtitle" style="font-size:18px; margin-top:8px;">llm-neuro-surgeon</div>
+        <div class="tag" style="font-size:24px; margin-top:20px; max-width:640px;">One canonical, git-backed Brain for every AI coding tool on your machine.</div>
+      </div>
+      <div style="position:relative; display:flex; align-items:center; gap:18px;">
+        <div class="adapters-row">
+          <div class="mono">Cl</div><div class="mono">Cu</div><div class="mono">Ws</div><div class="mono">Ge</div><div class="mono">Cx</div><div class="mono">Zd</div>
+        </div>
+        <span style="font-family:'JetBrains Mono', monospace; color:#4b5361; font-size:14px;">+7 more · 13 verified adapters</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="label">x-header.png — 1500 × 500 — X/Twitter profile header</div>
+    <div class="card" id="card-x" style="width:1500px; height:500px; display:flex; align-items:center; padding:0 90px; justify-content:space-between;">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <svg class="field" viewBox="0 0 1500 500" preserveAspectRatio="none">
+        <g stroke="#1d9bf0" stroke-width="1" fill="none" opacity="0.3"><path d="M1150 70 Q 1250 150 1290 230"/><path d="M1200 430 Q 1280 360 1330 300"/></g>
+        <g fill="#1d9bf0"><circle cx="1150" cy="70" r="3"/><circle cx="1290" cy="230" r="2.4"/><circle cx="1200" cy="430" r="3"/><circle cx="1330" cy="300" r="2.4"/></g>
+      </svg>
+      <div style="position:relative;">
+        <div class="wordmark" style="font-size:88px;">Synapse</div>
+        <div class="subtitle" style="font-size:19px; margin-top:10px;">llm-neuro-surgeon</div>
+      </div>
+      <div style="position:relative; text-align:right;">
+        <div class="tag" style="font-size:30px;">One Brain.</div>
+        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+          <span class="pendant-mini" style="font-size:14px;">ALL<br>MODELS</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: &quot;1280px&quot;, &quot;height&quot;: &quot;auto&quot;}}">
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
