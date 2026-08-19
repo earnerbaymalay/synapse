@@ -385,6 +385,7 @@ pub fn safe_join(root: &Path, relative: &str) -> Result<PathBuf, AdapterError> {
 #[cfg(test)]
 mod registry_tests {
     use super::*;
+    use crate::test_home::HomeGuard;
     use tempfile::tempdir;
 
     #[test]
@@ -402,6 +403,13 @@ mod registry_tests {
     #[test]
     fn no_adapter_detects_an_empty_root() {
         let dir = tempdir().unwrap();
+        // Several adapters (zed, openai-codex, windsurf) also consult
+        // $HOME, where a user-level install counts as present. Pin HOME to
+        // an empty temp dir so this asserts the adapters read the scanned
+        // root correctly, not whether the machine running the suite happens
+        // to have one of these tools installed.
+        let home = tempdir().unwrap();
+        let _home = HomeGuard::set(home.path());
         for adapter in all_adapters() {
             assert!(
                 !adapter.detect(dir.path()),

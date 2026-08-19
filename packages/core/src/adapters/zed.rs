@@ -353,6 +353,7 @@ impl Adapter for ZedAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_home::HomeGuard;
     use std::fs;
     use tempfile::tempdir;
 
@@ -360,6 +361,13 @@ mod tests {
     fn test_zed_detect() {
         let dir = tempdir().unwrap();
         let adapter = ZedAdapter;
+
+        // `detect` deliberately also consults $HOME/.config/zed, since a
+        // user-level Zed install counts as present. Pin HOME to an empty temp
+        // dir so the negative case tests this adapter rather than whether the
+        // machine running the suite happens to have Zed installed.
+        let home = tempdir().unwrap();
+        let _home = HomeGuard::set(home.path());
         assert!(!adapter.detect(dir.path()));
 
         fs::write(dir.path().join(".rules"), "test").unwrap();
