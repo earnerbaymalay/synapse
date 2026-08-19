@@ -1,76 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 280" width="100%" height="100%">
   <defs>
     <!-- Background Gradient -->
-    <radialGradient id="bgGradient" cx="50%" cy="40%" r="75%">
-      <stop offset="0%" stop-color="#111722" />
-      <stop offset="55%" stop-color="#080b10" />
-      <stop offset="100%" stop-color="#020305" />
-    </radialGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e131d" />
+      <stop offset="40%" stop-color="#080b10" />
+      <stop offset="100%" stop-color="#030407" />
+    </linearGradient>
 
-    <!-- Liquid Chrome Horizon Gradient -->
+    <!-- Liquid Chrome Horizon Gradient (Front Faces) -->
     <linearGradient id="chromeHorizon" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="20%" stop-color="#e2ebf5" />
-      <stop offset="47%" stop-color="#8da3b8" />
-      <stop offset="49%" stop-color="#3b4956" />
-      <stop offset="51%" stop-color="#080e14" />
-      <stop offset="53%" stop-color="#1a2736" />
-      <stop offset="76%" stop-color="#7c96af" />
-      <stop offset="92%" stop-color="#d9e6f2" />
+      <stop offset="18%" stop-color="#dce7f5" />
+      <stop offset="46%" stop-color="#8ba1b8" />
+      <stop offset="49%" stop-color="#2d3b48" />
+      <stop offset="51%" stop-color="#060b11" />
+      <stop offset="53%" stop-color="#14212e" />
+      <stop offset="74%" stop-color="#768fa8" />
+      <stop offset="92%" stop-color="#dbe6f2" />
       <stop offset="100%" stop-color="#ffffff" />
     </linearGradient>
 
-    <!-- 24K Gold Horizon Gradient -->
+    <!-- 24K Polished Gold Gradient -->
     <linearGradient id="goldHorizon" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
       <stop offset="18%" stop-color="#fff1ad" />
       <stop offset="46%" stop-color="#d49e1e" />
-      <stop offset="49%" stop-color="#734f03" />
-      <stop offset="52%" stop-color="#3d2800" />
-      <stop offset="70%" stop-color="#bf8c17" />
+      <stop offset="49%" stop-color="#6e4c02" />
+      <stop offset="52%" stop-color="#332200" />
+      <stop offset="70%" stop-color="#c49018" />
       <stop offset="90%" stop-color="#fce277" />
       <stop offset="100%" stop-color="#fff8d4" />
     </linearGradient>
 
-    <!-- 3D Gold Extrusion Depth -->
-    <linearGradient id="goldDepth" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#997012" />
-      <stop offset="40%" stop-color="#4d3502" />
-      <stop offset="80%" stop-color="#261900" />
-      <stop offset="100%" stop-color="#0d0800" />
-    </linearGradient>
-
-    <!-- Brushed Titanium Chassis -->
-    <linearGradient id="titaniumChassis" x1="0%" y1="0%" x2="100%" y2="0%">
+    <!-- Brushed Titanium Subtitle Bar -->
+    <linearGradient id="titaniumPlate" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#1e293b" />
-      <stop offset="25%" stop-color="#334155" />
-      <stop offset="50%" stop-color="#1e293b" />
-      <stop offset="75%" stop-color="#475569" />
+      <stop offset="30%" stop-color="#334155" />
+      <stop offset="70%" stop-color="#1e293b" />
       <stop offset="100%" stop-color="#0f172a" />
     </linearGradient>
 
-    <!-- Neural Cyan Gradient -->
+    <!-- Cyan Beam Gradient -->
     <linearGradient id="cyanBeam" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#00f2ff" stop-opacity="0" />
-      <stop offset="50%" stop-color="#00f2ff" stop-opacity="0.8" />
+      <stop offset="0%" stop-color="#00f2ff" stop-opacity="0.9" />
+      <stop offset="70%" stop-color="#00f2ff" stop-opacity="0.2" />
       <stop offset="100%" stop-color="#00f2ff" stop-opacity="0" />
     </linearGradient>
 
-    <!-- Drop Shadows & Glow Filters -->
-    <filter id="mainDropShadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000000" flood-opacity="0.9" />
+    <!-- Glow & Shadow Filters -->
+    <filter id="textDepthShadow" x="-10%" y="-10%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.95" />
     </filter>
 
-    <filter id="glowEffect">
-      <feGaussianBlur stdDeviation="4" result="blur" />
+    <filter id="neonCyanGlow">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
 
-    <filter id="lensGlint">
-      <feGaussianBlur stdDeviation="1.5" result="blur" />
+    <filter id="specularGlint">
+      <feGaussianBlur stdDeviation="1" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
@@ -78,168 +69,155 @@
     </filter>
   </defs>
 
-  <!-- GitHub Card Container Frame -->
-  <rect width="1200" height="500" rx="16" fill="url(#bgGradient)" stroke="#1e293b" stroke-width="2" />
+  <!-- Outer Card Frame -->
+  <rect width="1000" height="280" rx="12" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="1.5" />
 
-  <!-- Transformer Weight Tensor Grid (Background) -->
-  <g opacity="0.12">
-    <path d="M 50,420 L 1150,420 M 100,445 L 1100,445 M 160,470 L 1040,470" stroke="#38bdf8" stroke-width="1.2" />
-    <path d="M 150,500 L 400,380 M 350,500 L 500,380 M 600,500 L 600,380 M 850,500 L 700,380 M 1050,500 L 800,380" stroke="#38bdf8" stroke-width="1.2" />
+  <!-- Right-Fading Neural Synaptic Weight Matrix Grid -->
+  <g opacity="0.13" stroke="#38bdf8" stroke-width="1">
+    <line x1="580" y1="40" x2="950" y2="40" stroke-dasharray="4 8" />
+    <line x1="530" y1="90" x2="950" y2="90" />
+    <line x1="500" y1="140" x2="950" y2="140" stroke-dasharray="8 4" />
+    <line x1="550" y1="190" x2="950" y2="190" />
+    <line x1="590" y1="240" x2="950" y2="240" stroke-dasharray="4 8" />
+
+    <line x1="620" y1="20" x2="620" y2="260" />
+    <line x1="720" y1="20" x2="720" y2="260" stroke-dasharray="6 6" />
+    <line x1="820" y1="20" x2="820" y2="260" />
+    <line x1="920" y1="20" x2="920" y2="260" stroke-dasharray="2 10" />
   </g>
 
-  <!-- Synaptic Pruning / Differentiable Mask Traces -->
-  <g opacity="0.25" stroke="url(#cyanBeam)" stroke-width="1.8" fill="none">
-    <path d="M 120,130 L 260,90 L 450,90 L 520,140" />
-    <path d="M 1080,130 L 940,90 L 750,90 L 680,140" />
-    <circle cx="260" cy="90" r="3" fill="#00f2ff" />
-    <circle cx="450" cy="90" r="3" fill="#00f2ff" />
-    <circle cx="940" cy="90" r="3" fill="#00f2ff" />
-    <circle cx="750" cy="90" r="3" fill="#00f2ff" />
+  <!-- Synaptic Axon Trace Lines -->
+  <g fill="none" opacity="0.28">
+    <path d="M 450,45 L 600,45 L 660,105 L 850,105" stroke="url(#cyanBeam)" stroke-width="1.5" />
+    <circle cx="660" cy="105" r="3" fill="#00f2ff" />
+    <circle cx="850" cy="105" r="2" fill="#00f2ff" />
+    <path d="M 520,235 L 680,235 L 740,175 L 920,175" stroke="url(#cyanBeam)" stroke-width="1.5" />
+    <circle cx="740" cy="175" r="3" fill="#00f2ff" />
   </g>
 
-  <!-- TOP HERO EMBLEM: 3D Isometric Surgical Neuro-Crystal -->
-  <g transform="translate(600, 105)" filter="url(#mainDropShadow)">
-    <polygon points="0,-48 55,0 0,48 -55,0" fill="none" stroke="url(#goldHorizon)" stroke-width="2.5" />
-    <polygon points="0,-40 45,0 0,40 -45,0" fill="none" stroke="#00f2ff" stroke-width="1" stroke-dasharray="4 4" opacity="0.6" />
-    
-    <!-- 3D Facets -->
-    <polygon points="0,-36 0,0 -32,-6" fill="url(#chromeHorizon)" />
-    <polygon points="0,-36 32,-6 0,0" fill="url(#goldHorizon)" />
-    <polygon points="0,36 -32,6 0,0" fill="url(#goldDepth)" />
-    <polygon points="0,36 0,0 32,6" fill="url(#chromeHorizon)" />
+  <!-- ================= LEFT-ALIGNED BRANDING ================= -->
 
-    <!-- Surgical Scalpel Blade Axis & Laser Core -->
-    <line x1="0" y1="-56" x2="0" y2="56" stroke="#ffffff" stroke-width="2" filter="url(#glowEffect)" />
-    <circle cx="0" cy="0" r="5" fill="#ffffff" filter="url(#glowEffect)" />
-    <circle cx="0" cy="0" r="2.5" fill="#00f2ff" />
-  </g>
-
-  <!-- ================= 3D TITLE: SYNAPSE ================= -->
-  <g filter="url(#mainDropShadow)">
-
-    <!-- 1. 3D Extrusions (Depth & Occlusion) -->
-    <g fill="url(#goldDepth)" stroke="#170f00" stroke-width="1.2">
-      <!-- S1 Depth -->
-      <path d="M 125,230 L 140,246 L 140,282 L 125,266 Z M 125,305 L 140,321 L 210,321 L 195,305 Z M 195,245 L 210,261 L 210,321 L 195,305 Z" />
-      <!-- Y Depth -->
-      <path d="M 245,215 L 258,230 L 285,275 L 272,260 Z M 330,215 L 343,230 L 343,260 L 330,245 Z M 288,320 L 302,335 L 318,335 L 304,320 Z" />
-      <!-- N Depth -->
-      <path d="M 368,215 L 383,230 L 383,320 L 368,305 Z M 432,215 L 447,230 L 447,320 L 432,305 Z" />
-      <!-- A Depth -->
-      <path d="M 470,320 L 485,335 L 505,335 L 490,320 Z M 560,320 L 575,335 L 555,335 L 540,320 Z M 545,215 L 560,230 L 575,335 L 560,320 Z" />
-      <!-- P Depth -->
-      <path d="M 600,215 L 615,230 L 615,320 L 600,305 Z M 665,215 L 680,230 L 680,280 L 665,265 Z" />
-      <!-- S2 Depth -->
-      <path d="M 710,230 L 725,246 L 725,282 L 710,266 Z M 710,305 L 725,321 L 795,321 L 780,305 Z M 780,245 L 795,261 L 795,321 L 780,305 Z" />
-      <!-- E Depth -->
-      <path d="M 825,215 L 840,230 L 840,320 L 825,305 Z M 825,305 L 840,320 L 910,320 L 895,305 Z M 895,215 L 910,230 L 910,248 L 895,233 Z" />
-    </g>
-
-    <!-- 2. Gold Top Chamfers -->
-    <g fill="url(#goldHorizon)" stroke="#fff099" stroke-width="1.2">
-      <path d="M 125,230 L 134,217 L 204,217 L 195,230 Z" />
-      <path d="M 245,215 L 254,202 L 284,202 L 275,215 Z" />
-      <path d="M 330,215 L 339,202 L 309,202 L 300,215 Z" />
-      <path d="M 368,215 L 377,202 L 407,202 L 398,215 Z" />
-      <path d="M 432,215 L 441,202 L 471,202 L 462,215 Z" />
-      <path d="M 500,215 L 509,202 L 539,202 L 530,215 Z" />
-      <path d="M 600,215 L 609,202 L 674,202 L 665,215 Z" />
-      <path d="M 710,230 L 719,217 L 789,217 L 780,230 Z" />
-      <path d="M 825,215 L 834,202 L 904,202 L 895,215 Z" />
-    </g>
-
-    <!-- 3. Front Liquid Chrome Letter Faces -->
-    <g fill="url(#chromeHorizon)" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round">
-      <!-- S -->
-      <path d="M 195,232 L 150,232 C 135,232 128,240 128,252 C 128,268 140,272 162,277 L 178,281 C 200,287 207,295 207,310 C 207,328 192,336 166,336 L 125,336 L 125,305 L 170,305 C 180,305 185,301 185,295 C 185,286 177,282 158,277 L 143,273 C 120,268 108,258 108,243 C 108,224 125,209 154,209 L 195,209 Z" />
-      <!-- Y -->
-      <path d="M 235,209 L 261,209 L 288,266 L 314,209 L 340,209 L 302,281 L 302,336 L 273,336 L 273,281 Z" />
-      <!-- N -->
-      <path d="M 368,209 L 396,209 L 436,285 L 436,209 L 462,209 L 462,336 L 434,336 L 394,258 L 394,336 L 368,336 Z" />
-      <!-- A -->
-      <path d="M 511,209 L 539,209 L 573,336 L 545,336 L 537,301 L 513,301 L 505,336 L 477,336 Z M 519,276 L 531,276 L 525,245 Z" />
-      <!-- P -->
-      <path d="M 600,209 L 645,209 C 670,209 685,222 685,247 C 685,272 670,285 645,285 L 626,285 L 626,336 L 600,336 Z M 626,262 L 643,262 C 654,262 660,256 660,247 C 660,237 654,232 643,232 L 626,232 Z" />
-      <!-- S -->
-      <path d="M 780,232 L 735,232 C 720,232 713,240 713,252 C 713,268 725,272 747,277 L 763,281 C 785,287 792,295 792,310 C 792,328 777,336 751,336 L 710,336 L 710,305 L 755,305 C 765,305 770,301 770,295 C 770,286 762,282 743,277 L 728,273 C 705,268 693,258 693,243 C 693,224 710,209 739,209 L 780,209 Z" />
-      <!-- E -->
-      <path d="M 825,209 L 900,209 L 900,235 L 853,235 L 853,258 L 892,258 L 892,282 L 853,282 L 853,310 L 902,310 L 902,336 L 825,336 Z" />
-    </g>
-
-    <!-- Specular Light Flares -->
-    <g filter="url(#lensGlint)">
-      <g transform="translate(154, 209)">
-        <polygon points="0,-12 2,-2 12,0 2,2 0,12 -2,2 -12,0 -2,-2" fill="#ffffff" />
-      </g>
-      <g transform="translate(525, 209)">
-        <polygon points="0,-16 3,-3 16,0 3,3 0,16 -3,3 -16,0 -3,-3" fill="#ffffff" />
-        <circle cx="0" cy="0" r="2.5" fill="#ffeaa7" />
-      </g>
-      <g transform="translate(900, 209)">
-        <polygon points="0,-12 2,-2 12,0 2,2 0,12 -2,2 -12,0 -2,-2" fill="#ffffff" />
-      </g>
-    </g>
-  </g>
-
-  <!-- ================= SUBTITLE CHASSIS: LLM-NEURO-SURGEON ================= -->
-  <g transform="translate(600, 400)" filter="url(#mainDropShadow)">
-    <!-- Mounting Bracket Base -->
-    <polygon points="-310,-24 310,-24 330,0 310,24 -310,24 -330,0" fill="url(#titaniumChassis)" stroke="#334155" stroke-width="1.5" />
-    <polygon points="-302,-18 302,-18 320,0 302,18 -302,18 -320,0" fill="#070a0e" stroke="url(#goldHorizon)" stroke-width="1" />
-
-    <!-- Corner Surgical Rivets -->
-    <circle cx="-295" cy="0" r="3.5" fill="url(#chromeHorizon)" stroke="#0f172a" stroke-width="0.8" />
-    <circle cx="295" cy="0" r="3.5" fill="url(#chromeHorizon)" stroke="#0f172a" stroke-width="0.8" />
-
-    <!-- Laser Indicators -->
-    <circle cx="-260" cy="0" r="2.5" fill="#00f2ff" filter="url(#glowEffect)" />
-    <line x1="-248" y1="0" x2="-210" y2="0" stroke="#00f2ff" stroke-width="1.2" opacity="0.8" />
-    <circle cx="260" cy="0" r="2.5" fill="#00f2ff" filter="url(#glowEffect)" />
-    <line x1="248" y1="0" x2="210" y2="0" stroke="#00f2ff" stroke-width="1.2" opacity="0.8" />
-
-    <!-- SUBTITLE TYPOGRAPHY -->
-    <text x="0" y="6.5" 
-          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" 
-          font-size="16" 
-          font-weight="900" 
-          letter-spacing="10" 
-          text-anchor="middle" 
-          fill="url(#goldHorizon)" 
-          stroke="#000000" 
-          stroke-width="0.6">
-      LLM-NEURO-SURGEON
+  <!-- Top Metadata Kicker -->
+  <g transform="translate(60, 48)">
+    <line x1="0" y1="-4" x2="16" y2="-4" stroke="#00f2ff" stroke-width="2" filter="url(#neonCyanGlow)" />
+    <text x="24" y="0" 
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', monospace" 
+          font-size="10.5" 
+          font-weight="700" 
+          letter-spacing="3" 
+          fill="#38bdf8">
+      TRANSFORMER WEIGHT SURGERY &amp; MECHANISTIC INTERPRETABILITY
     </text>
   </g>
 
-  <!-- METADATA BADGES (GitHub Tech Badges in Header) -->
-  <g transform="translate(600, 462)" opacity="0.85">
-    <!-- Badge 1: Mechanistic Interpretability -->
-    <g transform="translate(-180, 0)">
-      <rect x="-85" y="-11" width="170" height="22" rx="11" fill="#0f172a" stroke="#334155" stroke-width="1" />
-      <circle cx="-68" cy="0" r="3" fill="#00f2ff" />
-      <text x="5" y="4" font-family="-apple-system, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5" fill="#94a3b8" text-anchor="middle">INTERPRETABILITY</text>
-    </g>
+  <!-- ================= 3D METALLIC TITLE: SYNAPSE ================= -->
+  <g transform="translate(60, 138)" filter="url(#textDepthShadow)">
+    
+    <!-- 1. Deep 3D Extrusion Shadow Layers (Offset Depth dx, dy) -->
+    <text x="6" y="6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" font-size="82" font-weight="900" letter-spacing="6" fill="#05080c">SYNAPSE</text>
+    <text x="5" y="5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" font-size="82" font-weight="900" letter-spacing="6" fill="#131920">SYNAPSE</text>
+    <text x="4" y="4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" font-size="82" font-weight="900" letter-spacing="6" fill="#2d2105">SYNAPSE</text>
+    <text x="3" y="3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" font-size="82" font-weight="900" letter-spacing="6" fill="#594008">SYNAPSE</text>
+    <text x="2" y="2" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" font-size="82" font-weight="900" letter-spacing="6" fill="#997014">SYNAPSE</text>
+    <text x="1" y="1" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" font-size="82" font-weight="900" letter-spacing="6" fill="#d49e1e">SYNAPSE</text>
 
-    <!-- Badge 2: Model Pruning Engine -->
-    <g transform="translate(0, 0)">
-      <rect x="-85" y="-11" width="170" height="22" rx="11" fill="#0f172a" stroke="#d49e1e" stroke-width="1" />
-      <circle cx="-68" cy="0" r="3" fill="#ffd700" />
-      <text x="5" y="4" font-family="-apple-system, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5" fill="#ffd700" text-anchor="middle">WEIGHT SURGERY</text>
-    </g>
+    <!-- 2. Polished 24K Gold Bevel Rim -->
+    <text x="0" y="0" 
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" 
+          font-size="82" 
+          font-weight="900" 
+          letter-spacing="6" 
+          fill="none" 
+          stroke="url(#goldHorizon)" 
+          stroke-width="3" 
+          stroke-linejoin="round">
+      SYNAPSE
+    </text>
 
-    <!-- Badge 3: Diff-Masking -->
-    <g transform="translate(180, 0)">
-      <rect x="-85" y="-11" width="170" height="22" rx="11" fill="#0f172a" stroke="#334155" stroke-width="1" />
-      <circle cx="-68" cy="0" r="3" fill="#38bdf8" />
-      <text x="5" y="4" font-family="-apple-system, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5" fill="#94a3b8" text-anchor="middle">DIFF-MASKING</text>
+    <!-- 3. Primary Liquid Chrome Face -->
+    <text x="0" y="0" 
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" 
+          font-size="82" 
+          font-weight="900" 
+          letter-spacing="6" 
+          fill="url(#chromeHorizon)" 
+          stroke="#ffffff" 
+          stroke-width="0.8">
+      SYNAPSE
+    </text>
+
+    <!-- Specular Flare Glints on Letter Peaks -->
+    <g filter="url(#specularGlint)">
+      <!-- Flare on 'S' -->
+      <g transform="translate(18, -62)">
+        <polygon points="0,-9 1.5,-1.5 9,0 1.5,1.5 0,9 -1.5,1.5 -9,0 -1.5,-1.5" fill="#ffffff" />
+      </g>
+      <!-- Flare on 'A' -->
+      <g transform="translate(262, -62)">
+        <polygon points="0,-12 2,-2 12,0 2,2 0,12 -2,2 -12,0 -2,-2" fill="#ffffff" />
+        <circle cx="0" cy="0" r="1.8" fill="#fff7cc" />
+      </g>
+      <!-- Flare on 'E' -->
+      <g transform="translate(488, -62)">
+        <polygon points="0,-9 1.5,-1.5 9,0 1.5,1.5 0,9 -1.5,1.5 -9,0 -1.5,-1.5" fill="#ffffff" />
+      </g>
     </g>
   </g>
 
-  <!-- Medical Crosshair Accents -->
-  <g stroke="#38bdf8" stroke-width="0.8" opacity="0.35">
-    <line x1="600" y1="20" x2="600" y2="35" />
-    <line x1="592.5" y1="27.5" x2="607.5" y2="27.5" />
-    <line x1="80" y1="250" x2="65" y2="250" />
-    <line x1="1120" y1="250" x2="1135" y2="250" />
+  <!-- ================= SUBTITLE: LLM-NEURO-SURGEON ================= -->
+  <g transform="translate(60, 185)">
+    <!-- Surgical Titanium Badge Plaque -->
+    <polygon points="0,0 355,0 368,14 355,28 0,28" fill="url(#titaniumPlate)" stroke="#334155" stroke-width="1.2" />
+    <polygon points="2,2 350,2 362,14 350,26 2,26" fill="#090d14" stroke="url(#goldHorizon)" stroke-width="0.8" />
+
+    <!-- Left Status LED -->
+    <circle cx="14" cy="14" r="3" fill="#00f2ff" filter="url(#neonCyanGlow)" />
+
+    <!-- Subtitle Text -->
+    <text x="28" y="19" 
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Montserrat', 'Arial Black', sans-serif" 
+          font-size="12" 
+          font-weight="800" 
+          letter-spacing="5" 
+          fill="url(#goldHorizon)">
+      LLM-NEURO-SURGEON
+    </text>
+
+    <!-- Version / Active Tag -->
+    <g transform="translate(390, 0)">
+      <rect x="0" y="3" width="70" height="22" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="1" />
+      <text x="35" y="17" font-family="monospace" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.0.0</text>
+    </g>
+  </g>
+
+  <!-- ================= BOTTOM TECHNICAL PILLS ================= -->
+  <g transform="translate(60, 240)">
+    <!-- Pill 1 -->
+    <g transform="translate(0, 0)">
+      <rect width="128" height="18" rx="9" fill="#0b111a" stroke="#1e293b" stroke-width="0.8" />
+      <circle cx="9" cy="9" r="2" fill="#00f2ff" />
+      <text x="68" y="12.5" font-family="monospace" font-size="8" font-weight="700" letter-spacing="1" fill="#94a3b8" text-anchor="middle">DIFF-MASKING</text>
+    </g>
+
+    <!-- Pill 2 -->
+    <g transform="translate(136, 0)">
+      <rect width="160" height="18" rx="9" fill="#0b111a" stroke="#1e293b" stroke-width="0.8" />
+      <circle cx="9" cy="9" r="2" fill="#ffd700" />
+      <text x="84" y="12.5" font-family="monospace" font-size="8" font-weight="700" letter-spacing="1" fill="#94a3b8" text-anchor="middle">ACTIVATION PATCHING</text>
+    </g>
+
+    <!-- Pill 3 -->
+    <g transform="translate(304, 0)">
+      <rect width="144" height="18" rx="9" fill="#0b111a" stroke="#1e293b" stroke-width="0.8" />
+      <circle cx="9" cy="9" r="2" fill="#38bdf8" />
+      <text x="76" y="12.5" font-family="monospace" font-size="8" font-weight="700" letter-spacing="1" fill="#94a3b8" text-anchor="middle">HEAD ABLATION</text>
+    </g>
+  </g>
+
+  <!-- Surgical Alignment Ticks on Edge -->
+  <g stroke="#38bdf8" stroke-width="1" opacity="0.35">
+    <line x1="20" y1="48" x2="35" y2="48" />
+    <line x1="20" y1="140" x2="30" y2="140" />
+    <line x1="20" y1="240" x2="35" y2="240" />
   </g>
 </svg>
