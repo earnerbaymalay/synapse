@@ -1,10 +1,10 @@
+<img src="./assets/hero.svg" width="100%">
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/releases)
 [![PyPI version](https://img.shields.io/pypi/v/synapse-llm?style=flat-square)](https://pypi.org/project/synapse-llm/)
 [![Docker Pulls](https://img.shields.io/docker/pulls/earnerbaymalay/synapse-llm?style=flat-square)](https://hub.docker.com/r/earnerbaymalay/synapse-llm)
 [![License: MIT](https://img.shields.io/github/license/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/blob/main/LICENSE)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/llm-neuro-surgeon/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/actions)
 [![Discord](https://img.shields.io/discord/123456789012345678?style=flat-square&logo=discord)](https://discord.gg/your-invite)
-<img src="./assets/hero.svg" width="100%">
 
 ## 💡 What is Synapse (LLM-NeuroSurgeon)?
 
