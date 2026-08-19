@@ -59,7 +59,6 @@ synapse sync --daemon
 
 > [!TIP]
 > You can also run the CLI via Cargo in development: `cargo run -p synapse -- scan`.  
-> Both binary names `synapse` and `neurosurgeon` can be used interchangeably.
 
 For full setup prerequisites across Linux, macOS, and Windows, read the **[Quickstart Guide](docs/QUICKSTART.md)**.
 
