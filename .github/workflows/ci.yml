@@ -92,7 +92,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - uses: Swatinem/rust-cache@v2
       - name: Build CLI for E2E
-        run: cargo build --package neurosurgeon
+        run: cargo build --package synapse
       - name: End-to-end tests
         run: pnpm --filter @llm-neurosurgeon/e2e test
 
