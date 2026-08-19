@@ -1,10 +1,9 @@
 <div align="center">
 
 # SYNAPSE
-### llm-neuro-surgeon
+### llm-neuro-surgeon: One Brain. All Models.
 
-**One Brain. All Models.**
-Surgical precision. Zero friction.
+**Surgical precision. Zero friction.**
 
 A local-first desktop app and CLI that unifies the configuration of every AI coding tool on your machine into one canonical, git-backed **Brain** — then keeps every tool in sync with it, automatically.
 
@@ -15,7 +14,7 @@ A local-first desktop app and CLI that unifies the configuration of every AI cod
 [![Stack](https://img.shields.io/badge/stack-Tauri_2_·_Rust_·_React-1d9bf0?style=flat-square)](#architecture)
 [![License](https://img.shields.io/badge/license-MIT-d4af37?style=flat-square)](LICENSE)
 
-**[Quickstart](#quickstart) · [Onboarding](docs/ONBOARDING.md) · [User Guide](docs/USER_GUIDE.md) · [Adapters](#13-verified-adapters) · [Architecture](#architecture)**
+**[Quickstart](#quickstart) · [Onboarding](docs/ONBOARDING.md) · [User Guide](docs/USER_GUIDE.md) · [Adapters](#13-verified-adapters) · [Architecture](#architecture) · [Brand System](brands/synapse/)**
 
 </div>
 
@@ -23,13 +22,13 @@ A local-first desktop app and CLI that unifies the configuration of every AI cod
 
 ### The problem
 
-You use more than one AI coding tool — Claude Code for deep reasoning, Cursor for rapid iteration, Gemini CLI for refactors, Windsurf for flow, Copilot for autocomplete. Each one speaks its own config dialect: `CLAUDE.md`, `.cursorrules`, `GEMINI.md`, `AGENTS.md`, `.windsurfrules`. You are maintaining the same skills and rules N times, and every edit is a tax on your attention. Formats diverge. Nothing tells you what any given model actually knows.
+You use more than one AI coding tool — Claude Code for deep reasoning, Cursor for rapid iteration, Gemini CLI for refactors, Windsurf for flow, Copilot for autocomplete, Antigravity CLI for agentic execution. Each one speaks its own config dialect: `CLAUDE.md`, `.cursorrules`, `GEMINI.md`, `AGENTS.md`, `.windsurfrules`. You are maintaining the same skills and rules N times, and every edit is a tax on your attention. Formats diverge. Nothing tells you what any given model actually knows.
 
 ### The solution
 
 Four verbs, one Brain:
 
-```
+```text
 synapse scan       discover every AI tool on this machine
 synapse import     ingest configs losslessly into ~/AIBrain
 synapse project    push the Brain back out to every tool
@@ -88,7 +87,7 @@ AIBrain/
 ## Architecture
 
 ```text
-apps/desktop (Tauri 2 + React/TS)     apps/cli (Rust + Clap)
+apps/desktop (Tauri 2 + React/TS)     apps/cli (Rust + Clap binary: synapse / neurosurgeon)
               \                            /
                \                          /
                 packages/core (Rust)
@@ -102,32 +101,40 @@ apps/desktop (Tauri 2 + React/TS)     apps/cli (Rust + Clap)
 **Prerequisites:** Rust 1.75+, Node.js 20+, Git.  
 *Linux packages:* `libdbus-1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`, `pkg-config`.
 
-```bash
-# CLI (using binary name neurosurgeon or alias synapse)
-cargo run -p neurosurgeon -- scan
-cargo run -p neurosurgeon -- import --dry-run
-cargo run -p neurosurgeon -- import
-cargo run -p neurosurgeon -- project
-cargo run -p neurosurgeon -- sync --daemon
-cargo run -p neurosurgeon -- doctor --fix
+### 4-Phase Quickstart Journey
 
-# Desktop app
+```bash
+# 1. Discover all installed AI tools
+synapse scan              # or: cargo run -p neurosurgeon -- scan
+
+# 2. Preview what would be imported (zero writes)
+synapse import --dry-run  # or: cargo run -p neurosurgeon -- import --dry-run
+
+# 3. Import configurations into ~/AIBrain and project out
+synapse import            # or: cargo run -p neurosurgeon -- import
+synapse project           # or: cargo run -p neurosurgeon -- project
+
+# 4. Run background auto-sync daemon and health diagnostic
+synapse sync --daemon     # or: cargo run -p neurosurgeon -- sync --daemon
+synapse doctor --fix      # or: cargo run -p neurosurgeon -- doctor --fix
+
+# Desktop app (React UI overhaul)
 cd apps/desktop && pnpm install && pnpm tauri dev
 ```
 
-Full walkthrough: [docs/ONBOARDING.md](docs/ONBOARDING.md)
+Full 4-phase walkthrough: [docs/ONBOARDING.md](docs/ONBOARDING.md)
 
 ## Quality
 
-142/142 E2E tests passing · 179/179 Rust tests passing · `cargo clippy` clean · `cargo fmt` compliant, across Linux, macOS and Windows.
+142/142 (100%) E2E tests passing · 179/179 (100%) Rust tests passing · `cargo clippy` clean · `cargo fmt` compliant across Linux, macOS, and Windows.
 
 ## Documentation
 
-- [User Guide](docs/USER_GUIDE.md) — CLI, desktop GUI, MCP hub, Doctor, rollbacks
-- [Onboarding](docs/ONBOARDING.md) — the four-phase quickstart journey
-- [Adapter Authoring Guide](docs/ADAPTER_AUTHORING_GUIDE.md) — build a new adapter in Rust
-- [Security Report](docs/security.md) — path safety, symlink defenses, sandboxing
-- [Brand System](brands/synapse/) — identity, tokens, marketing pack
+- [Onboarding Journey](docs/ONBOARDING.md) — the 4-phase quickstart journey
+- [User Guide](docs/USER_GUIDE.md) — CLI binary aliases (`synapse` / `neurosurgeon`), React desktop GUI, MCP hub, Doctor, rollbacks
+- [Adapter Authoring Guide](docs/ADAPTER_AUTHORING_GUIDE.md) — build a new tool adapter in Rust
+- [Security Report](docs/security.md) — path safety, symlink defenses, sandboxing, threat-model pass
+- [Brand System](brands/synapse/) — SYNAPSE identity, design tokens, marketing pack, brand book
 
 ## Security & privacy
 
@@ -136,3 +143,4 @@ Zero telemetry. Local-first — every operation runs offline. API keys live in t
 ## License
 
 [MIT](LICENSE) © 2026 earnerbaymalay.
+

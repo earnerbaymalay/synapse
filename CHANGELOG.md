@@ -1,18 +1,26 @@
 # Changelog
 
-All notable changes to **LLM Neurosurgeon** will be documented in this file.
+All notable changes to **SYNAPSE / llm-neuro-surgeon** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-08-14
+## [1.0.0] - 2026-08-19
 
 ### Added
+- **SYNAPSE Rebrand Package & Visual Identity**:
+  - Integrated complete SYNAPSE brand identity (`SYNAPSE / llm-neuro-surgeon: One Brain. All Models.`) based on `brands/synapse/marketing-pack/BRAND_BOOK.md`.
+  - Applied design tokens: Synapse Blue accent (`#1d9bf0`), dark ink interface (`#06080b`), Inter, JetBrains Mono, and Rubik Mono One typography, and "Surgical precision. Zero friction." tone anchor.
+- **React Desktop UI Overhaul & 8-Screen Console**:
+  - Aligned 8 core screens (Main Dashboard, Configuration Manager, Adapter Inspector, Status Monitor, Debug Console, Onboarding Wizard, Marketplace, MCP Hub) with SYNAPSE visual tokens.
+- **4-Phase Onboarding Journey Guide (`docs/ONBOARDING.md`)**:
+  - Authored structured 4-phase journey covering Phase 1 (The Hook), Phase 2 (The Solution - The Brain), Phase 3 (Immediate Value - `synapse scan` / `import` / `project`), and Phase 4 (Long-Term Power - Time Machine, Auto-Sync Daemon, Doctor, MCP Hub, Marketplace).
+- **CLI Binary Alias Integration**:
+  - Exposed binary aliases `synapse` and `neurosurgeon` across CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
 - **Antigravity CLI Adapter (`agy-cli`)**:
   - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agy/skills/`), and settings configurations (`.gemini/settings.json`).
-  - Added adapter unit tests, policy table mapping, and registry verification.
 - **Full CLI Non-Dry-Run Write Paths**:
-  - Implemented write execution for `neurosurgeon import`, `neurosurgeon project`, `neurosurgeon sync` (`--once`, `--daemon`, `--poll-interval`), `neurosurgeon snapshot`, and `neurosurgeon rollback`.
+  - Implemented write execution for `synapse import`, `synapse project`, `synapse sync` (`--once`, `--daemon`, `--poll-interval`), `synapse snapshot`, and `synapse rollback`.
 - **E2E Quality & Test Hardening (100% Pass Rate)**:
   - Achieved 142/142 (100%) test pass rate across the full E2E Vitest suite:
     - Sanity suite: 4/4 passing (100%)
@@ -32,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalized line endings (CRLF to LF) and path separators across adapter import pipelines.
 
 ---
+
 
 ## [0.7.4] - 2026-07-20
 

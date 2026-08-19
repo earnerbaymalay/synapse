@@ -1,10 +1,9 @@
-# LLM Neurosurgeon — User Guide
+# SYNAPSE / llm-neuro-surgeon — User Guide
 
 > **Surgical precision. Zero friction.**  
-> **One Brain. All Models.**  
-> *The Minimalist Approach*
+> **SYNAPSE / llm-neuro-surgeon: One Brain. All Models.**
 
-Welcome to **LLM Neurosurgeon** — the local-first desktop application and CLI tool that unifies the configuration of every AI coding tool on your machine into one canonical, git-backed **Brain**, and keeps every tool in sync automatically.
+Welcome to **SYNAPSE / llm-neuro-surgeon** — the local-first desktop application and CLI tool (accessible via binary aliases `synapse` and `neurosurgeon`) that unifies the configuration of every AI coding tool on your machine into one canonical, git-backed **Brain**, and keeps every tool in sync automatically.
 
 ---
 
@@ -35,7 +34,7 @@ Picture this: it's 2 AM. You've just crafted the perfect system prompt for Claud
 Next morning, you open Cursor to refactor a module. Your custom instructions are gone. Cursor doesn't know about your Rust conventions. You spend 20 minutes hunting down where you saved that prompt, then manually copy-paste it into `.cursorrules`. By Friday, you've done this dance five times — once for each tool. The prompts drift. The skills diverge. Your carefully curated AI personality fragments across a dozen config files, each in its own format, its own directory, its own reality.
 
 > [!WARNING]
-> **Configuration Fragmentation** — Every AI coding tool speaks its own config language. Claude Code reads `CLAUDE.md` and `.claude/skills/`. Cursor wants `.cursorrules`. Gemini CLI expects `GEMINI.md`. Aider looks for `CONVENTIONS.md`. OpenAI Codex parses `.codex/config.toml`. You maintain the same rules in five different formats, in five different places, and they *will* drift apart. This is the fragmentation tax — and you're paying it every day.
+> **Configuration Fragmentation** — Every AI coding tool speaks its own config language. Claude Code reads `CLAUDE.md` and `.claude/skills/`. Cursor wants `.cursorrules`. Gemini CLI expects `GEMINI.md`. Aider looks for `CONVENTIONS.md`. OpenAI Codex parses `.codex/config.toml`. Antigravity CLI reads `AGENTS.md` and `.agy/skills/`. You maintain the same rules in half a dozen formats across different directories, and they *will* drift apart. This is the fragmentation tax — and you're paying it every day.
 
 Over time, your custom instructions rot. Skills become outdated in some tools while updated in others. There is no single source of truth. Your AI tools are speaking different dialects, and you're the translator.
 
@@ -45,18 +44,18 @@ Over time, your custom instructions rot. Skills become outdated in some tools wh
 
 # Phase 2: The Solution — One Brain to Rule Them All
 
-LLM Neurosurgeon solves fragmentation by acting as a **universal neural bridge** — a single, canonical source of truth for every AI tool on your machine.
+SYNAPSE / llm-neuro-surgeon solves fragmentation by acting as a **universal neural bridge** — a single, canonical source of truth for every AI tool on your machine.
 
 > [!TIP]
 > **One Brain. All Models.** — Define your rules, skills, agents, memory, and MCP servers once in the Brain. Every tool on your machine reads from the same source. No drift. No duplication. No 2 AM copy-paste sessions.
 
 Here's how it works:
 
-1. **Scan** — Inspects your project or home directory for every existing AI tool configuration it can find.
-2. **Import** — Ingests rules, skills, agents, memory, and MCP servers into a single canonical directory: **the Brain** (`~/AIBrain` by default).
-3. **Project** — Emits the Brain back out to every tool on your machine — using symlinks where tolerated, or generated files stamped with provenance headers where necessary.
-4. **Monitor & Sync** — Watches for changes bidirectionally using a debounced filesystem watcher and OS scheduler background sweeps.
-5. **Track History** — Every sync is a Git commit, giving you a full **Time Machine** to inspect, diff, or roll back your AI configurations.
+1. **Scan (`synapse scan`)** — Inspects your project or home directory for every existing AI tool configuration it can find.
+2. **Import (`synapse import`)** — Ingests rules, skills, agents, memory, and MCP servers into a single canonical directory: **the Brain** (`~/AIBrain` by default).
+3. **Project (`synapse project`)** — Emits the Brain back out to every tool on your machine — using symlinks where tolerated, or generated files stamped with provenance headers where necessary.
+4. **Monitor & Sync (`synapse sync`)** — Watches for changes bidirectionally using a debounced filesystem watcher and OS scheduler background sweeps.
+5. **Track History (`synapse snapshot` / `rollback`)** — Every sync is a Git commit, giving you a full **Time Machine** to inspect, diff, or roll back your AI configurations.
 
 ## The Canonical Brain Layout
 
@@ -94,7 +93,7 @@ AIBrain/
 
 ## Supported AI Tools Matrix
 
-LLM Neurosurgeon includes **13 built-in adapters** covering major AI development tools:
+SYNAPSE / llm-neuro-surgeon includes **13 built-in adapters** covering major AI development tools:
 
 | Tool ID | Tool Name | Primary Config Paths | Projection Mode |
 |---|---|---|---|
@@ -141,18 +140,18 @@ cargo build --workspace --release
 ### The 3-Command Onboarding Loop
 
 ```bash
-# 1. See what's out there
-cargo run -p neurosurgeon -- scan
+# 1. See what's out there (using alias synapse or binary neurosurgeon)
+synapse scan
 
 # 2. Preview what would be imported (zero writes)
-cargo run -p neurosurgeon -- import --dry-run
+synapse import --dry-run
 
 # 3. When you're ready, run import for real
-cargo run -p neurosurgeon -- import
+synapse import
 ```
 
 > [!TIP]
-> **Dry-run is your safety net.** The `--dry-run` flag reports every file that would be ingested without touching your disk. Run it early, run it often.
+> **Dry-run is your safety net.** The `--dry-run` flag reports every file that would be ingested without touching your disk. Run it early, run it often. Binary alias `synapse` and `neurosurgeon` can be used interchangeably.
 
 ### Desktop GUI (Optional)
 
@@ -170,20 +169,21 @@ pnpm tauri dev
 
 ### Scanning for Tools
 
-Run `neurosurgeon scan` to inspect your current directory or host environment for supported AI tool configurations:
+Run `synapse scan` (or `neurosurgeon scan`) to inspect your current directory or host environment for supported AI tool configurations:
 
 ```bash
-$ neurosurgeon scan
-Detected 4 AI tool configuration(s):
+$ synapse scan
+Detected 5 AI tool configuration(s):
   • claude-code   (CLAUDE.md, .claude/agents/coder.md)
   • cursor        (.cursorrules, .cursor/rules/rust.mdc)
   • gemini-cli    (GEMINI.md)
   • zed           (.rules)
+  • agy-cli       (AGENTS.md, .agy/skills/coding.md)
 ```
 
 To format output as JSON for scripting:
 ```bash
-$ neurosurgeon scan --json
+$ synapse scan --json
 ```
 
 ### Ingesting Configs (Dry Run & Real Import)
@@ -191,7 +191,7 @@ $ neurosurgeon scan --json
 Before modifying your filesystem, run an import dry-run to preview what will be ingested into the Brain:
 
 ```bash
-$ neurosurgeon import --dry-run
+$ synapse import --dry-run
 Migration Report (Dry Run):
   Skills found:     5
   Agents found:     2
@@ -203,7 +203,7 @@ Migration Report (Dry Run):
 To execute the import and populate the canonical Brain:
 
 ```bash
-$ neurosurgeon import
+$ synapse import
 Importing configurations into Brain...
   ✓ Ingested 5 skills
   ✓ Ingested 2 agents
@@ -218,28 +218,29 @@ Once configs are stored in the Brain, the **Projection Engine** emits them back 
 
 ```bash
 # Project canonical Brain configurations to all detected tools
-$ neurosurgeon project
+$ synapse project
 Projecting canonical Brain to detected tools...
   ✓ claude-code: projected CLAUDE.md & skills
   ✓ cursor: projected .cursorrules
   ✓ gemini-cli: updated .gemini/settings.json
   ✓ zed: updated .zed/settings.json
+  ✓ agy-cli: projected AGENTS.md & skills
 All projections completed cleanly.
 ```
 
 ### Projection Modes
 
 1. **Symlink Candidate (`Symlink`)**:
-   Used when a tool reads standard, isolated Markdown files (e.g. `.cursorrules`, `.rules`, `CLAUDE.md`). LLM Neurosurgeon creates a relative or absolute symlink directly pointing to the canonical file in `AIBrain/rules/`.
+   Used when a tool reads standard, isolated Markdown files (e.g. `.cursorrules`, `.rules`, `CLAUDE.md`). SYNAPSE / llm-neuro-surgeon creates a relative or absolute symlink directly pointing to the canonical file in `AIBrain/rules/`.
    *Windows Fallback*: When symlink creation fails due to unprivileged user mode, the projection engine falls back to Directory Junctions, Hardlinks, or Copy+Watch.
 
 2. **Merged Configuration (`Generate / Merge`)**:
-   Used when a tool stores AI rules or MCP servers inside a multi-purpose configuration file (such as `.zed/settings.json` or `.aider.conf.yml`). LLM Neurosurgeon reads the existing file, updates only the AI-managed sections (preserving all unrelated user settings), and writes the file back.
+   Used when a tool stores AI rules or MCP servers inside a multi-purpose configuration file (such as `.zed/settings.json` or `.aider.conf.yml`). SYNAPSE / llm-neuro-surgeon reads the existing file, updates only the AI-managed sections (preserving all unrelated user settings), and writes the file back.
 
 3. **Generated Header Stamping**:
-   Generated files written by LLM Neurosurgeon include a top-level provenance header:
+   Generated files written by SYNAPSE / llm-neuro-surgeon include a top-level provenance header:
    ```markdown
-   <!-- GENERATED BY LLM NEUROSURGEON — edit in the Brain -->
+   <!-- GENERATED BY SYNAPSE / LLM NEUROSURGEON — edit in the Brain -->
    ```
    This prevents accidental manual edits in target files and alerts users to edit the Brain source file instead.
 
@@ -249,18 +250,18 @@ Keep your canonical Brain and all tool configurations in continuous lockstep.
 
 ```bash
 # One-shot bidirectional sync with 3-way merge
-$ neurosurgeon sync --once
+$ synapse sync --once
 
 # Continuous background daemon with debounced filesystem watcher
-$ neurosurgeon sync --daemon
+$ synapse sync --daemon
 
 # Configure custom polling interval in daemon mode (e.g. 5 seconds)
-$ neurosurgeon sync --daemon --poll-interval 5
+$ synapse sync --daemon --poll-interval 5
 ```
 
 ## Graphical Desktop Interface
 
-The Tauri-powered Desktop GUI provides an intuitive visual management console divided into 8 core screens:
+The Tauri-powered Desktop GUI reflects the SYNAPSE brand identity (Synapse Blue accent `#1d9bf0`, dark ink interface `#06080b`, Inter and JetBrains Mono typography) and provides an intuitive visual management console divided into 8 core screens:
 
 1. **Main Dashboard (Vitals)**: Overview of Brain health, total skills/agents/rules, capability coverage matrix (Tool × Capability), and quick sync status.
 2. **Configuration Manager**: Tree view and editor for skills, rules, agents, and prompts with tool target toggles.
@@ -281,14 +282,14 @@ Once your Brain is live, these are the tools that keep it healthy, secure, and e
 
 ### Background Watching & Schedulers
 
-LLM Neurosurgeon runs a debounced background filesystem watcher (`notify` crate) combined with native OS background schedulers:
-- **macOS**: `launchd` plist (`~/Library/LaunchAgents/com.llmneurosurgeon.sync.plist`)
-- **Linux**: `systemd` user unit (`~/.config/systemd/user/llm-neurosurgeon-sync.timer`)
-- **Windows**: Task Scheduler (`schtasks /create /tn "LLMNeurosurgeonSync" ...`)
+SYNAPSE / llm-neuro-surgeon runs a debounced background filesystem watcher (`notify` crate) combined with native OS background schedulers:
+- **macOS**: `launchd` plist (`~/Library/LaunchAgents/com.synapse.neurosurgeon.sync.plist`)
+- **Linux**: `systemd` user unit (`~/.config/systemd/user/synapse-neurosurgeon-sync.timer`)
+- **Windows**: Task Scheduler (`schtasks /create /tn "SynapseNeurosurgeonSync" ...`)
 
 ### Three-Way Merge Engine
 
-When both the Brain and a target tool config are modified simultaneously, LLM Neurosurgeon executes a 3-way merge using the `diffy` engine:
+When both the Brain and a target tool config are modified simultaneously, SYNAPSE / llm-neuro-surgeon executes a 3-way merge using the `diffy` engine:
 - **Disjoint Markdown Edits**: Merged automatically without user intervention.
 - **Overlapping Conflicts**: Pushed to the **Conflict Queue** in the Desktop GUI or CLI for manual resolution. No file is corrupted or overwritten during a conflict.
 
@@ -298,11 +299,11 @@ Every sync operation automatically creates a Git commit inside `AIBrain/.git`. Y
 
 ```bash
 # Record a snapshot with a custom message
-$ neurosurgeon snapshot "Updated Rust coding conventions"
+$ synapse snapshot "Updated Rust coding conventions"
 Recorded snapshot a1b2c3d: Updated Rust coding conventions
 
 # Roll back to a previous commit or tag
-$ neurosurgeon rollback a1b2c3d
+$ synapse rollback a1b2c3d
 Rolled back Brain state to snapshot a1b2c3d. Working tree restored byte-identically.
 ```
 
@@ -322,7 +323,7 @@ The **MCP Hub** centralizes Model Context Protocol (MCP) server management acros
 
 ### OS Keychain Integration & Env Placeholders
 
-LLM Neurosurgeon ensures API keys and secrets are **never hardcoded in plain-text configuration files**:
+SYNAPSE / llm-neuro-surgeon ensures API keys and secrets are **never hardcoded in plain-text configuration files**:
 1. When importing MCP configs, secret values are harvested into the OS Keychain (Gnome Keyring on Linux, Security.framework on macOS, Credential Manager on Windows).
 2. The config file written to disk contains environment placeholders:
    ```json
@@ -349,21 +350,21 @@ The **Doctor Engine** continuously monitors your Brain and tool projections for 
 
 ### Running Doctor Diagnoses
 
-Run `neurosurgeon doctor` to analyze system health:
+Run `synapse doctor` (or `neurosurgeon doctor`) to analyze system health:
 
 ```bash
-$ neurosurgeon doctor
+$ synapse doctor
 [WARN]  missing-projection: Projection for 'cursor' rule 'global.md' missing at .cursorrules
 [INFO]  detached-symlink: Symlink .rules does not point to AIBrain/rules/global.md
-[HINT]  Run 'neurosurgeon doctor --fix' to automatically resolve fixable issues.
+[HINT]  Run 'synapse doctor --fix' to automatically resolve fixable issues.
 ```
 
 ### Automated Repair
 
-Run `neurosurgeon doctor --fix` to automatically repair all fixable diagnoses:
+Run `synapse doctor --fix` (or `neurosurgeon doctor --fix`) to automatically repair all fixable diagnoses:
 
 ```bash
-$ neurosurgeon doctor --fix
+$ synapse doctor --fix
 Recreated missing symlink: .cursorrules -> ~/AIBrain/rules/global.md
 Re-projected updated generated rule: .github/copilot-instructions.md
 Updated mappings.json checksums.
@@ -372,7 +373,7 @@ Brain health restored: 0 critical errors remaining.
 
 ## Marketplace & Untrusted Skill Ingestion
 
-LLM Neurosurgeon allows importing community-created skills and agents from repositories like `anthropics/skills` or external Git URLs.
+SYNAPSE / llm-neuro-surgeon allows importing community-created skills and agents from repositories like `anthropics/skills` or external Git URLs.
 
 ### Safety Model for Untrusted Skills
 
@@ -389,14 +390,14 @@ To protect your environment against prompt injection or malicious code execution
 
 ### Safety Commitments
 
-- **No Telemetry**: LLM Neurosurgeon does not collect, transmit, or report telemetry data.
+- **No Telemetry**: SYNAPSE / llm-neuro-surgeon does not collect, transmit, or report telemetry data.
 - **Offline First**: All scanning, importing, projecting, and sync operations take place locally on your machine. External network access is strictly limited to explicit user actions (fetching marketplace skills or checking MCP registries).
 - **Snapshot Before Destroy**: A Git snapshot is automatically committed prior to any destructive operation, ensuring full rollback capability.
 - **Dry-Run Default**: Initial import and projection operations default to dry-run reporting until explicitly confirmed.
 
 ### Common Questions
 
-**Q: Will LLM Neurosurgeon modify my existing tool configurations without asking?**  
+**Q: Will SYNAPSE / llm-neuro-surgeon modify my existing tool configurations without asking?**  
 A: No. Initial operations require explicit confirmation or `--dry-run` review. When projections are created, existing user files are backed up to `AIBrain/.brain/backups/`.
 
 **Q: What happens if I edit a rule file directly in Cursor instead of in the Brain?**  
@@ -407,3 +408,4 @@ A: Set the `$NEUROSURGEON_BRAIN` environment variable or specify `--brain /path/
 
 **Q: Is this safe for production use?**  
 A: Yes. Every destructive operation is preceded by a Git snapshot. The default mode is dry-run. No telemetry. No network calls unless you explicitly trigger them. Your configs never leave your machine.
+

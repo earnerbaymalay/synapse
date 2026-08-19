@@ -1,14 +1,9 @@
-# Security — T3.3 Red-Team Pass
+# SYNAPSE / llm-neuro-surgeon — Security Report & Red-Team Pass
 
-**Date:** 2026-07-12
-**Scope:** `packages/core/src/adapters/*.rs` — all 12 registered adapters'
-`import()`/`project()` implementations, per PLAN.md T3.3: "Red-team pass:
-symlink escape, path traversal, circular links, malformed configs."
-**Method:** manual adversarial read of every adapter's filesystem-touching
-code (not a fuzzer run), checked against MASTER_PROMPT.md §1 pillar 8's
-"Safety by design" contract — specifically "import never follows symlinks
-outside scanned roots." Findings were fixed in the same pass, each backed
-by a new regression test that fails on the pre-fix code.
+**Date:** 2026-07-12 (Updated for v1.0.0 SYNAPSE Rebrand)  
+**Scope:** `packages/core/src/adapters/*.rs` — all 13 registered adapters' (`claude-code`, `gemini-cli`, `openai-codex`, `cursor`, `windsurf`, `cline`, `roo-code`, `aider`, `continue`, `github-copilot`, `zed`, `opencode`, `agy-cli`) `import()`/`project()` implementations and CLI binary aliases (`synapse` / `neurosurgeon`), per PLAN.md T3.3: "Red-team pass: symlink escape, path traversal, circular links, malformed configs."  
+**Method:** manual adversarial read of every adapter's filesystem-touching code (not a fuzzer run), checked against MASTER_PROMPT.md §1 pillar 8's "Safety by design" contract — specifically "import never follows symlinks outside scanned roots." Findings were fixed in the same pass, each backed by a new regression test that fails on the pre-fix code.
+
 
 ## Findings
 
