@@ -7,7 +7,7 @@ they're kept below — but its ad-hoc palette and naming are now replaced by
 the real, fully-specified brand system in `brands/synapse/`.
 
 **Canonical references:**
-- [`brands/synapse/marketing-pack/BRAND_BOOK.md`](brands/synapse/marketing-pack/BRAND_BOOK.md) — voice, palette, type, structural system
+- [`.ai/marketing/BRAND_BOOK.md`](.ai/marketing/BRAND_BOOK.md) — voice, palette, type, structural system
 - [`brands/synapse/tokens.json`](brands/synapse/tokens.json) — machine-readable tokens
 - [`brands/synapse/index.html`](brands/synapse/index.html) — visual reference, open in a browser
 

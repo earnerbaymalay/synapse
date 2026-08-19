@@ -3,9 +3,14 @@ name = "synapse"
 version = "1.0.0"
 edition = "2021"
 description = "SYNAPSE (llm-neuro-surgeon) CLI — scan, import, project, sync, doctor, snapshot, and rollback AI tool configs"
+default-run = "synapse"
 
 [[bin]]
 name = "synapse"
+path = "src/main.rs"
+
+[[bin]]
+name = "neurosurgeon"
 path = "src/main.rs"
 
 [dependencies]

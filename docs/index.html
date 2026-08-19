@@ -137,7 +137,7 @@
       <div class="flex items-center gap-6 text-[11px] text-slate-400">
         <div><span class="text-slate-500">ADAPTERS:</span> <strong class="text-white">13/13 ONLINE</strong></div>
         <div><span class="text-slate-500">E2E TESTS:</span> <strong class="text-synapse-cyan">142/142 PASSING</strong></div>
-        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">179/179 PASSING</strong></div>
+        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">203/203 PASSING</strong></div>
         <div class="hidden sm:block"><span class="text-slate-500">STORAGE:</span> <strong class="text-synapse-accentLight">~/AIBrain</strong></div>
       </div>
     </div>
@@ -296,8 +296,8 @@
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
-        <!-- Adapter 5: Codex -->
-        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+        <!-- Adapter 5: OpenAI Codex -->
+        <a href="adapters/openai-codex.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Cx</span>
@@ -323,7 +323,7 @@
         </a>
 
         <!-- Adapter 7: Roo Code -->
-        <a href="adapters/cline.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+        <a href="adapters/roo-code.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ro</span>
@@ -335,20 +335,33 @@
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
-        <!-- Adapter 8: Copilot & Zed -->
-        <a href="adapters/copilot-zed.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+        <!-- Adapter 8: Zed -->
+        <a href="adapters/zed.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Zd</span>
               <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
             </div>
-            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Zed & GitHub Copilot</h3>
-            <p class="font-mono text-[11px] text-slate-500 mt-1">.rules • .github/copilot-instructions.md</p>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Zed</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.rules • .zed/settings.json • AGENTS.md</p>
           </div>
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
-        <!-- Adapter 9: Antigravity CLI -->
+        <!-- Adapter 9: GitHub Copilot -->
+        <a href="adapters/github-copilot.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Cp</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">GitHub Copilot</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.github/copilot-instructions.md</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 10: Antigravity CLI -->
         <a href="adapters/antigravity.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
@@ -361,8 +374,8 @@
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
-        <!-- Adapter 10: Continue -->
-        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+        <!-- Adapter 11: Continue -->
+        <a href="adapters/continue.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Co</span>
@@ -374,8 +387,8 @@
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
-        <!-- Adapter 11: Aider -->
-        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+        <!-- Adapter 12: Aider -->
+        <a href="adapters/aider.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ai</span>
@@ -387,8 +400,8 @@
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
-        <!-- Adapter 12: OpenCode -->
-        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+        <!-- Adapter 13: OpenCode -->
+        <a href="adapters/opencode.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Oc</span>
@@ -473,7 +486,9 @@
         <a href="README.md" class="hover:text-synapse-cyan transition-colors">Docs Hub</a>
         <a href="QUICKSTART.md" class="hover:text-synapse-cyan transition-colors">Quickstart</a>
         <a href="USER_GUIDE.md" class="hover:text-synapse-cyan transition-colors">User Guide</a>
+        <a href="adapters/README.md" class="hover:text-synapse-cyan transition-colors">Adapters</a>
         <a href="ARCHITECTURE.md" class="hover:text-synapse-cyan transition-colors">Architecture</a>
+        <a href="development/CONTRIBUTING.md" class="hover:text-synapse-cyan transition-colors">Contributing</a>
         <a href="https://github.com/earnerbaymalay/llm-neuro-surgeon" target="_blank" class="hover:text-synapse-cyan transition-colors">GitHub</a>
       </div>
     </div>
