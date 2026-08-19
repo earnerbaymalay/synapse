@@ -3,7 +3,6 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/earnerbaymalay/synapse-llm?style=flat-square)](https://hub.docker.com/r/earnerbaymalay/synapse-llm)
 [![License: MIT](https://img.shields.io/github/license/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/blob/main/LICENSE)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/llm-neuro-surgeon/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://codecov.io/gh/earnerbaymalay/llm-neuro-surgeon)
 [![Discord](https://img.shields.io/discord/123456789012345678?style=flat-square&logo=discord)](https://discord.gg/your-invite)
 <img src="./assets/hero.svg" width="100%">
 
