@@ -1,100 +1,69 @@
-# Identity — The Operating Theatre
+# Identity — SYNAPSE
 
-One identity, committed. This supersedes the Cortex / Synapse / Cerebra
-three-way split in DESIGN_PACK.md and the ASCII wireframes transcribed from
-it. Those wireframes were a sketch; they were shipped literally, emoji and
-placeholder rows included, and that is what made the app read as generic.
+One identity, committed. This supersedes both the Cortex / Synapse / Cerebra
+three-way split in DESIGN_PACK.md and this file's own prior draft ("The
+Operating Theatre"). That draft's structural rules turned out to be right —
+they're kept below — but its ad-hoc palette and naming are now replaced by
+the real, fully-specified brand system in `brands/synapse/`.
+
+**Canonical references:**
+- [`brands/synapse/marketing-pack/BRAND_BOOK.md`](brands/synapse/marketing-pack/BRAND_BOOK.md) — voice, palette, type, structural system
+- [`brands/synapse/tokens.json`](brands/synapse/tokens.json) — machine-readable tokens
+- [`brands/synapse/index.html`](brands/synapse/index.html) — visual reference, open in a browser
 
 ## The idea
 
-The tool is named Neurosurgeon. Take that seriously.
+The tool is named Neurosurgeon; the product is SYNAPSE. Take the metaphor
+seriously. A developer's AI tooling is not a "dashboard" — it is a patient.
+One organ (the Brain at `~/AIBrain`), thirteen grafts onto it (the tool
+adapters), a surgeon accountable for what they cut. `doctor` diagnoses.
+`snapshot` is pre-op imaging. `rollback` reverses the operation.
 
-A developer's AI tooling is not a "dashboard" — it is a patient. There is one
-organ (the Brain at `~/AIBrain`), thirteen grafts onto it (the tool adapters),
-and a surgeon who is accountable for what they cut. `doctor` diagnoses.
-`snapshot` is pre-op imaging. `rollback` reverses the operation. The
-vocabulary already exists in the codebase; the surface never used it.
+So the product reads like a **clinical record**, not a SaaS console — now
+rendered in SYNAPSE's actual palette (ink/accent-blue/gold-rare) instead of
+a placeholder one.
 
-So the product looks and reads like a **clinical record**, not a SaaS console.
+## What still holds, unconditionally
 
-## Point of difference
+These are the rules that made the CLI and desktop app stop reading as
+generated. They are brand-agnostic and apply regardless of which palette is
+current:
 
-Three commitments that no generic dashboard makes:
-
-1. **Every command ends by naming the next one.** A chart is useless if it
-   doesn't say what to do. No output is a dead end.
+1. **Every command ends by naming the next one.** No output is a dead end.
 2. **Absence is reported, not hidden.** A tool that isn't installed gets a
-   row saying so. Clinical records document negative findings; dashboards
-   quietly show nothing.
+   row saying so.
 3. **Nothing is displayed that isn't measured.** No placeholder rows, no
-   sample projects, no invented counts. If a number isn't read from disk, the
-   surface says so or omits it.
+   sample projects, no invented counts.
+4. **No emoji, anywhere, ever.** Status is carried by a small fixed glyph
+   set (`● ◐ ▲ ■ ○ ·`), one cell wide, first column.
+5. **No cards, no rounded corners, no shadows, no gradients.** Structure
+   comes from ruled lines and column alignment — SYNAPSE's own version of
+   this is the blueprint corner-mark system in the brand book, not a return
+   to soft UI.
 
-## Voice
+## What changed from the prior draft
 
-Terse, factual, accountable. The register of a surgeon writing notes — plain,
-specific, unhurried, no salesmanship and no apology.
+- Palette: SYNAPSE's ink/accent-blue/gold-rare/semantic-green, not the
+  bone/teal "Operating Theatre" palette. Dark-only — the brand system has no
+  light variant, so the app no longer follows `prefers-color-scheme`.
+- Status color is no longer the same as the UI accent: "present/healthy"
+  uses semantic green, the accent blue is reserved for links, buttons, and
+  the wordmark — see `BRAND_BOOK.md` Do/Don't.
+- Typography: three fonts (Rubik Mono One for the wordmark, Inter for UI,
+  JetBrains Mono for data), vendored locally under
+  `apps/desktop/src/assets/fonts/` rather than fetched from a CDN — the
+  brand's own claim is "local-first, zero telemetry," so a font fetch on
+  every launch would contradict the product it's branding.
+- CLI binary renamed `neurosurgeon` → `synapse` (the internal
+  `neurosurgeon-core` library crate and `NEUROSURGEON_*` env vars are
+  unchanged — that's implementation detail, not brand surface).
 
-- "4 of 13 tools present." — not "Great news! We found 4 tools! 🎉"
-- "No Brain at ~/AIBrain." — not "Oops, something went wrong."
-- "Writes 3 files. Nothing is written until you drop --dry-run."
-
-Say what happened, what it means, and what to do next. Never exclaim. Never
-thank the user for waiting. Never use "simply", "just", or "seamlessly".
-
-## Marks
-
-No emoji, anywhere, ever. Emoji is the single loudest tell of a generated
-interface, and a clinical record has no room for it. Status is carried by a
-small fixed set of glyphs, always in the first column, always one cell wide:
-
-| Glyph | Meaning   | Use                                            |
-|-------|-----------|------------------------------------------------|
-| `●`   | present   | detected, healthy, in sync                     |
-| `◐`   | partial   | detected but drifted, or mid-operation         |
-| `▲`   | warning   | needs attention, still functional              |
-| `■`   | critical  | broken, blocked, needs a human                 |
-| `○`   | absent    | not installed / not found — a real finding     |
-| `·`   | n/a       | not applicable to this row                     |
-
-## Palette
-
-Surgical, not cyberpunk. The reference is an operating theatre and the paper
-chart clipped to the end of the bed: bone-white ground, drape teal, ink text,
-and exactly one red reserved for genuine alarm.
-
-| Token        | Light     | Dark      | Role                              |
-|--------------|-----------|-----------|-----------------------------------|
-| `ground`     | `#F4F2ED` | `#14171A` | page — bone / theatre dark        |
-| `chart`      | `#FFFFFF` | `#1B1F23` | the record surface itself         |
-| `rule`       | `#D9D5CC` | `#2C3238` | ruled lines; the main structure   |
-| `ink`        | `#14171A` | `#E8E6E1` | primary text                      |
-| `ink-soft`   | `#5C6068` | `#9AA0A6` | secondary text, units, hints      |
-| `drape`      | `#0E7C6B` | `#2DBFA5` | the accent — surgical drape teal  |
-| `alarm`      | `#B3261E` | `#F2685C` | critical only. Never decorative.  |
-| `caution`    | `#8A6100` | `#E0A62B` | warning                           |
-
-Red is load-bearing. If red appears anywhere that is not a critical finding,
-the palette is broken.
-
-## Structure
-
-Charts are ruled, not boxed. **No cards, no rounded corners, no shadows, no
-gradients** — those three are what make a dashboard look like every other
-dashboard. Structure comes from horizontal rules and column alignment, the
-way a printed form does.
-
-- Data is monospace. A chart is a table; columns must align.
-- Prose is a humanist sans.
-- Density is a feature. Whitespace goes between sections, not inside rows.
-- One accent per screen. If everything is teal, nothing is.
-
-## What this rules out
-
-Stated plainly, so it can be checked in review:
+## What this still rules out
 
 - Emoji in any surface, including commit-facing docs and CLI output.
 - Placeholder or sample data rendered as if it were real.
-- `bg-slate-900` cards with rounded corners and a purple primary button.
-- Gradients, glows, glassmorphism, drop shadows.
+- Gold used for anything but the marketing hero device — never a button,
+  link, or status color (brand book rule, now enforced: the app's Tailwind
+  config has no gold token at all).
+- Rounded corners, drop shadows, glassmorphism, gradients on UI chrome.
 - Exclamation marks in product copy.

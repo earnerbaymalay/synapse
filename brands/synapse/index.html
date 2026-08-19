@@ -1,405 +1,402 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Synapse | LLM Neurosurgeon</title>
-    <style>
-        :root {
-            --bg-primary: #0d1117;
-            --bg-surface: #161b22;
-            --bg-card: #21262d;
-            --border: #30363d;
-            --accent: #58a6ff;
-            --accent-green: #3fb950;
-            --accent-red: #ff7b72;
-            --accent-orange: #d29922;
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --text-muted: #484f58;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SYNAPSE — Brand System</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rubik+Mono+One&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    :root {
+      --ink-950: #06080b;
+      --ink-900: #0b0e13;
+      --ink-800: #12161d;
+      --ink-700: #171c25;
+      --ink-600: #1d2330;
+      --ink-500: #262c37;
+      --ink-400: #4b5361;
+      --ink-300: #8b949e;
+      --ink-100: #d4dae2;
 
-        body {
-            font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            position: relative;
-            overflow-x: hidden;
-        }
+      --accent-900: #0a3a5c;
+      --accent-700: #0d5a96;
+      --accent-500: #1d9bf0;
+      --accent-300: #5cb2f5;
+      --accent-100: #c7e6fd;
 
-        /* Grid pattern overlay */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image:
-                repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(48, 54, 61, 0.15) 40px, rgba(48, 54, 61, 0.15) 41px),
-                repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(48, 54, 61, 0.15) 40px, rgba(48, 54, 61, 0.15) 41px);
-            pointer-events: none;
-            z-index: 0;
-        }
+      --gold-900: #5c4813;
+      --gold-700: #8a6d1f;
+      --gold-500: #d4af37;
+      --gold-300: #f0d580;
+      --gold-100: #fdf3d6;
 
-        .dashboard {
-            background: var(--bg-surface);
-            border-radius: 16px;
-            padding: 2.5rem;
-            max-width: 900px;
-            width: 100%;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border);
-            position: relative;
-            overflow: hidden;
-            z-index: 1;
-        }
+      --success: #3fb950;
+      --warning: #d29922;
+      --error: #ff7b72;
 
-        /* Animated gradient bar with shimmer */
-        .dashboard::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            right: 0;
-            height: 4px;
-            width: 300%;
-            background: linear-gradient(90deg, var(--accent-red), var(--accent), var(--accent-green), var(--accent-red), var(--accent), var(--accent-green));
-            background-size: 200% 100%;
-            animation: shimmer 4s ease-in-out infinite;
-        }
+      --font-display: 'Rubik Mono One', monospace;
+      --font-ui: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
 
-        @keyframes shimmer {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-33.33%); }
-        }
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+    }
 
-        /* ===== HEADER ===== */
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-            padding-bottom: 1.25rem;
-            border-bottom: 1px solid var(--border);
-        }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--font-ui); background: var(--ink-900); color: var(--ink-100); line-height: 1.6; }
+    .page { padding: var(--space-8) var(--space-6) var(--space-8); }
+    .container { max-width: 1200px; margin: 0 auto; }
 
-        .logo {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--accent);
-            text-shadow: 0 0 20px rgba(88, 166, 255, 0.4), 0 0 40px rgba(88, 166, 255, 0.15);
-            letter-spacing: 2px;
-        }
+    h2 { font-family: var(--font-ui); font-weight: 800; font-size: 1.7rem; margin-bottom: var(--space-2); letter-spacing: -0.01em; }
+    h3 { font-family: var(--font-ui); font-weight: 700; font-size: 1.05rem; margin-bottom: var(--space-3); }
+    .lede { color: var(--ink-300); font-size: 0.95rem; max-width: 640px; margin-bottom: var(--space-6); }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent-300); letter-spacing: 2px; text-transform: uppercase; margin-bottom: var(--space-2); }
 
-        .tagline {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            letter-spacing: 0.5px;
-        }
+    .section { padding: var(--space-7) 0; border-top: 1px solid var(--ink-500); }
+    .section:first-child { border-top: none; padding-top: 0; }
 
-        /* ===== STATS GRID ===== */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.25rem;
-            margin-bottom: 2rem;
-        }
+    /* GRID + BLUEPRINT CORNER MARKS (Industry-blend structural layer) */
+    .blueprint { position: relative; border: 1px solid var(--ink-500); border-radius: 0; }
+    .corner { position: absolute; width: 9px; height: 9px; pointer-events: none; }
+    .corner::before, .corner::after { content: ''; position: absolute; background: var(--accent-500); opacity: 0.6; }
+    .corner::before { width: 100%; height: 1px; top: 50%; transform: translateY(-50%); }
+    .corner::after { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .corner.tl { top: -1px; left: -1px; } .corner.tr { top: -1px; right: -1px; }
+    .corner.bl { bottom: -1px; left: -1px; } .corner.br { bottom: -1px; right: -1px; }
 
-        .stat-block {
-            background: rgba(22, 27, 34, 0.65);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 12px;
-            padding: 1.75rem 1rem;
-            text-align: center;
-            border: 1px solid rgba(48, 54, 61, 0.5);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            cursor: default;
-        }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); }
+    .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-3); }
 
-        /* Shine animation on hover */
-        .stat-block::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(88, 166, 255, 0.06) 0%, transparent 60%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-        }
+    /* HERO / IDENTITY STATEMENT */
+    .identity { padding: var(--space-8) 0 var(--space-7); text-align: center; }
+    .identity-word { font-family: var(--font-display); font-size: clamp(2.2rem, 5vw, 3.2rem); text-transform: uppercase; letter-spacing: -0.01em;
+      background: linear-gradient(135deg, var(--accent-500), var(--accent-300)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .identity-tagline { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-400); letter-spacing: 2px; text-transform: uppercase; margin-top: var(--space-2); }
+    .identity-statement { max-width: 680px; margin: var(--space-6) auto 0; font-size: 1.15rem; color: var(--ink-300); }
+    .identity-statement b { color: var(--ink-100); font-weight: 600; }
 
-        .stat-block:hover::after {
-            opacity: 1;
-        }
+    /* LOGO */
+    .logo-card { background: var(--ink-800); padding: var(--space-6); text-align: center; }
+    .logo-card svg { margin-bottom: var(--space-3); }
+    .logo-caption { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-400); text-transform: uppercase; letter-spacing: 1px; }
+    .clearspace-demo { background: var(--ink-800); padding: var(--space-6); display: flex; align-items: center; justify-content: center; }
+    .clearspace-box { border: 1px dashed var(--ink-500); padding: var(--space-5); display: flex; align-items: center; gap: var(--space-2); }
 
-        .stat-block:hover {
-            border-color: rgba(88, 166, 255, 0.4);
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-        }
+    /* COLOR */
+    .ramp { display: flex; border: 1px solid var(--ink-500); overflow: hidden; margin-bottom: var(--space-4); }
+    .ramp-step { flex: 1; height: 64px; display: flex; align-items: flex-end; padding: var(--space-2); font-family: var(--font-mono); font-size: 0.62rem; }
+    .ramp-label { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-300); margin-bottom: var(--space-2); text-transform: uppercase; letter-spacing: 1px; }
+    .semantic-swatch { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-1); }
+    .semantic-name { font-weight: 700; font-size: 0.9rem; }
+    .semantic-hex { font-family: var(--font-mono); font-size: 0.75rem; opacity: 0.85; }
 
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 0.4rem;
-            font-variant-numeric: tabular-nums;
-            line-height: 1.1;
-        }
+    /* TYPE */
+    .type-card { background: var(--ink-800); padding: var(--space-5); }
+    .type-role { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-300); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: var(--space-3); }
+    .type-sample-display { font-family: var(--font-display); font-size: 2rem; text-transform: uppercase; margin-bottom: var(--space-2); }
+    .type-sample-ui { font-family: var(--font-ui); font-size: 1.4rem; font-weight: 700; margin-bottom: var(--space-2); }
+    .type-sample-mono { font-family: var(--font-mono); font-size: 1rem; color: var(--accent-300); margin-bottom: var(--space-2); }
+    .type-usage { font-size: 0.85rem; color: var(--ink-300); }
 
-        .stat-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 500;
-        }
+    /* ICONOGRAPHY */
+    .icon-tile { background: var(--ink-800); padding: var(--space-4); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+    .icon-tile svg { width: 26px; height: 26px; }
+    .icon-tile span { font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-400); }
+    .mono-badge { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700; font-size: 0.85rem; color: var(--accent-300); background: rgba(29,155,240,0.08); border: 1px solid rgba(29,155,240,0.25); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
 
-        /* ===== TERMINAL STATUS BAR ===== */
-        .terminal-bar {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-            padding: 0.9rem 1.25rem;
-            background: rgba(22, 27, 34, 0.65);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 10px;
-            border: 1px solid rgba(48, 54, 61, 0.5);
-            font-size: 0.9rem;
-        }
+    /* SIGNATURE DEVICES */
+    .device-card { background: var(--ink-800); padding: var(--space-6); position: relative; overflow: hidden; }
+    .device-label { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-300); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: var(--space-1); }
+    .device-rule { font-size: 0.85rem; color: var(--ink-300); margin-top: var(--space-3); }
 
-        .terminal-prompt {
-            color: var(--accent-green);
-            font-weight: 600;
-        }
+    @keyframes suture-glint { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+    .suture-mini { padding: var(--space-2) 0; }
+    .suture-mini svg { width: 100%; height: 18px; }
+    .suture-mini line { stroke: var(--ink-500); stroke-width: 1; }
+    .suture-mini .tick { stroke: var(--accent-500); stroke-width: 1.3; opacity: 0.5; }
 
-        .terminal-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--accent-green);
-            box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
-            animation: pulse-dot 2s ease-in-out infinite;
-            flex-shrink: 0;
-        }
+    @keyframes ekg-scroll-demo { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .vitals-mini { display: flex; align-items: center; gap: var(--space-4); background: var(--ink-900); border: 1px solid var(--ink-500); padding: var(--space-3) var(--space-4); }
+    .vitals-mini-ekg { width: 110px; height: 24px; overflow: hidden; }
+    .vitals-mini-ekg svg { width: 200%; height: 100%; animation: ekg-scroll-demo 3.4s linear infinite; }
+    .vitals-mini-read { font-family: var(--font-mono); font-size: 0.72rem; color: var(--success); }
 
-        @keyframes pulse-dot {
-            0%, 100% {
-                opacity: 1;
-                transform: scale(1);
-                box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
-            }
-            50% {
-                opacity: 0.6;
-                transform: scale(0.85);
-                box-shadow: 0 0 4px rgba(63, 185, 80, 0.3);
-            }
-        }
+    @keyframes sway-demo { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } }
+    .chain-mini { width: 130px; margin: 0 auto; animation: sway-demo 4.5s ease-in-out infinite; transform-origin: top center; }
+    .chain-mini svg.chain { width: 100%; height: 18px; display: block; }
+    .chain-mini .chain-line { fill: none; stroke: var(--gold-700); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 8 4; }
+    .pendant-mini { display: block; margin: -4px auto 0; width: fit-content; background-image: linear-gradient(135deg, var(--gold-300), var(--gold-500) 55%, var(--gold-700)); color: #2a1d04; font-family: var(--font-display); font-size: 0.55rem; padding: 0.45em 0.7em; border: 2px solid var(--gold-700); text-align: center; line-height: 1.3; }
 
-        .terminal-text {
-            color: var(--text-primary);
-        }
+    .neuron-mini { width: 100%; height: 90px; }
 
-        .terminal-status {
-            color: var(--accent-green);
-            font-weight: 600;
-        }
+    /* MOTION TABLE */
+    .motion-row { display: grid; grid-template-columns: 160px 100px 1fr; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--ink-600); align-items: center; font-size: 0.88rem; }
+    .motion-row:last-child { border-bottom: none; }
+    .motion-name { font-family: var(--font-mono); color: var(--accent-300); font-size: 0.82rem; }
+    .motion-dur { color: var(--ink-300); font-family: var(--font-mono); font-size: 0.8rem; }
 
-        .terminal-cursor {
-            display: inline-block;
-            width: 8px;
-            height: 1.1em;
-            background: var(--text-secondary);
-            animation: cursor-blink 1s step-end infinite;
-            vertical-align: text-bottom;
-            margin-left: 2px;
-        }
+    /* VOICE */
+    .voice-card { background: var(--ink-800); padding: var(--space-5); }
+    .voice-do { border-left: 2px solid var(--success); }
+    .voice-dont { border-left: 2px solid var(--error); }
+    .voice-card ul { padding-left: var(--space-4); color: var(--ink-300); font-size: 0.88rem; display: flex; flex-direction: column; gap: var(--space-2); }
 
-        @keyframes cursor-blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
-        }
-
-        /* ===== QUICK ACTIONS ===== */
-        .actions {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .btn {
-            font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.85rem 1.25rem;
-            border-radius: 8px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: var(--bg-primary);
-            border-color: var(--accent);
-        }
-
-        .btn-primary:hover {
-            background: #4a94e0;
-            border-color: #4a94e0;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(88, 166, 255, 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--text-primary);
-            border-color: var(--border);
-        }
-
-        .btn-outline:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(88, 166, 255, 0.1);
-        }
-
-        /* ===== FOOTER ===== */
-        .footer {
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            padding-top: 1.25rem;
-            border-top: 1px solid var(--border);
-            letter-spacing: 0.5px;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 600px) {
-            body {
-                padding: 0.75rem;
-            }
-
-            .dashboard {
-                padding: 1.5rem;
-                border-radius: 12px;
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.4rem;
-            }
-
-            .logo {
-                font-size: 1.8rem;
-            }
-
-            .tagline {
-                font-size: 0.8rem;
-            }
-
-            .stats-container {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .stat-block {
-                padding: 1.25rem 1rem;
-            }
-
-            .stat-value {
-                font-size: 2rem;
-            }
-
-            .actions {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-            }
-
-            .btn {
-                padding: 0.75rem 1rem;
-                font-size: 0.8rem;
-            }
-
-            .terminal-bar {
-                font-size: 0.8rem;
-                padding: 0.75rem 1rem;
-                flex-wrap: wrap;
-            }
-        }
-    </style>
+    @media (max-width: 900px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-6 { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
 </head>
 <body>
-    <div class="dashboard">
 
-        <!-- HEADER -->
-        <div class="header">
-            <div class="logo">SYNAPSE</div>
-            <div class="tagline">//dev/neural-protocol/processing</div>
-        </div>
+<div class="page">
+  <div class="container">
 
-        <!-- STATS GRID -->
-        <div class="stats-container">
-            <div class="stat-block">
-                <div class="stat-value">3</div>
-                <div class="stat-label">Brand Identities</div>
-            </div>
-            <div class="stat-block">
-                <div class="stat-value">100%</div>
-                <div class="stat-label">Cross-Platform</div>
-            </div>
-            <div class="stat-block">
-                <div class="stat-value">2.4k</div>
-                <div class="stat-label">Lines Configured</div>
-            </div>
-            <div class="stat-block">
-                <div class="stat-value">24/7</div>
-                <div class="stat-label">Active Monitoring</div>
-            </div>
-        </div>
-
-        <!-- TERMINAL STATUS BAR -->
-        <div class="terminal-bar">
-            <span class="terminal-prompt">$</span>
-            <span class="terminal-dot"></span>
-            <span class="terminal-text">Brain Status: <span class="terminal-status">Synchronized</span></span>
-            <span class="terminal-cursor"></span>
-        </div>
-
-        <!-- QUICK ACTIONS -->
-        <div class="actions">
-            <button class="btn btn-primary">Scan Environment</button>
-            <button class="btn btn-outline">Run Doctor</button>
-            <button class="btn btn-outline">View Dashboard</button>
-        </div>
-
-        <!-- FOOTER -->
-        <div class="footer">SYNAPSE v1.0 &mdash; Core Identity Reference</div>
-
+    <!-- IDENTITY STATEMENT -->
+    <div class="identity">
+      <div class="identity-word">Synapse</div>
+      <div class="identity-tagline">llm-neuro-surgeon</div>
+      <p class="identity-statement">Where <b>surgical precision</b> meets <b>organic intelligence</b>. Every screen carries two forces in tension: a hairline technical grid — corner registration marks, blueprint framing, terminal chrome — wrapped around living motifs of neurons, pulses and stitched incisions. Structure on the outside. A brain at work on the inside.</p>
     </div>
+
+    <!-- LOGO -->
+    <div class="section">
+      <div class="eyebrow">Identity</div>
+      <h2>Logo &amp; Mark</h2>
+      <p class="lede">The wordmark always carries its surgical subtitle. Never show "SYNAPSE" without "llm-neuro-surgeon" beneath it at first mention on any surface.</p>
+      <div class="grid-3">
+        <div class="logo-card">
+          <div style="font-family: var(--font-display); font-size: 1.6rem; text-transform: uppercase; color: var(--ink-100);">Synapse</div>
+          <div class="logo-caption" style="margin-top: 6px;">llm-neuro-surgeon</div>
+          <div class="logo-caption" style="margin-top: var(--space-4);">Primary Lockup</div>
+        </div>
+        <div class="logo-card">
+          <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
+            <line x1="24" y1="24" x2="10" y2="12" stroke="#1d9bf0" stroke-width="1.6" opacity="0.7"/>
+            <line x1="24" y1="24" x2="38" y2="12" stroke="#1d9bf0" stroke-width="1.6" opacity="0.7"/>
+            <line x1="24" y1="24" x2="8" y2="30" stroke="#1d9bf0" stroke-width="1.6" opacity="0.5"/>
+            <line x1="24" y1="24" x2="40" y2="32" stroke="#1d9bf0" stroke-width="1.6" opacity="0.5"/>
+            <line x1="24" y1="24" x2="24" y2="42" stroke="#1d9bf0" stroke-width="1.6" opacity="0.6"/>
+            <circle cx="24" cy="24" r="7" fill="#0b0e13" stroke="#1d9bf0" stroke-width="2"/>
+            <circle cx="24" cy="24" r="2.4" fill="#1d9bf0"/>
+            <circle cx="10" cy="12" r="2.6" fill="#5cb2f5"/><circle cx="38" cy="12" r="2.6" fill="#5cb2f5"/>
+            <circle cx="8" cy="30" r="2" fill="#5cb2f5" opacity="0.8"/><circle cx="40" cy="32" r="2" fill="#5cb2f5" opacity="0.8"/>
+            <circle cx="24" cy="42" r="2.2" fill="#5cb2f5" opacity="0.9"/>
+          </svg>
+          <div class="logo-caption">Neural Mark — app icon, favicon, avatar</div>
+        </div>
+        <div class="clearspace-demo">
+          <div class="clearspace-box">
+            <span style="font-family: var(--font-display); font-size: 1rem; text-transform: uppercase;">Synapse</span>
+          </div>
+        </div>
+      </div>
+      <p class="device-rule">Clear space: one cap-height of "S" on all sides. Minimum size: 18px mark height. Never rotate, outline, or drop-shadow the wordmark itself — the glow lives in the gradient fill, not in effects layered on top.</p>
+    </div>
+
+    <!-- COLOR -->
+    <div class="section">
+      <div class="eyebrow">Foundations</div>
+      <h2>Color</h2>
+      <p class="lede">A near-black ink scale carries the interface. Synapse Blue is the single working accent — technical, cold, precise. Gold is not a UI color: it appears only in the signature hero device (crown &amp; chain) and marketing flourishes. Never use gold for buttons, links, or status.</p>
+
+      <div class="ramp-label">Ink (interface &amp; text)</div>
+      <div class="ramp">
+        <div class="ramp-step" style="background:var(--ink-950); color:#fff;">950</div>
+        <div class="ramp-step" style="background:var(--ink-900); color:#fff;">900 bg</div>
+        <div class="ramp-step" style="background:var(--ink-800); color:#fff;">800 surface</div>
+        <div class="ramp-step" style="background:var(--ink-700); color:#fff;">700 card</div>
+        <div class="ramp-step" style="background:var(--ink-600); color:#fff;">600 hover</div>
+        <div class="ramp-step" style="background:var(--ink-500); color:#fff;">500 border</div>
+        <div class="ramp-step" style="background:var(--ink-400); color:#0b0e13;">400 muted</div>
+        <div class="ramp-step" style="background:var(--ink-300); color:#0b0e13;">300 sub</div>
+        <div class="ramp-step" style="background:var(--ink-100); color:#0b0e13;">100 text</div>
+      </div>
+
+      <div class="ramp-label">Accent — Synapse Blue (the one working accent)</div>
+      <div class="ramp" style="margin-bottom: var(--space-6);">
+        <div class="ramp-step" style="background:var(--accent-900); color:#fff;">900</div>
+        <div class="ramp-step" style="background:var(--accent-700); color:#fff;">700 pressed</div>
+        <div class="ramp-step" style="background:var(--accent-500); color:#0b0e13;">500 base</div>
+        <div class="ramp-step" style="background:var(--accent-300); color:#0b0e13;">300 hover</div>
+        <div class="ramp-step" style="background:var(--accent-100); color:#0b0e13;">100 tint</div>
+      </div>
+
+      <div class="ramp-label">Gold — signature device only, never UI chrome</div>
+      <div class="ramp" style="margin-bottom: var(--space-6);">
+        <div class="ramp-step" style="background:var(--gold-900); color:#fff;">900</div>
+        <div class="ramp-step" style="background:var(--gold-700); color:#fff;">700</div>
+        <div class="ramp-step" style="background:var(--gold-500); color:#2a1d04;">500 base</div>
+        <div class="ramp-step" style="background:var(--gold-300); color:#2a1d04;">300</div>
+        <div class="ramp-step" style="background:var(--gold-100); color:#2a1d04;">100</div>
+      </div>
+
+      <div class="grid-3">
+        <div class="semantic-swatch" style="background: rgba(63,185,80,0.12); border: 1px solid var(--success);">
+          <div class="semantic-name" style="color: var(--success);">Success</div><div class="semantic-hex">#3fb950</div>
+        </div>
+        <div class="semantic-swatch" style="background: rgba(210,153,34,0.12); border: 1px solid var(--warning);">
+          <div class="semantic-name" style="color: var(--warning);">Warning</div><div class="semantic-hex">#d29922</div>
+        </div>
+        <div class="semantic-swatch" style="background: rgba(255,123,114,0.12); border: 1px solid var(--error);">
+          <div class="semantic-name" style="color: var(--error);">Error</div><div class="semantic-hex">#ff7b72</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPE -->
+    <div class="section">
+      <div class="eyebrow">Foundations</div>
+      <h2>Typography</h2>
+      <p class="lede">Three fonts, three jobs. Never substitute or mix roles.</p>
+      <div class="grid-3">
+        <div class="type-card">
+          <div class="type-role">Display — Rubik Mono One</div>
+          <div class="type-sample-display">Brain</div>
+          <div class="type-usage">Hero headlines, wordmark, stat callouts, stamps. Uppercase always. Sparingly — this is the loudest voice in the system.</div>
+        </div>
+        <div class="type-card">
+          <div class="type-role">UI — Inter</div>
+          <div class="type-sample-ui">Configuration Manager</div>
+          <div class="type-usage">All interface text: nav, buttons, body copy, descriptions. Weights 400–800.</div>
+        </div>
+        <div class="type-card">
+          <div class="type-role">Technical — JetBrains Mono</div>
+          <div class="type-sample-mono">$ synapse doctor --fix</div>
+          <div class="type-usage">Commands, code, file paths, eyebrows, tags, status readouts. This is the voice of the machine speaking back to you.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRID + BLUEPRINT FRAMING -->
+    <div class="section">
+      <div class="eyebrow">Structure</div>
+      <h2>Grid &amp; Blueprint Framing</h2>
+      <p class="lede">A 12-column modular grid (1200px max, 24px gutter) keeps every screen aligned. Cards, panels and terminal windows wear hairline borders with four corner registration marks — square, precise, unrounded. This is the "surgical" half of the identity: never soften it with drop shadows or radius.</p>
+      <div class="grid-3">
+        <div class="blueprint" style="padding: var(--space-5); background: var(--ink-800);">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <h3 style="margin-bottom: var(--space-1);">Card</h3>
+          <p style="font-size: 0.85rem; color: var(--ink-300);">Square corners. 1px border. Corner marks at 100% opacity on hover.</p>
+        </div>
+        <div class="blueprint" style="padding: var(--space-5); background: var(--ink-800);">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <h3 style="margin-bottom: var(--space-1);">Panel</h3>
+          <p style="font-size: 0.85rem; color: var(--ink-300);">Same framing wraps stat blocks, feature tiles, terminal windows.</p>
+        </div>
+        <div class="blueprint" style="padding: var(--space-5); background: var(--ink-800);">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <h3 style="margin-bottom: var(--space-1);">Rule</h3>
+          <p style="font-size: 0.85rem; color: var(--ink-300);">Never round these. Never fill them solid. Line drawings only — the one exception is the primary button.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ICONOGRAPHY -->
+    <div class="section">
+      <div class="eyebrow">Foundations</div>
+      <h2>Iconography</h2>
+      <p class="lede">No emoji, anywhere — not in the product, not in docs, not in marketing. Two systems only: thin-stroke line icons for concepts, and hexagonal monogram badges for tool adapters.</p>
+      <div class="grid-6" style="margin-bottom: var(--space-5);">
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="9" x2="6" y2="4"/><line x1="15" y1="9" x2="20" y2="5"/><line x1="14.5" y1="14" x2="19" y2="18"/><line x1="9.5" y1="14" x2="5" y2="19"/></svg><span>brain</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><polyline points="8 8 12 12 16 8"/><line x1="12" y1="3" x2="12" y2="12"/></svg><span>import</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><polyline points="8 13 12 9 16 13"/><line x1="12" y1="9" x2="12" y2="20"/></svg><span>project</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><polyline points="21 3 21 8 16 8"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><polyline points="3 21 3 16 8 16"/></svg><span>sync</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>market</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 8 4-16 2 8h6"/></svg><span>doctor</span></div>
+      </div>
+      <div style="display:flex; gap: var(--space-3); flex-wrap: wrap; align-items:center;">
+        <div class="mono-badge">Cl</div><div class="mono-badge">Cu</div><div class="mono-badge">Ge</div><div class="mono-badge">Cx</div>
+        <span style="font-size:0.82rem; color: var(--ink-300);">Two-letter monogram, hex-clipped, one per adapter — never a third-party product logo, never emoji.</span>
+      </div>
+    </div>
+
+    <!-- SIGNATURE DEVICES -->
+    <div class="section">
+      <div class="eyebrow">What makes this Synapse</div>
+      <h2>Signature Devices</h2>
+      <p class="lede">Four motifs that belong to no other brand. Use them deliberately and sparingly — they are seasoning, not the whole meal.</p>
+      <div class="grid-2">
+        <div class="device-card">
+          <div class="device-label">The Chain &amp; Pendant</div>
+          <div class="chain-mini">
+            <svg class="chain" viewBox="0 0 130 18" preserveAspectRatio="none"><path class="chain-line" d="M10 2 C 8 11, 35 17, 65 17 C 95 17, 122 11, 120 2"/></svg>
+            <div class="pendant-mini">ALL<br>MODELS</div>
+          </div>
+          <p class="device-rule">Hero-only. "One Brain" wears a crown; "All Models" hangs off it on a gold chain. Never reuse this in-product — it belongs to the landing hero alone.</p>
+        </div>
+        <div class="device-card">
+          <div class="device-label">The Suture Divider</div>
+          <div class="suture-mini">
+            <svg viewBox="0 0 400 20" preserveAspectRatio="none"><line x1="0" y1="10" x2="400" y2="10"/><g class="tick"><line x1="20" y1="2" x2="20" y2="18"/><line x1="60" y1="2" x2="60" y2="18"/><line x1="100" y1="2" x2="100" y2="18"/><line x1="140" y1="2" x2="140" y2="18"/><line x1="180" y1="2" x2="180" y2="18"/><line x1="220" y1="2" x2="220" y2="18"/><line x1="260" y1="2" x2="260" y2="18"/><line x1="300" y1="2" x2="300" y2="18"/><line x1="340" y1="2" x2="340" y2="18"/><line x1="380" y1="2" x2="380" y2="18"/></g></svg>
+          </div>
+          <p class="device-rule">A stitched incision line. Use between major marketing sections instead of a plain rule — never inside dense product UI.</p>
+        </div>
+        <div class="device-card">
+          <div class="device-label">Vitals Monitor</div>
+          <div class="vitals-mini">
+            <div class="vitals-mini-ekg"><svg viewBox="0 0 400 34" preserveAspectRatio="none"><polyline points="0,17 30,17 40,4 50,30 60,17 140,17 150,4 160,30 170,17 250,17 260,4 270,30 280,17 360,17 370,4 380,30 390,17 400,17" fill="none" stroke="#3fb950" stroke-width="1.6"/><polyline points="400,17 430,17 440,4 450,30 460,17 540,17 550,4 560,30 570,17 650,17 660,4 670,30 680,17 760,17 770,4 780,30 790,17 800,17" fill="none" stroke="#3fb950" stroke-width="1.6"/></svg></div>
+            <span class="vitals-mini-read">12/12 SYNCED</span>
+          </div>
+          <p class="device-rule">An EKG readout standing in for system health. Use for live status strips — sync state, uptime, drift.</p>
+        </div>
+        <div class="device-card">
+          <div class="device-label">Neuron Pulse Field</div>
+          <svg class="neuron-mini" viewBox="0 0 400 90">
+            <g stroke="#1d9bf0" stroke-width="1" fill="none" opacity="0.3">
+              <path d="M30 10 Q 80 40 100 70"/><path d="M370 20 Q 320 45 300 75"/><path d="M200 5 Q 190 40 210 80"/>
+            </g>
+            <g fill="#1d9bf0"><circle cx="30" cy="10" r="2.4"/><circle cx="100" cy="70" r="2"/><circle cx="370" cy="20" r="2.4"/><circle cx="300" cy="75" r="2"/><circle cx="200" cy="5" r="2"/><circle cx="210" cy="80" r="2"/></g>
+            <circle r="3" fill="#5cb2f5"><animateMotion dur="3s" repeatCount="indefinite" path="M30 10 Q 80 40 100 70"/></circle>
+          </svg>
+          <p class="device-rule">Faint traveling pulses across a dark ground. Ambient only, 40–70% opacity, behind content — never competing with foreground text.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOTION -->
+    <div class="section">
+      <div class="eyebrow">Behavior</div>
+      <h2>Motion</h2>
+      <p class="lede">Motion signals life, not decoration. Every animation maps to something real: a sync in progress, a pulse of activity, a heartbeat.</p>
+      <div class="motion-row"><span class="motion-name">pulse-glow</span><span class="motion-dur">2–3s loop</span><span>Active/live indicators — logo mark, status dots</span></div>
+      <div class="motion-row"><span class="motion-name">drift / wander</span><span class="motion-dur">4–8s loop</span><span>Idle icons — barely-there, organic, never distracting</span></div>
+      <div class="motion-row"><span class="motion-name">sway</span><span class="motion-dur">4.5s loop</span><span>The chain &amp; pendant device only</span></div>
+      <div class="motion-row"><span class="motion-name">ekg-scroll</span><span class="motion-dur">3.4s loop, linear</span><span>Vitals monitor strip</span></div>
+      <div class="motion-row"><span class="motion-name">hover lift</span><span class="motion-dur">0.3s ease</span><span>Cards &amp; buttons — translateY(-4 to -8px)</span></div>
+      <div class="motion-row"><span class="motion-name">stamp-in</span><span class="motion-dur">0.55s spring</span><span>One-time reveals — pendant drop, hero elements</span></div>
+    </div>
+
+    <!-- VOICE -->
+    <div class="section">
+      <div class="eyebrow">Voice</div>
+      <h2>Voice &amp; Tone</h2>
+      <p class="lede">"Surgical precision. Zero friction." Direct, technical, confident — with exactly one wink (the chain). Never corporate, never cute, never apologetic.</p>
+      <div class="grid-2">
+        <div class="voice-card voice-do">
+          <h3 style="color: var(--success);">Do</h3>
+          <ul>
+            <li>Lead with the mechanism: "Every sync is a Git commit."</li>
+            <li>Short declaratives. One idea per sentence.</li>
+            <li>Name real commands and real numbers.</li>
+            <li>Let the product's own output do the talking (terminal blocks, diffs, logs).</li>
+          </ul>
+        </div>
+        <div class="voice-card voice-dont">
+          <h3 style="color: var(--error);">Don't</h3>
+          <ul>
+            <li>Emoji as bullet icons or section markers.</li>
+            <li>Vague superlatives — "revolutionary," "game-changing," "seamless."</li>
+            <li>Generic gradient-blob hero art or stock illustration.</li>
+            <li>Rounded, shadow-heavy cards that could belong to any SaaS product.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>

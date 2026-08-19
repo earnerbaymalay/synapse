@@ -5,6 +5,24 @@ All notable changes to **LLM Neurosurgeon** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **SYNAPSE rebrand**: adopted the SYNAPSE brand system (`brands/synapse/`) as
+  canonical, superseding the prior Cortex/Synapse/Cerebra three-way
+  exploration and the ad-hoc "Operating Theatre" placeholder identity.
+  - CLI binary renamed `neurosurgeon` → `synapse` (the internal
+    `neurosurgeon-core` library crate and `NEUROSURGEON_*` env vars are
+    unchanged).
+  - Desktop app repainted in the SYNAPSE palette (ink/accent-blue, semantic
+    green for status, gold reserved for marketing only), three-font system
+    (Rubik Mono One, Inter, JetBrains Mono) vendored locally rather than
+    fetched from a CDN, and a blueprint corner-mark frame around each chart.
+  - README, `docs/ONBOARDING.md`, and the full `brands/synapse/marketing-pack/`
+    content set replaced/added.
+  - See `IDENTITY.md` for what's brand-specific versus what's a permanent
+    rule (no emoji, no placeholder data, absence-is-a-finding).
+
 ## [1.0.0] - 2026-08-14
 
 ### Added

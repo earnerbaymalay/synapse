@@ -1,57 +1,54 @@
-# Synapse — Brand Book
+# SYNAPSE — Brand Book
 
-## Brand Identity
+Companion reference to `brands/synapse/SYNAPSE_Brand_System.dc.html` (the visual system). This is the plain-text version for docs, agents, and anyone who needs the tokens without opening a browser.
 
-- **Name:** Synapse
-- **Tagline:** 'One Brain. All Models.'
-- **Voice:** 'The Minimalist Approach'
-- **Tone:** 'Surgical precision. Zero friction.'
+## Identity
 
-## Color Palette
+- **Name:** SYNAPSE — always paired with the subtitle **llm-neuro-surgeon** at first mention on any surface.
+- **Tagline:** "One Brain. All Models."
+- **Tone anchor:** "Surgical precision. Zero friction."
+- **Concept:** structure meets organism. A hairline technical grid (blueprint corner marks, terminal chrome) wraps around living motifs (neurons, pulses, a stitched incision line). Precision on the outside, a brain at work inside.
 
-| Role | Name | Hex |
-|------|------|-----|
-| Primary Background | Deep Space Black | `#0d1117` |
-| Surface/Container | Dark Elevation | `#161b22` |
-| Border/Divider | Subtle Border | `#30363d` |
-| Primary Accent | Synapse Blue | `#58a6ff` |
-| Secondary Accent | Success Green | `#3fb950` |
-| Warning/Alert | Orange | `#d29922` |
-| Error/Danger | Red | `#ff7b72` |
-| Text Primary | Light Gray | `#c9d1d9` |
-| Text Secondary | Muted Slate | `#8b949e` |
-| Text Muted | Dim Gray | `#484f58` |
+## Color
 
-## Typography
+**Ink (interface):** `#06080b` `#0b0e13` `#12161d` `#171c25` `#1d2330` `#262c37` `#4b5361` `#8b949e` `#d4dae2`
 
-- **Primary Font:** `'JetBrains Mono'`, `'SF Mono'`, `'Fira Code'`, monospace
-- **Fallback:** `'Cascadia Code'`, `'Consolas'`, monospace
-- **Headings:** Bold weight, all-caps for major headings
-- **Body:** Regular weight, monospace
-- **Code:** Same as body (monospace-native)
+**Accent — Synapse Blue (the one working UI color):** base `#1d9bf0` · hover `#5cb2f5` · pressed `#0d5a96` · tint `#c7e6fd`
 
-## Voice & Tone Guidelines
+**Gold (signature hero device ONLY — never buttons, links, or status):** `#d4af37` (base), `#f0d580` (light), `#8a6d1f` (dark)
 
-- Be direct. No fluff. No marketing superlatives.
-- Use short sentences. One idea per line where possible.
-- Prefer active voice: 'Scans your machine' not 'Your machine is scanned'
-- Technical accuracy over persuasion. The product sells itself.
-- Use code blocks and terminal-style formatting for commands.
-- Avoid emoji overuse. One per section maximum.
+**Semantic:** success `#3fb950` · warning `#d29922` · error `#ff7b72`
 
-## Logo Usage
+## Type
 
-- The Synapse logo is the text **'SYNAPSE'** in monospace, uppercase, Synapse Blue (`#58a6ff`)
-- Minimum clear space: 1 character width on all sides
-- Do not stretch, rotate, or apply effects
-- On dark backgrounds: use the blue version
-- On light backgrounds: use an inverted (white) version
+- **Display — Rubik Mono One:** wordmark, hero headlines, stat callouts. Uppercase. Use sparingly.
+- **UI — Inter:** all interface text, 400–800 weight.
+- **Technical — JetBrains Mono:** commands, code, file paths, eyebrows, status readouts.
 
-## Do's and Don'ts
+## Logo
 
-- **DO:** Use monospace for all UI text
-- **DO:** Lead with the value proposition
-- **DO:** Use callouts (NOTE, TIP, WARNING) for emphasis
-- **DON'T:** Use jargon without explanation
-- **DON'T:** Make promises the tool doesn't keep
-- **DON'T:** Use generic stock imagery
+Wordmark "SYNAPSE" in Rubik Mono One + "llm-neuro-surgeon" in JetBrains Mono beneath. Neural-mark icon (hub-and-spoke SVG) for app icon/favicon/avatar contexts where the full wordmark doesn't fit. Clear space: one cap-height on all sides. Never rotate, outline, or drop-shadow the wordmark.
+
+## Structural system
+
+12-column grid, 1200px max width, 24px gutter. Cards and panels: square corners (never rounded), 1px hairline border, four small "+" registration marks at the corners (opacity 0.4 idle → 1 on hover). This is the "surgical" layer — never soften it.
+
+## Iconography
+
+No emoji, anywhere — product, docs, or marketing. Thin-stroke (1.6–1.8px) line icons for concepts; two-letter hexagon-clipped monogram badges for tool adapters. Never a third-party product's actual logo.
+
+## Signature devices (use sparingly, deliberately)
+
+- **Chain &amp; pendant** — hero-only. "One Brain" wears a crown; "All Models" hangs off it on a gold chain.
+- **Suture divider** — a stitched line between major marketing sections.
+- **Vitals monitor** — an EKG readout standing in for system health/status.
+- **Neuron pulse field** — faint traveling pulses across a dark ground, ambient background only.
+
+## Voice
+
+Direct, technical, confident. Short declaratives, one idea each. Name real commands and real numbers. Never: vague superlatives ("revolutionary," "seamless"), emoji as bullets, generic gradient-blob hero art.
+
+## Do / Don't
+
+**Do** — lead with mechanism ("every sync is a Git commit"), use real terminal output as proof, keep gold rare and load-bearing.
+**Don't** — round the blueprint corners, use gold as a UI color, add a fourth font, let motion become decoration instead of signal.
