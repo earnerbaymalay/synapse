@@ -1,3 +1,5 @@
+mod chart;
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -8,7 +10,7 @@ use neurosurgeon_core::doctor::{apply_fixes, diagnose, DoctorContext, Severity};
 /// LLM Neurosurgeon — scan, import, project, and sync AI tool configs
 /// through one canonical Brain.
 #[derive(Debug, Parser)]
-#[command(name = "neurosurgeon", version, about, long_about = None)]
+#[command(name = "synapse", version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -76,7 +78,7 @@ fn main() -> ExitCode {
         Command::Scan { json } => match resolve_tool_root(None) {
             Ok(root) => report_scan(&root, json),
             Err(e) => {
-                eprintln!("neurosurgeon scan: {e}");
+                chart::fault("intake", &e.to_string(), None);
                 ExitCode::FAILURE
             }
         },
@@ -84,7 +86,7 @@ fn main() -> ExitCode {
             let root = match resolve_tool_root(None) {
                 Ok(r) => r,
                 Err(e) => {
-                    eprintln!("neurosurgeon import: {e}");
+                    chart::fault("intake", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
@@ -94,24 +96,30 @@ fn main() -> ExitCode {
                 let brain_root = match resolve_brain_root(None) {
                     Ok(b) => b,
                     Err(e) => {
-                        eprintln!("neurosurgeon import: {e}");
+                        chart::fault("intake", &e.to_string(), None);
                         return ExitCode::FAILURE;
                     }
                 };
                 match perform_import(&root, &brain_root) {
                     Ok(paths) => {
-                        println!(
-                            "Imported {} artifact(s) into Brain at {}:",
-                            paths.len(),
-                            brain_root.display()
-                        );
-                        for p in &paths {
-                            println!("  - {p}");
+                        chart::open("intake", &chart::plural(paths.len(), "artifact"));
+                        chart::field("Site", &root.display().to_string());
+                        chart::field("Brain", &brain_root.display().to_string());
+                        println!();
+                        for path in &paths {
+                            chart::row(chart::Mark::Present, "written", path);
                         }
+                        chart::close(
+                            &format!(
+                                "{} now in the Brain.",
+                                chart::plural(paths.len(), "artifact"),
+                            ),
+                            Some("synapse snapshot \"after import\""),
+                        );
                         ExitCode::SUCCESS
                     }
                     Err(e) => {
-                        eprintln!("neurosurgeon import: {e}");
+                        chart::fault("intake", &e.to_string(), Some("synapse doctor"));
                         ExitCode::FAILURE
                     }
                 }
@@ -121,39 +129,47 @@ fn main() -> ExitCode {
             let brain_root = match resolve_brain_root(None) {
                 Ok(b) => b,
                 Err(e) => {
-                    eprintln!("neurosurgeon project: {e}");
+                    chart::fault("graft", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
             let tool_root = match resolve_tool_root(None) {
                 Ok(t) => t,
                 Err(e) => {
-                    eprintln!("neurosurgeon project: {e}");
+                    chart::fault("graft", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
             if dry_run {
-                println!(
-                    "Dry run — projecting from {} to {}",
-                    brain_root.display(),
-                    tool_root.display()
+                chart::open("graft · dry run", "nothing will be written");
+                chart::field("Brain", &brain_root.display().to_string());
+                chart::field("Tools", &tool_root.display().to_string());
+                chart::close(
+                    "Dry run only — no file was touched.",
+                    Some("synapse project"),
                 );
                 ExitCode::SUCCESS
             } else {
                 match perform_project(&brain_root, &tool_root) {
                     Ok(paths) => {
-                        println!(
-                            "Projected {} file(s) from Brain into {}:",
-                            paths.len(),
-                            tool_root.display()
-                        );
-                        for p in &paths {
-                            println!("  - {p}");
+                        chart::open("graft", &chart::plural(paths.len(), "file"));
+                        chart::field("Brain", &brain_root.display().to_string());
+                        chart::field("Tools", &tool_root.display().to_string());
+                        println!();
+                        for path in &paths {
+                            chart::row(chart::Mark::Present, "written", path);
                         }
+                        chart::close(
+                            &format!(
+                                "{} projected out of the Brain.",
+                                chart::plural(paths.len(), "file"),
+                            ),
+                            Some("synapse doctor"),
+                        );
                         ExitCode::SUCCESS
                     }
                     Err(e) => {
-                        eprintln!("neurosurgeon project: {e}");
+                        chart::fault("graft", &e.to_string(), Some("synapse doctor"));
                         ExitCode::FAILURE
                     }
                 }
@@ -163,14 +179,14 @@ fn main() -> ExitCode {
             let brain_root = match resolve_brain_root(None) {
                 Ok(b) => b,
                 Err(e) => {
-                    eprintln!("neurosurgeon sync: {e}");
+                    chart::fault("circulation", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
             let tool_root = match resolve_tool_root(None) {
                 Ok(t) => t,
                 Err(e) => {
-                    eprintln!("neurosurgeon sync: {e}");
+                    chart::fault("circulation", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
@@ -178,7 +194,11 @@ fn main() -> ExitCode {
             let _lock = match SyncLock::acquire(&brain_root) {
                 Ok(l) => l,
                 Err(e) => {
-                    eprintln!("neurosurgeon sync lock error: {e}");
+                    chart::fault(
+                        "circulation",
+                        &format!("could not acquire the Brain lock: {e}"),
+                        Some("check whether another synapse is running"),
+                    );
                     return ExitCode::FAILURE;
                 }
             };
@@ -188,29 +208,66 @@ fn main() -> ExitCode {
 
             match perform_sync(&brain_root, &tool_root) {
                 Ok(SyncOutcome::NoChanges) => {
-                    println!("Sync: no changes detected.");
+                    chart::open("circulation", "no drift");
+                    chart::field("Brain", &brain_root.display().to_string());
+                    chart::field("Tools", &tool_root.display().to_string());
+                    println!();
+                    chart::row(
+                        chart::Mark::Present,
+                        "brain",
+                        "already in sync with every tool",
+                    );
+                    chart::close("Nothing to do.", Some("synapse doctor"));
                     ExitCode::SUCCESS
                 }
                 Ok(SyncOutcome::Applied { changed_paths }) => {
-                    println!("Sync: applied {} change(s).", changed_paths.len());
-                    for p in &changed_paths {
-                        println!("  - {p}");
+                    chart::open("circulation", &chart::plural(changed_paths.len(), "change"));
+                    chart::field("Brain", &brain_root.display().to_string());
+                    chart::field("Tools", &tool_root.display().to_string());
+                    println!();
+                    for path in &changed_paths {
+                        chart::row(chart::Mark::Present, "updated", path);
                     }
+                    chart::close(
+                        &format!("{} applied.", chart::plural(changed_paths.len(), "change")),
+                        Some("synapse snapshot \"after sync\""),
+                    );
                     ExitCode::SUCCESS
                 }
                 Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
-                    eprintln!(
-                        "neurosurgeon sync: conflict queued for human review in conflicts.json ({} conflict(s)):",
-                        conflict_ids.len()
+                    // Printed as a chart on stdout, not stderr: a queued
+                    // conflict is a finding about the Brain, not a crash.
+                    chart::open(
+                        "circulation",
+                        &chart::plural(conflict_ids.len(), "conflict"),
                     );
+                    chart::field("Brain", &brain_root.display().to_string());
+                    chart::field(
+                        "Queue",
+                        &brain_root
+                            .join(".brain/conflicts.json")
+                            .display()
+                            .to_string(),
+                    );
+                    println!();
                     for id in &conflict_ids {
-                        eprintln!("  - {id}");
+                        chart::row(
+                            chart::Mark::Critical,
+                            id,
+                            "both sides changed — queued for review",
+                        );
                     }
-                    println!("conflict");
+                    chart::close(
+                        &format!(
+                            "{} need a human. Nothing was overwritten.",
+                            chart::plural(conflict_ids.len(), "conflict"),
+                        ),
+                        None,
+                    );
                     ExitCode::FAILURE
                 }
                 Err(e) => {
-                    eprintln!("neurosurgeon sync failed: {e}");
+                    chart::fault("circulation", &e.to_string(), Some("synapse doctor"));
                     ExitCode::FAILURE
                 }
             }
@@ -223,14 +280,14 @@ fn main() -> ExitCode {
             let brain_root = match resolve_brain_root(brain) {
                 Ok(p) => p,
                 Err(e) => {
-                    eprintln!("neurosurgeon doctor: {e}");
+                    chart::fault("examination", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
             let tool_root = match resolve_tool_root(tool_root) {
                 Ok(p) => p,
                 Err(e) => {
-                    eprintln!("neurosurgeon doctor: {e}");
+                    chart::fault("examination", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
@@ -240,18 +297,26 @@ fn main() -> ExitCode {
             let brain_root = match resolve_brain_root(None) {
                 Ok(b) => b,
                 Err(e) => {
-                    eprintln!("neurosurgeon snapshot: {e}");
+                    chart::fault("imaging", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
             let msg = message.as_deref().unwrap_or("Manual snapshot");
             match snapshot(&brain_root, msg) {
                 Ok(sha) => {
-                    println!("Snapshot created: {sha}");
+                    chart::open("imaging", "snapshot recorded");
+                    chart::field("Brain", &brain_root.display().to_string());
+                    chart::field("Note", msg);
+                    println!();
+                    chart::row(chart::Mark::Present, "snapshot", &sha);
+                    chart::close(
+                        "The Brain can be returned to this state.",
+                        Some(&format!("synapse rollback {sha}")),
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => {
-                    eprintln!("neurosurgeon snapshot: {e}");
+                    chart::fault("imaging", &e.to_string(), None);
                     ExitCode::FAILURE
                 }
             }
@@ -262,17 +327,25 @@ fn main() -> ExitCode {
             let brain_root = match resolve_brain_root(None) {
                 Ok(b) => b,
                 Err(e) => {
-                    eprintln!("neurosurgeon rollback: {e}");
+                    chart::fault("reversal", &e.to_string(), None);
                     return ExitCode::FAILURE;
                 }
             };
             match rollback(&brain_root, &snapshot_ref) {
                 Ok(sha) => {
-                    println!("Rollback successful, new commit: {sha}");
+                    chart::open("reversal", "brain restored");
+                    chart::field("Brain", &brain_root.display().to_string());
+                    chart::field("To", &snapshot_ref);
+                    println!();
+                    chart::row(chart::Mark::Present, "restored", &sha);
+                    chart::close(
+                        "Tools still hold the old projection.",
+                        Some("synapse project"),
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => {
-                    eprintln!("neurosurgeon rollback: {e}");
+                    chart::fault("reversal", &e.to_string(), None);
                     ExitCode::FAILURE
                 }
             }
@@ -280,14 +353,24 @@ fn main() -> ExitCode {
     }
 }
 
-/// Detects which of the 12 registered adapters' config files are present
-/// under `root` — the `cli scan` half of T3.4 Gate 2.
+/// Charts which of the registered adapters are present under `root`.
+///
+/// Per IDENTITY.md every adapter gets a row, including the ones that are not
+/// installed: absence is a finding, not an empty table. `--json` bypasses the
+/// chart entirely and emits only the detected ids, so scripts keep a stable
+/// contract.
 fn report_scan(root: &Path, json: bool) -> ExitCode {
-    let detected: Vec<&'static str> = all_adapters()
-        .iter()
-        .filter(|a| a.detect(root))
-        .map(|a| a.id())
-        .collect();
+    let adapters = all_adapters();
+    let mut detected: Vec<&'static str> = Vec::new();
+    let mut findings: Vec<(&'static str, bool)> = Vec::new();
+
+    for adapter in adapters.iter() {
+        let present = adapter.detect(root);
+        if present {
+            detected.push(adapter.id());
+        }
+        findings.push((adapter.id(), present));
+    }
 
     if json {
         let value = serde_json::json!({
@@ -295,80 +378,131 @@ fn report_scan(root: &Path, json: bool) -> ExitCode {
             "detected": detected,
         });
         println!("{}", serde_json::to_string_pretty(&value).unwrap());
-    } else if detected.is_empty() {
-        println!(
-            "No supported AI tool configs detected under {}",
-            root.display()
-        );
-    } else {
-        println!(
-            "Detected {} tool(s) under {}:",
-            detected.len(),
-            root.display()
-        );
-        for id in &detected {
-            println!("  - {id}");
+        return ExitCode::SUCCESS;
+    }
+
+    // Present tools first, then the absent ones, alphabetical within each
+    // group: the reader's question is "what did you find", and the negative
+    // findings are context underneath it rather than noise interleaved
+    // through it.
+    findings.sort_by_key(|(id, present)| (!*present, *id));
+
+    let total = findings.len();
+    chart::open(
+        "intake",
+        &format!("{} of {} present", detected.len(), total),
+    );
+    chart::field("Site", &root.display().to_string());
+    println!();
+
+    for (id, present) in &findings {
+        if *present {
+            chart::row(chart::Mark::Present, id, "config detected");
+        } else {
+            chart::row(
+                chart::Mark::Absent,
+                id,
+                &chart::paint(chart::Paint::InkSoft, "not present"),
+            );
         }
     }
+
+    let finding = format!("{} of {} supported tools present.", detected.len(), total);
+    let next = if detected.is_empty() {
+        None
+    } else {
+        Some("synapse import --dry-run")
+    };
+    chart::close(&finding, next);
 
     ExitCode::SUCCESS
 }
 
-/// Runs every detected adapter's `import()` against `root` and prints what
-/// it would bring into the Brain, without writing anything. Full (non-dry
-/// -run) import — actually persisting into the Brain directory — is Phase 4
-/// scope; no such write path exists in `packages/core` yet. Per
-/// MASTER_PROMPT.md's safety rule ("dry-run is the default for the first
-/// merge"), this is the only mode `cli import` supports today, and it never
-/// touches the filesystem.
+/// Charts what a real import would bring into the Brain, without writing.
+///
+/// Every row is measured by actually running the adapter's `import()` against
+/// `root` — nothing here is estimated or placeholdered. The chart closes by
+/// restating that nothing was written and naming the command that would.
 fn report_import_dry_run(root: &Path) -> ExitCode {
-    println!(
-        "Dry run — nothing will be written. Migration report for {}:",
-        root.display()
-    );
-
     let mut had_error = false;
-    let mut any_detected = false;
+    let mut detected = 0usize;
+    let mut skills = 0usize;
+    let mut agents = 0usize;
+    let mut servers = 0usize;
+
+    chart::open("intake · dry run", "nothing will be written");
+    chart::field("Site", &root.display().to_string());
+    println!();
 
     for adapter in all_adapters() {
         if !adapter.detect(root) {
             continue;
         }
-        any_detected = true;
+        detected += 1;
 
         match adapter.import(root) {
             Ok(result) => {
-                println!(
-                    "  {}: {} skill(s), {} agent(s), {} mcp server(s)",
+                skills += result.skills.len();
+                agents += result.agents.len();
+                servers += result.mcp_servers.len();
+
+                chart::row(
+                    chart::Mark::Present,
                     adapter.id(),
-                    result.skills.len(),
-                    result.agents.len(),
-                    result.mcp_servers.len()
+                    &format!(
+                        "{}  {}  {}",
+                        chart::plural(result.skills.len(), "skill"),
+                        chart::plural(result.agents.len(), "agent"),
+                        chart::plural(result.mcp_servers.len(), "mcp server"),
+                    ),
                 );
                 for skill in &result.skills {
-                    println!("    skill  {} (sha256 {})", skill.id, skill.sha256);
+                    chart::detail(&format!("skill  {}  {}", skill.id, skill.sha256));
                 }
                 for agent in &result.agents {
-                    println!("    agent  {}", agent.slug);
+                    chart::detail(&format!("agent  {}", agent.slug));
                 }
                 for server in &result.mcp_servers {
-                    println!("    mcp    {}", server.id);
+                    chart::detail(&format!("mcp    {}", server.id));
                 }
             }
             Err(e) => {
-                eprintln!("  {}: import failed: {}", adapter.id(), e);
                 had_error = true;
+                chart::row(
+                    chart::Mark::Critical,
+                    adapter.id(),
+                    &format!("import failed: {e}"),
+                );
             }
         }
     }
 
-    if !any_detected {
-        println!("  (no supported AI tool configs detected — nothing to import)");
+    if detected == 0 {
+        chart::row(
+            chart::Mark::Absent,
+            "(none)",
+            "no supported tool configs under this site",
+        );
+        chart::close("Nothing to import.", Some("synapse scan"));
+        return ExitCode::SUCCESS;
     }
 
+    let finding = format!(
+        "{} would enter the Brain from {}. Nothing was written.",
+        [
+            chart::plural(skills, "skill"),
+            chart::plural(agents, "agent"),
+            chart::plural(servers, "mcp server"),
+        ]
+        .join(", "),
+        chart::plural(detected, "tool"),
+    );
+
     if had_error {
+        chart::close(&finding, Some("synapse doctor"));
         ExitCode::FAILURE
     } else {
+        chart::close(&finding, Some("synapse import"));
         ExitCode::SUCCESS
     }
 }
@@ -409,11 +543,13 @@ fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
         .ok_or_else(|| "cannot locate a home directory; pass --tool-root <PATH>".to_string())
 }
 
-/// Runs the Doctor rule library against `brain_root`/`tool_root` and prints
-/// a clinical report. With `fix`, applies every auto-fixable diagnosis and
-/// re-diagnoses so the report reflects the post-fix state. Exit code is
-/// FAILURE if any Critical diagnosis remains unresolved (usable in scripts),
-/// SUCCESS otherwise.
+/// Runs the Doctor rule library and charts the result as a clinical record.
+///
+/// With `fix`, auto-fixable diagnoses are applied first and the chart then
+/// reflects the post-fix state — so the record always describes the Brain as
+/// it stands now, not as it was on entry. Exit code is FAILURE while any
+/// Critical diagnosis remains, which is what makes `doctor` usable as a CI
+/// gate.
 fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
     let ctx = DoctorContext {
         brain_root: brain_root.to_path_buf(),
@@ -421,50 +557,88 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
         mappings_path: brain_root.join(".brain/mappings.json"),
     };
 
+    let mut applied = None;
     if fix {
         match apply_fixes(&ctx) {
-            Ok(0) => println!("Doctor: nothing to fix."),
-            Ok(n) => println!("Doctor: applied {n} fix(es)."),
+            Ok(n) => applied = Some(n),
             Err(e) => {
-                eprintln!("neurosurgeon doctor: fix failed: {e}");
+                chart::fault("examination", &format!("fix failed: {e}"), None);
                 return ExitCode::FAILURE;
             }
         }
     }
 
     let diagnoses = diagnose(&ctx);
-    if diagnoses.is_empty() {
-        println!(
-            "Doctor: clean bill of health — no issues found in {}.",
-            brain_root.display()
+    let criticals = diagnoses
+        .iter()
+        .filter(|d| d.severity == Severity::Critical)
+        .count();
+    let warnings = diagnoses
+        .iter()
+        .filter(|d| d.severity == Severity::Warning)
+        .count();
+    let fixable = diagnoses.iter().filter(|d| d.auto_fixable).count();
+
+    let context = if diagnoses.is_empty() {
+        "no findings".to_string()
+    } else {
+        chart::plural(diagnoses.len(), "finding")
+    };
+    chart::open("examination", &context);
+    chart::field("Brain", &brain_root.display().to_string());
+    chart::field("Tools", &tool_root.display().to_string());
+
+    if let Some(n) = applied {
+        chart::field(
+            "Fixed",
+            &chart::plural(n, "diagnosis").replace("diagnosiss", "diagnoses"),
         );
+    }
+    println!();
+
+    if diagnoses.is_empty() {
+        chart::row(chart::Mark::Present, "brain", "no drift, no faults");
+        chart::close("Clean bill of health.", Some("synapse sync --once"));
         return ExitCode::SUCCESS;
     }
 
-    println!("Doctor examined {}:", brain_root.display());
-    let mut criticals = 0;
     for d in &diagnoses {
-        let tag = match d.severity {
-            Severity::Critical => {
-                criticals += 1;
-                "CRITICAL"
-            }
-            Severity::Warning => "WARNING ",
-            Severity::Info => "INFO    ",
+        let mark = match d.severity {
+            Severity::Critical => chart::Mark::Critical,
+            Severity::Warning => chart::Mark::Warning,
+            Severity::Info => chart::Mark::Partial,
         };
-        let hint = if d.auto_fixable && !fix {
-            "  (fixable — rerun with --fix)"
-        } else {
-            ""
-        };
-        match &d.subject {
-            Some(s) => println!("  [{tag}] {} — {}{}", d.message, s, hint),
-            None => println!("  [{tag}] {}{}", d.message, hint),
+        let raw = d.subject.as_deref().unwrap_or("brain");
+        let subject = chart::abbreviate(raw, &[("brain", brain_root), ("tools", tool_root)]);
+        chart::row(mark, &subject, &d.message);
+        if d.auto_fixable && !fix {
+            chart::detail("fixable — rerun with --fix");
         }
     }
 
+    let finding = if criticals > 0 {
+        format!(
+            "{} need a human. {} can wait.",
+            chart::plural(criticals, "critical finding"),
+            chart::plural(warnings, "warning"),
+        )
+    } else {
+        format!(
+            "No critical findings. {} noted.",
+            chart::plural(diagnoses.len(), "observation"),
+        )
+    };
+
+    let next = if fixable > 0 && !fix {
+        Some("synapse doctor --fix")
+    } else if criticals > 0 {
+        None
+    } else {
+        Some("synapse sync --once")
+    };
+    chart::close(&finding, next);
+
     if criticals > 0 {
-        eprintln!("\n{criticals} critical issue(s) need a human — see the report above.");
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
@@ -475,7 +649,7 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
 /// `snapshot`/`rollback`, are Phase 3/4 scope not yet landed.
 #[allow(dead_code)]
 fn not_yet_implemented(verb: &str, args: &str) -> ExitCode {
-    eprintln!("neurosurgeon {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
+    eprintln!("synapse {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
     ExitCode::FAILURE
 }
 
@@ -501,23 +675,23 @@ mod tests {
 
     #[test]
     fn parses_each_verb() {
-        assert!(Cli::try_parse_from(["neurosurgeon", "scan"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "import", "--dry-run"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "project"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "sync", "--once"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "doctor", "--fix"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "snapshot", "before upgrade"]).is_ok());
-        assert!(Cli::try_parse_from(["neurosurgeon", "rollback", "abc123"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "scan"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "import", "--dry-run"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "project"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "sync", "--once"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "doctor", "--fix"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "snapshot", "before upgrade"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "rollback", "abc123"]).is_ok());
     }
 
     #[test]
     fn rejects_unknown_verb() {
-        assert!(Cli::try_parse_from(["neurosurgeon", "frobnicate"]).is_err());
+        assert!(Cli::try_parse_from(["synapse", "frobnicate"]).is_err());
     }
 
     #[test]
     fn rollback_requires_a_snapshot_argument() {
-        assert!(Cli::try_parse_from(["neurosurgeon", "rollback"]).is_err());
+        assert!(Cli::try_parse_from(["synapse", "rollback"]).is_err());
     }
 
     #[test]

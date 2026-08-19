@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default async function setup() {
-  console.log('Building neurosurgeon CLI...');
+  console.log('Building synapse CLI...');
   const projectRoot = path.resolve(__dirname, '../..');
   
   const homeDir = os.homedir();
@@ -17,10 +17,10 @@ export default async function setup() {
     PATH: `${cargoBin}${path.delimiter}${process.env.PATH || ''}`,
   };
 
-  await execa('cargo', ['build', '--bin', 'neurosurgeon'], {
+  await execa('cargo', ['build', '--bin', 'synapse'], {
     cwd: projectRoot,
     stdio: 'inherit',
     env,
   });
-  console.log('neurosurgeon CLI built successfully.');
+  console.log('synapse CLI built successfully.');
 }

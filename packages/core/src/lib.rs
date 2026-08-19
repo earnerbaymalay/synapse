@@ -6,6 +6,9 @@
 //! implementations, real filesystem scanning, and the sync daemon land in
 //! Phase 3/4 (see PLAN.md).
 
+#[cfg(test)]
+pub(crate) mod test_home;
+
 pub mod adapter;
 pub mod adapters;
 pub mod conflict_queue;

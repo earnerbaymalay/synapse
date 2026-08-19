@@ -199,6 +199,7 @@ impl Adapter for WindsurfAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_home::HomeGuard;
     use std::fs;
     use std::sync::Mutex;
     use tempfile::tempdir;
@@ -210,7 +211,7 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().unwrap();
         let home_dir = tempdir().unwrap();
-        std::env::set_var("HOME", home_dir.path());
+        let _home = HomeGuard::set(home_dir.path());
         let adapter = WindsurfAdapter;
         assert!(!adapter.detect(dir.path()));
 
@@ -224,9 +225,9 @@ mod tests {
         let dir = tempdir().unwrap();
         let adapter = WindsurfAdapter;
 
-        // Set custom HOME environment variable for the test to point to a temp dir
+        // A temp HOME, held under the lock so no other test observes it.
         let home_dir = tempdir().unwrap();
-        std::env::set_var("HOME", home_dir.path());
+        let home = HomeGuard::set(home_dir.path());
 
         fs::write(
             dir.path().join(".windsurfrules"),
@@ -254,7 +255,7 @@ mod tests {
         // Project back
         let out_dir = tempdir().unwrap();
         let out_home = tempdir().unwrap();
-        std::env::set_var("HOME", out_home.path());
+        home.repoint(out_home.path());
 
         let project_res = adapter
             .project(out_dir.path(), &imported.skills, &[], &imported.mcp_servers)

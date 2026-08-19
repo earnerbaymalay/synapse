@@ -1,11 +1,11 @@
 [package]
-name = "neurosurgeon"
+name = "synapse"
 version = "1.0.0"
 edition = "2021"
-description = "LLM Neurosurgeon CLI — scan, import, project, sync, doctor, snapshot, and rollback AI tool configs"
+description = "SYNAPSE (llm-neuro-surgeon) CLI — scan, import, project, sync, doctor, snapshot, and rollback AI tool configs"
 
 [[bin]]
-name = "neurosurgeon"
+name = "synapse"
 path = "src/main.rs"
 
 [dependencies]

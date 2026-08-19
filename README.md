@@ -27,84 +27,64 @@
 
 ## 💡 What is Synapse (LLM-NeuroSurgeon)?
 
-Every AI coding companion stores configuration in different formats and locations:
-* **Claude Code**: `.claude/skills/`, `CLAUDE.md`, `.mcp.json`
-* **Cursor**: `.cursorrules`, `.cursor/rules/*.mdc`
-* **Gemini CLI**: `GEMINI.md`, `.gemini/settings.json`
-* **Windsurf, Codex, Cline, Roo Code, Copilot, Zed**: all have their own proprietary schema.
+**Synapse (LLM-NeuroSurgeon)** is the local-first configuration engine and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
 
-**Synapse** scans your machine, imports everything into a unified Git repository at `~/AIBrain`, and projects changes bi-directionally across your entire toolchain.
-
-```text
-                     ┌──────────────┐
-                     │ AI Toolchain │ (Claude, Cursor, Gemini, etc.)
-                     └──────┬───────┘
-                            │ synapse scan & import
-                            ▼
-                ┌─────────────────────────┐
-                │   ~/AIBrain (Git Repo)  │ <── Single Source of Truth
-                └───────────┬─────────────┘
-                            │ synapse sync --daemon
-            ┌───────────────┼───────────────┐
-            ▼               ▼               ▼
-      .cursorrules      CLAUDE.md       AGENTS.md
+```
+                     ┌────────────────────────┐
+                     │       ~/AIBrain        │
+                     │  (Single Source Truth) │
+                     └───────────┬────────────┘
+                                 │
+        ┌──────────────┬─────────┴────────┬──────────────┐
+        ▼              ▼                  ▼              ▼
+   Claude Code       Cursor           Gemini CLI      Windsurf / Zed
+  (`.claude/`)   (`.cursorrules`)    (`GEMINI.md`)    (`.windsurfrules`)
 ```
 
 ---
 
 ## ⚡ 60-Second Quickstart
 
-### 1. Run the Diagnostic Scan
 ```bash
+# 1. Detect active AI coding tools on your machine
 cargo run -p neurosurgeon -- scan
-```
 
-### 2. Ingest Rules into `~/AIBrain`
-```bash
+# 2. Ingest configurations into ~/AIBrain (Git-backed repository)
 cargo run -p neurosurgeon -- import --dry-run
 cargo run -p neurosurgeon -- import
-```
 
-### 3. Start the Real-Time Background Sync Daemon
-```bash
+# 3. Launch background auto-sync daemon with 3-way merge resolution
 cargo run -p neurosurgeon -- sync --daemon
 ```
 
-*For complete desktop setup, Linux prerequisites, and binary installs, view the [Quickstart Guide](docs/QUICKSTART.md).*
+For full setup prerequisites across Linux, macOS, and Windows, read the **[Quickstart Guide](docs/QUICKSTART.md)**.
 
 ---
 
-## 🧭 Repository Documentation Index
+## 📚 Documentation Index
 
-All documentation is interconnected with unified navigation and breadcrumbs:
-
-| Document | Purpose | Link |
-| :--- | :--- | :--- |
-| 🌐 **Live Website** | Interactive feature tour & landing page | [Open Web App](https://earnerbaymalay.github.io/llm-neuro-surgeon/) |
-| 📚 **Docs Hub** | Central documentation navigation index | [docs/README.md](docs/README.md) |
-| ⚡ **Quickstart** | Fast onboarding guide for macOS, Linux, Windows | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| 🏛️ **Architecture** | 3-Way Merge, Daemon, & Tauri IPC internals | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| 📖 **User Guide** | Day-to-day workflows, MCP tools & Keychain | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
-| 🔌 **Adapters Matrix** | Specifications for all 13 supported AI tools | [docs/adapters/README.md](docs/adapters/README.md) |
-| 🩺 **Doctor Guide** | Automated troubleshooting and broken link repair | [docs/USER_GUIDE.md#synapse-doctor](docs/USER_GUIDE.md#synapse-doctor) |
-| 🤝 **Contributing** | Monorepo conventions, test suites & CI setup | [docs/development/CONTRIBUTING.md](docs/development/CONTRIBUTING.md) |
+| Guide | Description | Target |
+|---|---|---|
+| **[Docs Hub](docs/README.md)** | Centralized documentation navigation & command reference | All users & contributors |
+| **[Quickstart](docs/QUICKSTART.md)** | Step-by-step setup in under 60 seconds | First-time setup |
+| **[User Guide](docs/USER_GUIDE.md)** | Day-to-day workflow, daemon sync, MCP hub & Doctor self-healing | Daily development |
+| **[Architecture](docs/ARCHITECTURE.md)** | 3-way merge engine, file system watcher & monorepo layout | Engine internals |
+| **[Adapters Hub](docs/adapters/README.md)** | Complete matrix and individual adapter specifications | Tool dialect reference |
+| **[Contributing](docs/development/CONTRIBUTING.md)** | PR lifecycle, test requirements & coding standards | Open source contributors |
 
 ---
 
-## 🩺 Synapse Doctor Self-Healing
+## 🩺 The Doctor: Self-Healing Configurations
 
-Verify health across symlinks, MCP configurations, and project rules in one command:
+When tool configurations drift or symlinks break, Synapse detects and repairs the issue automatically:
 
 ```bash
-# Diagnose state parity
 cargo run -p neurosurgeon -- doctor
-
-# Fix all broken symlinks and missing configs automatically
 cargo run -p neurosurgeon -- doctor --fix
 ```
 
 ---
 
 <div align="center">
-  <sub>Maintained by <a href="https://github.com/earnerbaymalay">earnerbaymalay</a>. Open source under the MIT License.</sub>
+<sub>Built with Rust, Tauri 2, and React. Open source under the MIT License.</sub>
 </div>

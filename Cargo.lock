@@ -668,6 +668,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tempfile",
 ]
 
 [[package]]
@@ -2037,17 +2038,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "neurosurgeon"
-version = "1.0.0"
-dependencies = [
- "clap",
- "dirs",
- "neurosurgeon-core",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "neurosurgeon-core"
 version = "1.0.0"
 dependencies = [
@@ -3273,6 +3263,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "synapse"
+version = "1.0.0"
+dependencies = [
+ "clap",
+ "dirs",
+ "neurosurgeon-core",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **SYNAPSE Rebrand Package & Visual Identity**:
-  - Integrated complete SYNAPSE brand identity (`SYNAPSE / llm-neuro-surgeon: One Brain. All Models.`) based on `brands/synapse/marketing-pack/BRAND_BOOK.md`.
+  - Integrated complete SYNAPSE brand identity (`SYNAPSE / llm-neuro-surgeon: One Brain. All Models.`).
   - Applied design tokens: Synapse Blue accent (`#1d9bf0`), dark ink interface (`#06080b`), Inter, JetBrains Mono, and Rubik Mono One typography, and "Surgical precision. Zero friction." tone anchor.
-- **React Desktop UI Overhaul & 8-Screen Console**:
-  - Aligned 8 core screens (Main Dashboard, Configuration Manager, Adapter Inspector, Status Monitor, Debug Console, Onboarding Wizard, Marketplace, MCP Hub) with SYNAPSE visual tokens.
+- **Clinical Record React Desktop UI (`chart.tsx`, `Intake.tsx`, `Examination.tsx`)**:
+  - Implemented the clinical operating theatre record identity per `IDENTITY.md` backed by live `neurosurgeon-core` calls with zero fabricated sample data.
 - **4-Phase Onboarding Journey Guide (`docs/ONBOARDING.md`)**:
   - Authored structured 4-phase journey covering Phase 1 (The Hook), Phase 2 (The Solution - The Brain), Phase 3 (Immediate Value - `synapse scan` / `import` / `project`), and Phase 4 (Long-Term Power - Time Machine, Auto-Sync Daemon, Doctor, MCP Hub, Marketplace).
+- **Interactive Cyber-Dark GitHub Pages Landing Site (`docs/index.html`)**:
+  - Standalone interactive terminal simulator with tabbed verbs (`scan`, `import`, `project`, `sync`, `doctor`), live ECG vitals pulse, and 13 tool adapter specifications.
 - **CLI Binary Alias Integration**:
   - Exposed binary aliases `synapse` and `neurosurgeon` across CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
 - **Antigravity CLI Adapter (`agy-cli`)**:
@@ -28,8 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Tier 2 Boundary & Corner Cases: 60/60 passing (100%) across path traversal, malformed configs, missing fields, and write protection
     - Tier 3 Combinations & State Transitions: 12/12 passing (100%) across 3-way merge, concurrent lock safety, rapid event debounce, and multi-target projects
     - Tier 4 Real-world Workloads: 6/6 passing (100%) across large monorepo synchronization scenarios
-  - Achieved 179/179 (100%) test pass rate across Rust Core, CLI, stress, and updater test suites with zero Clippy warnings.
-- **Centralized Security Enforcement**:
+  - Achieved 203/203 (100%) test pass rate across Rust Core, CLI, stress, and updater test suites with zero Clippy warnings.
+- **Centralized Security Enforcement & Dependabot Resolution**:
+  - Resolved `nanoid` CVE advisory (`GHSA-2v37-7h3g-55p8`) by updating overrides to `^3.3.18`.
   - Added `parse_and_validate_mcp_server` helper enforcing path traversal defense and required field validation across all adapter MCP parsing paths.
   - Hardened write protection error handling and home directory configuration resolution across all adapters.
 - **Obsidian Antigravity Integration**:
@@ -40,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalized line endings (CRLF to LF) and path separators across adapter import pipelines.
 
 ---
-
 
 ## [0.7.4] - 2026-07-20
 
