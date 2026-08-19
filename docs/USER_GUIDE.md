@@ -142,13 +142,13 @@ cargo build --workspace --release
 
 ```bash
 # 1. See what's out there
-cargo run -p neurosurgeon -- scan
+cargo run -p synapse -- scan
 
 # 2. Preview what would be imported (zero writes)
-cargo run -p neurosurgeon -- import --dry-run
+cargo run -p synapse -- import --dry-run
 
 # 3. When you're ready, run import for real
-cargo run -p neurosurgeon -- import
+cargo run -p synapse -- import
 ```
 
 > [!TIP]
@@ -170,10 +170,10 @@ pnpm tauri dev
 
 ### Scanning for Tools
 
-Run `neurosurgeon scan` to inspect your current directory or host environment for supported AI tool configurations:
+Run `synapse scan` to inspect your current directory or host environment for supported AI tool configurations:
 
 ```bash
-$ neurosurgeon scan
+$ synapse scan
 Detected 4 AI tool configuration(s):
   • claude-code   (CLAUDE.md, .claude/agents/coder.md)
   • cursor        (.cursorrules, .cursor/rules/rust.mdc)
@@ -183,7 +183,7 @@ Detected 4 AI tool configuration(s):
 
 To format output as JSON for scripting:
 ```bash
-$ neurosurgeon scan --json
+$ synapse scan --json
 ```
 
 ### Ingesting Configs (Dry Run & Real Import)
@@ -191,7 +191,7 @@ $ neurosurgeon scan --json
 Before modifying your filesystem, run an import dry-run to preview what will be ingested into the Brain:
 
 ```bash
-$ neurosurgeon import --dry-run
+$ synapse import --dry-run
 Migration Report (Dry Run):
   Skills found:     5
   Agents found:     2
@@ -203,7 +203,7 @@ Migration Report (Dry Run):
 To execute the import and populate the canonical Brain:
 
 ```bash
-$ neurosurgeon import
+$ synapse import
 Importing configurations into Brain...
   ✓ Ingested 5 skills
   ✓ Ingested 2 agents
@@ -218,7 +218,7 @@ Once configs are stored in the Brain, the **Projection Engine** emits them back 
 
 ```bash
 # Project canonical Brain configurations to all detected tools
-$ neurosurgeon project
+$ synapse project
 Projecting canonical Brain to detected tools...
   ✓ claude-code: projected CLAUDE.md & skills
   ✓ cursor: projected .cursorrules
@@ -248,14 +248,12 @@ All projections completed cleanly.
 Keep your canonical Brain and all tool configurations in continuous lockstep.
 
 ```bash
-# One-shot bidirectional sync with 3-way merge
-$ neurosurgeon sync --once
+# One-shot bidirectional sync with 3-way merge, then exit
+$ synapse sync --once
 
-# Continuous background daemon with debounced filesystem watcher
-$ neurosurgeon sync --daemon
-
-# Configure custom polling interval in daemon mode (e.g. 5 seconds)
-$ neurosurgeon sync --daemon --poll-interval 5
+# Start the debounced filesystem watcher and stay running,
+# resolving drift with a 3-way merge as it happens
+$ synapse sync
 ```
 
 ## Graphical Desktop Interface
@@ -283,7 +281,7 @@ Once your Brain is live, these are the tools that keep it healthy, secure, and e
 
 LLM Neurosurgeon runs a debounced background filesystem watcher (`notify` crate) combined with native OS background schedulers:
 - **macOS**: `launchd` plist (`~/Library/LaunchAgents/com.llmneurosurgeon.sync.plist`)
-- **Linux**: `systemd` user unit (`~/.config/systemd/user/llm-neurosurgeon-sync.timer`)
+- **Linux**: `systemd` user unit (`~/.config/systemd/user/llm-synapse-sync.timer`)
 - **Windows**: Task Scheduler (`schtasks /create /tn "LLMNeurosurgeonSync" ...`)
 
 ### Three-Way Merge Engine
@@ -298,11 +296,11 @@ Every sync operation automatically creates a Git commit inside `AIBrain/.git`. Y
 
 ```bash
 # Record a snapshot with a custom message
-$ neurosurgeon snapshot "Updated Rust coding conventions"
+$ synapse snapshot "Updated Rust coding conventions"
 Recorded snapshot a1b2c3d: Updated Rust coding conventions
 
 # Roll back to a previous commit or tag
-$ neurosurgeon rollback a1b2c3d
+$ synapse rollback a1b2c3d
 Rolled back Brain state to snapshot a1b2c3d. Working tree restored byte-identically.
 ```
 
@@ -349,21 +347,21 @@ The **Doctor Engine** continuously monitors your Brain and tool projections for 
 
 ### Running Doctor Diagnoses
 
-Run `neurosurgeon doctor` to analyze system health:
+Run `synapse doctor` to analyze system health:
 
 ```bash
-$ neurosurgeon doctor
+$ synapse doctor
 [WARN]  missing-projection: Projection for 'cursor' rule 'global.md' missing at .cursorrules
 [INFO]  detached-symlink: Symlink .rules does not point to AIBrain/rules/global.md
-[HINT]  Run 'neurosurgeon doctor --fix' to automatically resolve fixable issues.
+[HINT]  Run 'synapse doctor --fix' to automatically resolve fixable issues.
 ```
 
 ### Automated Repair
 
-Run `neurosurgeon doctor --fix` to automatically repair all fixable diagnoses:
+Run `synapse doctor --fix` to automatically repair all fixable diagnoses:
 
 ```bash
-$ neurosurgeon doctor --fix
+$ synapse doctor --fix
 Recreated missing symlink: .cursorrules -> ~/AIBrain/rules/global.md
 Re-projected updated generated rule: .github/copilot-instructions.md
 Updated mappings.json checksums.

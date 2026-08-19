@@ -149,7 +149,7 @@ assumed.
 
 ## Test evidence
 
-`cargo test -p neurosurgeon-core -p neurosurgeon` — 106 tests green
+`cargo test -p neurosurgeon-core -p synapse` — 106 tests green
 (84 lib + 17 stress + 5 CLI), 0 ignored (down from 1 ignored pre-fix —
 the symlink-loop test now runs and passes instead of being skipped).
 `cargo fmt --check -p neurosurgeon-core` clean.

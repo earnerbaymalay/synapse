@@ -328,5 +328,5 @@ Before submitting a new adapter, make sure all of the following pass:
 6. **Code Formatting & Linting**:
    ```bash
    cargo fmt --all --check
-   cargo clippy --package neurosurgeon-core --package neurosurgeon
+   cargo clippy --package neurosurgeon-core --package synapse
    ```

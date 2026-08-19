@@ -59,7 +59,7 @@ jobs:
           pnpm --filter desktop-app build
 
       - name: cargo build --release (CLI, keychain on)
-        run: cargo build --release -p neurosurgeon --features neurosurgeon-core/os-keychain
+        run: cargo build --release -p synapse --features neurosurgeon-core/os-keychain
 
       - name: cargo build --release (desktop, keychain on)
         run: cargo build --release -p desktop-app --features neurosurgeon-core/os-keychain
@@ -67,10 +67,10 @@ jobs:
       - name: Upload binaries
         uses: actions/upload-artifact@v7
         with:
-          name: neurosurgeon-${{ matrix.os }}
+          name: synapse-${{ matrix.os }}
           path: |
-            target/release/neurosurgeon
-            target/release/neurosurgeon.exe
+            target/release/synapse
+            target/release/synapse.exe
             target/release/desktop-app
             target/release/desktop-app.exe
           if-no-files-found: error
