@@ -200,10 +200,14 @@ impl Adapter for WindsurfAdapter {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::Mutex;
     use tempfile::tempdir;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_windsurf_detect() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().unwrap();
         let home_dir = tempdir().unwrap();
         std::env::set_var("HOME", home_dir.path());
@@ -216,6 +220,7 @@ mod tests {
 
     #[test]
     fn test_windsurf_import_export_roundtrip() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().unwrap();
         let adapter = WindsurfAdapter;
 

@@ -8,3 +8,4 @@ apps/desktop/src-tauri/gen/
 .claudinio/
 bin/
 release-artifacts/
+transperth_*.svg

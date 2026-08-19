@@ -8,21 +8,55 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Brand A (Cortex) per DESIGN_PACK.md Visual Tokens — the
-        // default until Gate 0's brand pick is reconfirmed.
+        ink: {
+          950: "#06080b",
+          900: "#0b0e13",
+          800: "#12161d",
+          700: "#171c25",
+          600: "#1d2330",
+          500: "#262c37",
+          400: "#4b5361",
+          300: "#8b949e",
+          100: "#d4dae2",
+        },
+        accent: {
+          DEFAULT: "#1d9bf0",
+          900: "#0a3a5c",
+          700: "#0d5a96",
+          500: "#1d9bf0",
+          300: "#5cb2f5",
+          100: "#c7e6fd",
+        },
+        gold: {
+          DEFAULT: "#d4af37",
+          900: "#5c4813",
+          700: "#8a6d1f",
+          500: "#d4af37",
+          300: "#f0d580",
+          100: "#fdf3d6",
+        },
+        semantic: {
+          success: "#3fb950",
+          warning: "#d29922",
+          error: "#ff7b72",
+        },
         primary: {
-          DEFAULT: "#667eea",
-          50: "#eef1fd",
-          100: "#dde3fb",
-          400: "#8b9cf0",
-          500: "#667eea",
-          600: "#4c5fd6",
-          700: "#3c4ab0",
+          DEFAULT: "#1d9bf0",
+          50: "#c7e6fd",
+          100: "#c7e6fd",
+          400: "#5cb2f5",
+          500: "#1d9bf0",
+          600: "#0d5a96",
+          700: "#0a3a5c",
         },
       },
       fontFamily: {
+        display: ["Rubik Mono One", "monospace"],
         sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
-        mono: ["SF Mono", "Monaco", "Consolas", "monospace"],
+        mono: ["JetBrains Mono", "SF Mono", "Monaco", "Consolas", "monospace"],
+      },
+      borderRadius: {
+        cards: "0px",
       },
     },
   },

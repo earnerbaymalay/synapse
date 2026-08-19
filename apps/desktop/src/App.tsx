@@ -1,5 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, ComponentType } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import {
+  LayoutDashboard,
+  Settings,
+  Cpu,
+  Activity,
+  Terminal,
+  Compass,
+  Store,
+  Server,
+} from 'lucide-react'
 import { cn } from './lib/utils'
 import type { ScreenId } from './screens/types'
 import { MainDashboard } from './screens/MainDashboard'
@@ -11,28 +21,32 @@ import { OnboardingWizard } from './screens/OnboardingWizard'
 import { Marketplace } from './screens/Marketplace'
 import { McpHub } from './screens/McpHub'
 
-const NAV: { id: ScreenId; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Main Dashboard', icon: '📊' },
-  { id: 'config', label: 'Configuration Manager', icon: '🔧' },
-  { id: 'adapters', label: 'Adapter Inspector', icon: '🔌' },
-  { id: 'status', label: 'Status Monitor', icon: '📈' },
-  { id: 'debug', label: 'Debug Console', icon: '🐛' },
-  { id: 'onboarding', label: 'Onboarding Wizard', icon: '🎯' },
-  { id: 'marketplace', label: 'Marketplace', icon: '🏪' },
-  { id: 'mcp', label: 'MCP Hub', icon: '🔗' },
+interface NavItem {
+  id: ScreenId
+  label: string
+  icon: ComponentType<{ className?: string }>
+}
+
+const NAV: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'config', label: 'Configuration', icon: Settings },
+  { id: 'adapters', label: 'Adapters', icon: Cpu },
+  { id: 'status', label: 'Vitals & Status', icon: Activity },
+  { id: 'debug', label: 'CLI & Debug', icon: Terminal },
+  { id: 'onboarding', label: 'Onboarding', icon: Compass },
+  { id: 'marketplace', label: 'Marketplace', icon: Store },
+  { id: 'mcp', label: 'MCP Hub', icon: Server },
 ]
 
 function App() {
   const [screen, setScreen] = useState<ScreenId>('dashboard')
-  const [version, setVersion] = useState('—')
+  const [version, setVersion] = useState('1.0.0')
 
   useEffect(() => {
-    // Not running inside a Tauri webview (e.g. previewed in a plain
-    // browser for screenshots) — invoke() has no backend to call.
     if (!('__TAURI_INTERNALS__' in window)) return
     invoke('get_version')
       .then((v) => setVersion(v as string))
-      .catch(() => setVersion('—'))
+      .catch(() => setVersion('1.0.0'))
   }, [])
 
   const ActiveScreen = () => {
@@ -57,32 +71,45 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-200">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-slate-800 bg-slate-900/40">
-        <div className="border-b border-slate-800 px-4 py-4">
-          <p className="text-sm font-semibold text-white">LLM Neurosurgeon</p>
-          <p className="text-xs text-slate-500">v{version}</p>
+    <div className="flex h-screen bg-ink-950 font-sans text-ink-100 antialiased">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-900/60">
+        <div className="border-b border-ink-800 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-none bg-gold-500" />
+            <p className="font-display text-sm uppercase tracking-wider text-ink-100">SYNAPSE</p>
+          </div>
+          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-accent-500">
+            llm-neuro-surgeon <span className="text-ink-400">v{version}</span>
+          </p>
         </div>
-        <nav className="flex-1 space-y-0.5 p-2">
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setScreen(item.id)}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
-                screen === item.id
-                  ? 'bg-primary-500/15 text-primary-400'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
-              )}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
+        <nav className="flex-1 space-y-1 p-3 font-mono text-xs">
+          {NAV.map((item) => {
+            const Icon = item.icon
+            const active = screen === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setScreen(item.id)}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-none px-3 py-2 text-left uppercase tracking-wider transition-colors',
+                  active
+                    ? 'border-l-2 border-accent-500 bg-accent-500/10 text-accent-300 font-semibold'
+                    : 'text-ink-300 hover:bg-ink-800/50 hover:text-ink-100',
+                )}
+              >
+                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent-500' : 'text-ink-400')} />
+                {item.label}
+              </button>
+            )
+          })}
         </nav>
+        <div className="border-t border-ink-800 p-4 font-mono text-[10px] text-ink-400">
+          <p className="uppercase">One Brain. All Models.</p>
+          <p className="mt-0.5 text-accent-500/80">~/AIBrain</p>
+        </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-6 bg-ink-950">
         <ActiveScreen />
       </main>
     </div>
