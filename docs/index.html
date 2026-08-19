@@ -1,156 +1,575 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Synapse // LLM-NeuroSurgeon — One Brain. All Models.</title>
-  <meta name="description" content="Precision configuration synchronizer and engine that keeps all your AI coding tools in permanent lockstep." />
+  <title>SYNAPSE // LLM-NeuroSurgeon — One Brain. All Models.</title>
+  <meta name="description" content="Local-first configuration engine and synchronizer that keeps Claude Code, Cursor, Gemini, Windsurf, Zed, and all AI coding companions in permanent lockstep." />
+  
+  <!-- Favicon & OpenGraph -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <meta property="og:title" content="SYNAPSE // LLM-NeuroSurgeon — One Brain. All Models." />
+  <meta property="og:description" content="Surgical precision. Zero friction. Keep all your AI coding tools in permanent lockstep with a Git-backed Brain." />
+  <meta property="og:type" content="website" />
+  
+  <!-- Tailwind CSS & Google Fonts -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Rubik+Mono+One&display=swap" rel="stylesheet">
+
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
+            display: ['"Rubik Mono One"', 'sans-serif'],
           },
           colors: {
             synapse: {
-              bg: '#090d16',
-              card: '#0f172a',
-              border: '#1e293b',
-              accent: '#00F0FF',
+              ink: '#06080b',
+              surface: '#0b0e13',
+              card: '#12161d',
+              border: '#1e2633',
+              borderLight: '#2c3749',
+              cyan: '#00F0FF',
+              accent: '#1d9bf0',
+              accentLight: '#5cb2f5',
+              gold: '#d4af37',
               emerald: '#10B981',
-              violet: '#8B5CF6'
+              violet: '#8B5CF6',
+              rose: '#F43F5E'
             }
           }
         }
       }
     }
   </script>
+
   <style>
-    body { background-color: #090d16; color: #f8fafc; }
-    .glow-cyan { box-shadow: 0 0 40px -10px rgba(0, 240, 255, 0.25); }
-    .glow-card:hover { border-color: rgba(0, 240, 255, 0.4); box-shadow: 0 0 25px -5px rgba(0, 240, 255, 0.15); }
+    body { background-color: #06080b; color: #f1f5f9; overflow-x: hidden; }
+    
+    /* Background Grid & Noise */
+    .bg-grid {
+      background-image: linear-gradient(to right, rgba(30, 38, 51, 0.4) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(30, 38, 51, 0.4) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .radial-glow {
+      background: radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.12) 0%, rgba(29, 155, 240, 0.04) 50%, transparent 80%);
+    }
+
+    /* Glow Effects */
+    .glow-cyan { box-shadow: 0 0 50px -10px rgba(0, 240, 255, 0.3); }
+    .glow-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    .glow-card:hover {
+      border-color: rgba(0, 240, 255, 0.5);
+      box-shadow: 0 10px 30px -10px rgba(0, 240, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    /* Corner Marks */
+    .corner-mark { position: relative; }
+    .corner-mark::before, .corner-mark::after {
+      content: ''; position: absolute; width: 6px; height: 6px; pointer-events: none;
+    }
+    .corner-mark::before { top: -1px; left: -1px; border-top: 1.5px solid #00F0FF; border-left: 1.5px solid #00F0FF; }
+    .corner-mark::after { bottom: -1px; right: -1px; border-bottom: 1.5px solid #00F0FF; border-right: 1.5px solid #00F0FF; }
+
+    /* EKG Pulse */
+    @keyframes ekg-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .animate-ekg { animation: ekg-scroll 4s linear infinite; }
+
+    /* Code Ticker */
+    @keyframes ticker-anim { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .animate-ticker { animation: ticker-anim 28s linear infinite; }
+    .animate-ticker:hover { animation-play-state: paused; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
+
+<body class="min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black antialiased bg-grid">
+
+  <!-- Ambient Glow Header -->
+  <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
 
   <!-- Navigation Bar -->
-  <header class="sticky top-0 z-50 backdrop-blur-md bg-[#090d16]/80 border-b border-synapse-border">
+  <header class="sticky top-0 z-50 backdrop-blur-xl bg-[#06080b]/85 border-b border-synapse-border">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <span class="h-3 w-3 rounded-full bg-cyan-400 animate-pulse"></span>
-        <a href="#" class="font-mono text-lg font-bold tracking-wider text-white">SYNAPSE<span class="text-cyan-400 text-xs ml-1 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-800">NEUROSURGEON</span></a>
+        <span class="h-2.5 w-2.5 bg-synapse-cyan rounded-none animate-ping"></span>
+        <a href="#" class="font-display text-sm tracking-wider text-white flex items-center gap-1.5">
+          SYNAPSE <span class="font-mono text-[10px] px-1.5 py-0.5 border border-synapse-cyan/40 bg-synapse-cyan/10 text-synapse-cyan rounded-none">v1.0.0</span>
+        </a>
       </div>
-      <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-400">
-        <a href="QUICKSTART.md" class="hover:text-cyan-400 transition-colors">Quickstart</a>
-        <a href="README.md" class="hover:text-cyan-400 transition-colors">Docs Hub</a>
-        <a href="ARCHITECTURE.md" class="hover:text-cyan-400 transition-colors">Architecture</a>
-        <a href="USER_GUIDE.md" class="hover:text-cyan-400 transition-colors">User Guide</a>
-        <a href="https://github.com/earnerbaymalay/llm-neuro-surgeon" target="_blank" class="text-white hover:text-cyan-400 flex items-center space-x-1">
+      
+      <nav class="hidden md:flex items-center space-x-7 font-mono text-xs text-slate-400">
+        <a href="#quickstart" class="hover:text-synapse-cyan transition-colors">/quickstart</a>
+        <a href="#simulator" class="hover:text-synapse-cyan transition-colors">/cli-demo</a>
+        <a href="#adapters" class="hover:text-synapse-cyan transition-colors">/adapters</a>
+        <a href="README.md" class="hover:text-synapse-cyan transition-colors">/docs-hub</a>
+        <a href="ARCHITECTURE.md" class="hover:text-synapse-cyan transition-colors">/architecture</a>
+        <a href="https://github.com/earnerbaymalay/llm-neuro-surgeon" target="_blank" class="text-white hover:text-synapse-cyan flex items-center space-x-1.5 border border-synapse-border px-3 py-1 bg-synapse-surface/80 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
           <span>GitHub</span>
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
         </a>
       </nav>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <main class="flex-grow">
-    <section class="max-w-7xl mx-auto px-6 pt-20 pb-16 text-center lg:pt-28">
-      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-950/70 border border-cyan-800 text-cyan-400 text-xs font-mono mb-8">
-        <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-        <span>v1.0.0 • 13 Verified AI Tool Adapters Ready</span>
+  <!-- Live Parity Vitals Strip -->
+  <div class="border-b border-synapse-border bg-synapse-surface/90 relative z-10 overflow-hidden font-mono text-xs">
+    <div class="max-w-7xl mx-auto px-6 py-2.5 flex items-center justify-between gap-6 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="w-28 h-5 overflow-hidden flex items-center">
+          <svg class="animate-ekg h-full w-[200%]" viewBox="0 0 400 34" preserveAspectRatio="none">
+            <polyline points="0,17 30,17 40,4 50,30 60,17 140,17 150,4 160,30 170,17 250,17 260,4 270,30 280,17 360,17 370,4 380,30 390,17 400,17" fill="none" stroke="#10B981" stroke-width="2"/>
+            <polyline points="400,17 430,17 440,4 450,30 460,17 540,17 550,4 560,30 570,17 650,17 660,4 670,30 680,17 760,17 770,4 780,30 790,17 800,17" fill="none" stroke="#10B981" stroke-width="2"/>
+          </svg>
+        </div>
+        <span class="text-synapse-emerald font-semibold flex items-center gap-1">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-synapse-emerald"></span> SYSTEM PARITY 100%
+        </span>
       </div>
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white mb-6">
-        One Brain. <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400">All Models.</span>
+
+      <div class="flex items-center gap-6 text-[11px] text-slate-400">
+        <div><span class="text-slate-500">ADAPTERS:</span> <strong class="text-white">13/13 ONLINE</strong></div>
+        <div><span class="text-slate-500">E2E TESTS:</span> <strong class="text-synapse-cyan">142/142 PASSING</strong></div>
+        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">179/179 PASSING</strong></div>
+        <div class="hidden sm:block"><span class="text-slate-500">STORAGE:</span> <strong class="text-synapse-accentLight">~/AIBrain</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hero Section -->
+  <main class="flex-grow relative z-10">
+    <section class="max-w-7xl mx-auto px-6 pt-20 pb-16 text-center lg:pt-28">
+      
+      <!-- Kicker Tag -->
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 border border-synapse-cyan/40 bg-synapse-cyan/10 text-synapse-cyan text-xs font-mono mb-8 tracking-wider">
+        <span class="h-1.5 w-1.5 bg-synapse-cyan animate-pulse"></span>
+        ONE BRAIN. ALL MODELS. SURGICAL PRECISION.
+      </div>
+
+      <!-- Hero Title -->
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white mb-6 uppercase">
+        One Brain. <span class="text-transparent bg-clip-text bg-gradient-to-r from-synapse-cyan via-synapse-accentLight to-synapse-emerald">All Models.</span>
       </h1>
-      <p class="max-w-3xl mx-auto text-lg sm:text-xl text-slate-400 mb-10 leading-relaxed">
-        The precision, local-first configuration engine that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
+
+      <p class="max-w-3xl mx-auto text-base sm:text-xl text-slate-400 mb-10 leading-relaxed font-normal">
+        The universal local-first synchronizer that unifies configuration for <span class="text-white font-medium">Claude Code</span>, <span class="text-white font-medium">Cursor</span>, <span class="text-white font-medium">Gemini CLI</span>, <span class="text-white font-medium">Windsurf</span>, <span class="text-white font-medium">Zed</span>, and 8+ tools into one Git-backed Brain.
       </p>
 
-      <!-- Fast Action Buttons -->
+      <!-- Primary Action Buttons -->
       <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-        <a href="QUICKSTART.md" class="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm tracking-wide transition-all duration-200 shadow-lg shadow-cyan-500/25">
+        <a href="#quickstart" class="w-full sm:w-auto px-8 py-3.5 bg-synapse-cyan hover:bg-cyan-300 text-synapse-ink font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-cyan-500/20 font-mono">
           Get Started in 60s
         </a>
-        <a href="README.md" class="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white font-medium text-sm transition-all duration-200">
-          Explore Docs Hub
+        <a href="README.md" class="w-full sm:w-auto px-8 py-3.5 bg-synapse-surface hover:bg-synapse-card border border-synapse-border text-white font-mono text-xs uppercase tracking-widest transition-all">
+          Explore Docs Hub →
+        </a>
+        <a href="https://github.com/earnerbaymalay/llm-neuro-surgeon/releases" target="_blank" class="w-full sm:w-auto px-8 py-3.5 bg-synapse-card hover:bg-synapse-surface border border-synapse-borderLight text-slate-300 font-mono text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+          <span>Download Installers</span>
         </a>
       </div>
 
-      <!-- Interactive Quick CLI Display -->
-      <div class="max-w-2xl mx-auto text-left rounded-xl bg-[#030712] border border-synapse-border p-5 font-mono text-sm glow-cyan">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800 text-xs text-slate-500">
-          <span class="flex items-center space-x-2">
-            <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-            <span class="w-3 h-3 rounded-full bg-yellow-500/80 inline-block"></span>
-            <span class="w-3 h-3 rounded-full bg-green-500/80 inline-block"></span>
-            <span class="text-slate-400 ml-2">terminal — synapse CLI</span>
-          </span>
-          <button onclick="navigator.clipboard.writeText('cargo run -p neurosurgeon -- scan && cargo run -p neurosurgeon -- sync --daemon'); this.innerText='Copied!';" class="hover:text-cyan-400 transition-colors">
-            Copy
+      <!-- Interactive CLI Terminal Simulator -->
+      <div id="simulator" class="max-w-3xl mx-auto text-left bg-synapse-surface border border-synapse-border p-6 font-mono text-xs glow-cyan corner-mark">
+        
+        <!-- Terminal Header Tabs -->
+        <div class="flex items-center justify-between pb-3 border-b border-synapse-border mb-4 flex-wrap gap-2">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 bg-red-500/80 inline-block"></span>
+            <span class="w-2.5 h-2.5 bg-yellow-500/80 inline-block"></span>
+            <span class="w-2.5 h-2.5 bg-green-500/80 inline-block"></span>
+            <span class="text-slate-500 text-[11px] ml-2 uppercase">synapse interactive shell</span>
+          </div>
+
+          <!-- Interactive Action Buttons -->
+          <div class="flex items-center gap-1 text-[10px]">
+            <button onclick="setTab('scan')" id="tab-scan" class="tab-btn px-2.5 py-1 bg-synapse-cyan text-synapse-ink font-semibold">1. scan</button>
+            <button onclick="setTab('import')" id="tab-import" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">2. import</button>
+            <button onclick="setTab('project')" id="tab-project" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">3. project</button>
+            <button onclick="setTab('sync')" id="tab-sync" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">4. sync</button>
+            <button onclick="setTab('doctor')" id="tab-doctor" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">5. doctor</button>
+          </div>
+        </div>
+
+        <!-- Terminal Output Viewport -->
+        <div id="terminal-content" class="min-h-[160px] space-y-2 text-slate-300">
+          <p class="text-slate-500"># Discovers all 13 AI coding tools across your workstation</p>
+          <p><span class="text-synapse-cyan">$</span> synapse scan</p>
+          <p class="text-synapse-accentLight">🔍 Discovered 13 active AI tools on workstation:</p>
+          <p class="text-slate-400 pl-3">• Claude Code (.claude/skills/, CLAUDE.md) [FOUND]</p>
+          <p class="text-slate-400 pl-3">• Cursor (.cursor/rules/*.mdc) [FOUND]</p>
+          <p class="text-slate-400 pl-3">• Gemini CLI (GEMINI.md, .gemini/settings.json) [FOUND]</p>
+          <p class="text-slate-400 pl-3">• Windsurf (.windsurfrules, mcp_config.json) [FOUND]</p>
+          <p class="text-synapse-emerald pt-1">✓ Ready for lossless import into ~/AIBrain</p>
+        </div>
+
+        <!-- Terminal Footer Copy -->
+        <div class="mt-4 pt-3 border-t border-synapse-border flex items-center justify-between text-[11px] text-slate-500">
+          <span>Target: <code class="text-synapse-accentLight">~/AIBrain/.git</code></span>
+          <button onclick="copyCurrentCommand()" id="copy-btn" class="text-synapse-cyan hover:underline flex items-center gap-1">
+            <span>Copy Command</span>
           </button>
         </div>
-        <div class="pt-4 space-y-2 text-slate-300">
-          <p class="text-slate-500"># 1. Scan your machine for all 13 tools</p>
-          <p><span class="text-cyan-400">$</span> cargo run -p neurosurgeon -- scan</p>
-          <p class="text-slate-500 pt-2"># 2. Ingest into ~/AIBrain and start auto-sync daemon</p>
-          <p><span class="text-cyan-400">$</span> cargo run -p neurosurgeon -- sync --daemon</p>
-          <p class="text-emerald-400 pt-2">✓ Ingested 14 prompt rules • 3-Way Merge Engine Active</p>
+      </div>
+    </section>
+
+    <!-- Code Stream Ticker -->
+    <div class="border-y border-synapse-border bg-synapse-surface/80 overflow-hidden relative z-10">
+      <div class="animate-ticker flex whitespace-nowrap py-3 font-mono text-xs text-slate-400">
+        <span class="px-6 border-r border-synapse-border">fn project(adapter: &Adapter) -> Result&lt;()&gt;</span>
+        <span class="px-6 border-r border-synapse-border text-synapse-cyan">brain.commit("auto-sync: 13 adapters synced")</span>
+        <span class="px-6 border-r border-synapse-border">watching ~/AIBrain for changes…</span>
+        <span class="px-6 border-r border-synapse-border text-synapse-emerald">✓ 142/142 E2E vitest suites passing</span>
+        <span class="px-6 border-r border-synapse-border">safe_join(&root, &path) -> Path traversal blocked</span>
+        <span class="px-6 border-r border-synapse-border text-synapse-gold">synapse doctor --fix -> 0 faults</span>
+        <span class="px-6 border-r border-synapse-border">fn project(adapter: &Adapter) -> Result&lt;()&gt;</span>
+        <span class="px-6 border-r border-synapse-border text-synapse-cyan">brain.commit("auto-sync: 13 adapters synced")</span>
+        <span class="px-6 border-r border-synapse-border">watching ~/AIBrain for changes…</span>
+      </div>
+    </div>
+
+    <!-- 13 Verified Adapters Matrix -->
+    <section id="adapters" class="max-w-7xl mx-auto px-6 py-20">
+      <div class="text-center mb-14">
+        <div class="font-mono text-xs text-synapse-cyan uppercase tracking-widest mb-2">// ECOSYSTEM MATRIX</div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">13 Verified Tool Adapters</h2>
+        <p class="text-slate-400 mt-2 max-w-2xl mx-auto text-sm">Every dialect parsed losslessly. Click any adapter to inspect its native file locations and sync policy.</p>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        
+        <!-- Adapter 1: Claude -->
+        <a href="adapters/claude.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Cl</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Claude Code / Desktop</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">CLAUDE.md • .claude/skills/ • .mcp.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 2: Cursor -->
+        <a href="adapters/cursor.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Cu</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Cursor</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.cursorrules • .cursor/rules/*.mdc</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 3: Gemini -->
+        <a href="adapters/gemini.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ge</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Gemini CLI</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">GEMINI.md • .gemini/settings.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 4: Windsurf -->
+        <a href="adapters/windsurf.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ws</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Windsurf</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.windsurfrules • mcp_config.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 5: Codex -->
+        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Cx</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">OpenAI Codex CLI</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.codex/config.toml • AGENTS.md</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 6: Cline -->
+        <a href="adapters/cline.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Cn</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Cline</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.clinerules • cline_mcp_settings.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 7: Roo Code -->
+        <a href="adapters/cline.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ro</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Roo Code</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.roomodes • .clinerules</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 8: Copilot & Zed -->
+        <a href="adapters/copilot-zed.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Zd</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Zed & GitHub Copilot</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.rules • .github/copilot-instructions.md</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 9: Antigravity CLI -->
+        <a href="adapters/antigravity.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ag</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Antigravity CLI (AGY)</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">AGENTS.md • .agy/skills/ • .gemini/</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 10: Continue -->
+        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Co</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Continue</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.continue/rules/*.md • config.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 11: Aider -->
+        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Ai</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Aider</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">CONVENTIONS.md • .aider.conf.yml</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 12: OpenCode -->
+        <a href="adapters/README.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Oc</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">OpenCode</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">AGENTS.md • Multi-Agent Spec</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- 60-Second Quickstart Guide Section -->
+    <section id="quickstart" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-12">
+          <div class="font-mono text-xs text-synapse-emerald uppercase tracking-widest mb-2">// QUICKSTART</div>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">Get Started in 60 Seconds</h2>
+          <p class="text-slate-400 mt-2 text-sm">Three commands to take complete, permanent control of your AI developer environment.</p>
+        </div>
+
+        <div class="space-y-6 font-mono text-xs">
+          <!-- Step 1 -->
+          <div class="p-6 bg-synapse-surface border border-synapse-border corner-mark">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-synapse-cyan font-bold">STEP 01 // SCAN WORKSTATION</span>
+              <span class="text-slate-500">Read-Only Diagnostic</span>
+            </div>
+            <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
+              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- scan</p>
+            </div>
+            <p class="text-slate-400 mt-3 text-[11px] font-sans">Scans home and workspace roots, mapping all 13 supported AI configurations without touching the disk.</p>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="p-6 bg-synapse-surface border border-synapse-border corner-mark">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-synapse-cyan font-bold">STEP 02 // INGEST INTO CANONICAL BRAIN</span>
+              <span class="text-slate-500">Lossless Ingestion</span>
+            </div>
+            <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
+              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- import --dry-run</p>
+              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- import</p>
+            </div>
+            <p class="text-slate-400 mt-3 text-[11px] font-sans">Initializes <code class="text-synapse-accentLight">~/AIBrain</code> as a local Git repository and snapshots all prompt rules, agents, and MCP servers.</p>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="p-6 bg-synapse-surface border border-synapse-border corner-mark">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-synapse-emerald font-bold">STEP 03 // LAUNCH REAL-TIME AUTO-SYNC</span>
+              <span class="text-slate-500">Background Watcher</span>
+            </div>
+            <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
+              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- sync --daemon</p>
+            </div>
+            <p class="text-slate-400 mt-3 text-[11px] font-sans">Watches the Brain and all tool configs in the background. Changes merge cleanly and create instant Git commits.</p>
+          </div>
+        </div>
+
+        <div class="text-center mt-10">
+          <a href="QUICKSTART.md" class="inline-block font-mono text-xs text-synapse-cyan hover:underline uppercase">
+            View Complete Quickstart Guide with OS Prerequisites →
+          </a>
         </div>
       </div>
     </section>
 
-    <!-- Architecture & Features Grid -->
-    <section class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div class="p-6 rounded-xl bg-synapse-card border border-synapse-border glow-card transition-all duration-300">
-          <div class="w-10 h-10 rounded-lg bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400 mb-4 font-mono font-bold">01</div>
-          <h3 class="text-lg font-bold text-white mb-2">Centralized Git Brain</h3>
-          <p class="text-slate-400 text-sm leading-relaxed">
-            Stores all prompts, rules, system instructions, and MCP tool declarations in a single Git-backed directory at <code class="text-cyan-300">~/AIBrain</code>.
-          </p>
-          <a href="ARCHITECTURE.md" class="inline-block mt-4 text-xs font-mono text-cyan-400 hover:underline">Learn Architecture →</a>
-        </div>
-
-        <div class="p-6 rounded-xl bg-synapse-card border border-synapse-border glow-card transition-all duration-300">
-          <div class="w-10 h-10 rounded-lg bg-teal-950 border border-teal-800 flex items-center justify-center text-teal-400 mb-4 font-mono font-bold">02</div>
-          <h3 class="text-lg font-bold text-white mb-2">13 Dialect Adapters</h3>
-          <p class="text-slate-400 text-sm leading-relaxed">
-            Full bi-directional parsing for Claude Code, Cursor MDC rules, Gemini Markdown, Copilot, Windsurf, Cline, Roo Code, and Zed.
-          </p>
-          <a href="adapters/README.md" class="inline-block mt-4 text-xs font-mono text-teal-400 hover:underline">Browse Adapters →</a>
-        </div>
-
-        <div class="p-6 rounded-xl bg-synapse-card border border-synapse-border glow-card transition-all duration-300">
-          <div class="w-10 h-10 rounded-lg bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400 mb-4 font-mono font-bold">03</div>
-          <h3 class="text-lg font-bold text-white mb-2">Self-Healing Doctor</h3>
-          <p class="text-slate-400 text-sm leading-relaxed">
-            Automated diagnostics detect broken symlinks, drifted tool configs, and secret leakages with one-click automatic remediation.
-          </p>
-          <a href="USER_GUIDE.md" class="inline-block mt-4 text-xs font-mono text-emerald-400 hover:underline">Read Doctor Guide →</a>
-        </div>
-      </div>
-    </section>
   </main>
 
   <!-- Footer -->
-  <footer class="border-t border-synapse-border bg-[#050811] py-8 text-center text-xs text-slate-500">
-    <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <p>© 2026 Synapse / LLM-NeuroSurgeon. Open Source under MIT License.</p>
-      <div class="flex items-center space-x-6">
-        <a href="README.md" class="hover:text-slate-300">Docs</a>
-        <a href="QUICKSTART.md" class="hover:text-slate-300">Quickstart</a>
-        <a href="https://github.com/earnerbaymalay/llm-neuro-surgeon" class="hover:text-slate-300">GitHub</a>
+  <footer class="border-t border-synapse-border bg-[#030508] py-12 text-center text-xs text-slate-500 relative z-10">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div class="text-left">
+        <p class="font-display text-xs text-white">SYNAPSE // LLM-NEUROSURGEON</p>
+        <p class="font-mono text-[11px] text-slate-500 mt-1">One Brain. All Models. © 2026 earnerbaymalay · Open Source under MIT License.</p>
+      </div>
+
+      <div class="flex items-center space-x-6 font-mono text-xs">
+        <a href="README.md" class="hover:text-synapse-cyan transition-colors">Docs Hub</a>
+        <a href="QUICKSTART.md" class="hover:text-synapse-cyan transition-colors">Quickstart</a>
+        <a href="USER_GUIDE.md" class="hover:text-synapse-cyan transition-colors">User Guide</a>
+        <a href="ARCHITECTURE.md" class="hover:text-synapse-cyan transition-colors">Architecture</a>
+        <a href="https://github.com/earnerbaymalay/llm-neuro-surgeon" target="_blank" class="hover:text-synapse-cyan transition-colors">GitHub</a>
       </div>
     </div>
   </footer>
+
+  <!-- Interactive Terminal Switcher Script -->
+  <script>
+    const tabs = {
+      scan: {
+        cmd: "cargo run -p neurosurgeon -- scan",
+        desc: "# Discovers all 13 AI coding tools across your workstation",
+        output: [
+          "<span class=\"text-synapse-accentLight\">🔍 Discovered 13 active AI tools on workstation:</span>",
+          "• Claude Code (.claude/skills/, CLAUDE.md) [FOUND]",
+          "• Cursor (.cursor/rules/*.mdc) [FOUND]",
+          "• Gemini CLI (GEMINI.md, .gemini/settings.json) [FOUND]",
+          "• Windsurf (.windsurfrules, mcp_config.json) [FOUND]",
+          "<span class=\"text-synapse-emerald pt-1\">✓ Ready for lossless import into ~/AIBrain</span>"
+        ]
+      },
+      import: {
+        cmd: "cargo run -p neurosurgeon -- import",
+        desc: "# Ingests native tool configs into canonical ~/AIBrain repository",
+        output: [
+          "<span class=\"text-synapse-cyan\">📥 Ingesting discovered configs into ~/AIBrain...</span>",
+          "• Ingested 14 prompt rules from Claude & Cursor",
+          "• Ingested 6 custom agents into ~/AIBrain/agents/",
+          "• Ingested 4 MCP servers into ~/AIBrain/mcp/servers/",
+          "<span class=\"text-synapse-emerald pt-1\">✓ Created Git Time Machine commit [c8f912a]</span>"
+        ]
+      },
+      project: {
+        cmd: "cargo run -p neurosurgeon -- project",
+        desc: "# Projects canonical Brain rules out to all 13 tool locations",
+        output: [
+          "<span class=\"text-synapse-cyan\">📤 Projecting Brain configs to all tools...</span>",
+          "• Symlinked .cursor/rules/*.mdc -> ~/AIBrain/rules/",
+          "• Stamped CLAUDE.md with provenance header",
+          "• Merged .gemini/settings.json without data loss",
+          "<span class=\"text-synapse-emerald pt-1\">✓ 13/13 tools in lockstep</span>"
+        ]
+      },
+      sync: {
+        cmd: "cargo run -p neurosurgeon -- sync --daemon",
+        desc: "# Launches real-time background watcher with 3-way merge engine",
+        output: [
+          "<span class=\"text-synapse-cyan\">🔄 Auto-Sync Daemon active (PID: 41209)...</span>",
+          "• Watching ~/AIBrain for local edits",
+          "• Watching 13 tool config paths for external changes",
+          "• Debounce window: 500ms • 3-Way Merge Engine Ready",
+          "<span class=\"text-synapse-emerald pt-1\">✓ In Lockstep. Time Machine active.</span>"
+        ]
+      },
+      doctor: {
+        cmd: "cargo run -p neurosurgeon -- doctor --fix",
+        desc: "# Diagnoses broken symlinks, drifted configs, and auto-repairs parity",
+        output: [
+          "<span class=\"text-synapse-gold\">🩺 Running Doctor Health Diagnostic...</span>",
+          "• Checked 13 adapter symlinks: 13 OK",
+          "• Checked SHA-256 rule checksums: PARITY VERIFIED",
+          "• Audited OS Keychain secret placeholders: CLEAN",
+          "<span class=\"text-synapse-emerald pt-1\">✓ 0 Faults Diagnosed. System 100% Healthy.</span>"
+        ]
+      }
+    };
+
+    let activeTab = 'scan';
+
+    function setTab(tabKey) {
+      activeTab = tabKey;
+      const data = tabs[tabKey];
+      
+      // Update Tab Styles
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.className = 'tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white';
+      });
+      document.getElementById('tab-' + tabKey).className = 'tab-btn px-2.5 py-1 bg-synapse-cyan text-synapse-ink font-semibold';
+
+      // Update Terminal Body
+      const viewport = document.getElementById('terminal-content');
+      let html = `<p class="text-slate-500">${data.desc}</p>`;
+      html += `<p><span class="text-synapse-cyan">$</span> ${data.cmd}</p>`;
+      data.output.forEach(line => {
+        html += `<p class="text-slate-300 pl-2">${line}</p>`;
+      });
+      viewport.innerHTML = html;
+    }
+
+    function copyCurrentCommand() {
+      const data = tabs[activeTab];
+      navigator.clipboard.writeText(data.cmd);
+      const btn = document.getElementById('copy-btn');
+      btn.innerText = '✓ Copied!';
+      setTimeout(() => { btn.innerText = 'Copy Command'; }, 2000);
+    }
+  </script>
 
 </body>
 </html>
