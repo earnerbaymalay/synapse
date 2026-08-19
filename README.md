@@ -1,13 +1,6 @@
 <div align="center">
-
-```text
-  ____  __   __ _   _    _    ____  ____  _____ 
- / ___| \ \ / /| \ | |  / \  |  _ \/ ___|| ____|
- \___ \  \ V / |  \| | / _ \ | |_) \___ \|  _|  
-  ___) |  | |  | |\  |/ ___ \|  __/ ___) | |___ 
- |____/   |_|  |_| \_/_/   \_\_|   |____/|_____|
-               LLM-NEURO-SURGEON
-```
+  <img src="assets/hero.svg" alt="SYNAPSE - LLM Neuro Surgeon" width="100%">
+</div>
 
 ### **One Brain. All Models. Surgical Precision. Zero Friction.**
 
