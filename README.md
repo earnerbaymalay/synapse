@@ -1,6 +1,4 @@
-<p align="left">
-  <img src="./assets/hero.svg" alt="SYNAPSE: LLM-NEURO-SURGEON" width="100%">
-</p>
+<img src="./assets/hero.svg" width="100%">
 
 ## 💡 What is Synapse (LLM-NeuroSurgeon)?
 
