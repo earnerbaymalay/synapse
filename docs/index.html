@@ -420,7 +420,7 @@
               <span class="text-slate-500">Read-Only Diagnostic</span>
             </div>
             <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
-              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- scan</p>
+              <p><span class="text-synapse-cyan">$</span> cargo run -p synapse -- scan</p>
             </div>
             <p class="text-slate-400 mt-3 text-[11px] font-sans">Scans home and workspace roots, mapping all 13 supported AI configurations without touching the disk.</p>
           </div>
@@ -432,8 +432,8 @@
               <span class="text-slate-500">Lossless Ingestion</span>
             </div>
             <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
-              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- import --dry-run</p>
-              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- import</p>
+              <p><span class="text-synapse-cyan">$</span> cargo run -p synapse -- import --dry-run</p>
+              <p><span class="text-synapse-cyan">$</span> cargo run -p synapse -- import</p>
             </div>
             <p class="text-slate-400 mt-3 text-[11px] font-sans">Initializes <code class="text-synapse-accentLight">~/AIBrain</code> as a local Git repository and snapshots all prompt rules, agents, and MCP servers.</p>
           </div>
@@ -445,7 +445,7 @@
               <span class="text-slate-500">Background Watcher</span>
             </div>
             <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
-              <p><span class="text-synapse-cyan">$</span> cargo run -p neurosurgeon -- sync --daemon</p>
+              <p><span class="text-synapse-cyan">$</span> cargo run -p synapse -- sync --daemon</p>
             </div>
             <p class="text-slate-400 mt-3 text-[11px] font-sans">Watches the Brain and all tool configs in the background. Changes merge cleanly and create instant Git commits.</p>
           </div>
@@ -483,7 +483,7 @@
   <script>
     const tabs = {
       scan: {
-        cmd: "cargo run -p neurosurgeon -- scan",
+        cmd: "cargo run -p synapse -- scan",
         desc: "# Discovers all 13 AI coding tools across your workstation",
         output: [
           "<span class=\"text-synapse-accentLight\">🔍 Discovered 13 active AI tools on workstation:</span>",
@@ -495,7 +495,7 @@
         ]
       },
       import: {
-        cmd: "cargo run -p neurosurgeon -- import",
+        cmd: "cargo run -p synapse -- import",
         desc: "# Ingests native tool configs into canonical ~/AIBrain repository",
         output: [
           "<span class=\"text-synapse-cyan\">📥 Ingesting discovered configs into ~/AIBrain...</span>",
@@ -506,7 +506,7 @@
         ]
       },
       project: {
-        cmd: "cargo run -p neurosurgeon -- project",
+        cmd: "cargo run -p synapse -- project",
         desc: "# Projects canonical Brain rules out to all 13 tool locations",
         output: [
           "<span class=\"text-synapse-cyan\">📤 Projecting Brain configs to all tools...</span>",
@@ -517,7 +517,7 @@
         ]
       },
       sync: {
-        cmd: "cargo run -p neurosurgeon -- sync --daemon",
+        cmd: "cargo run -p synapse -- sync --daemon",
         desc: "# Launches real-time background watcher with 3-way merge engine",
         output: [
           "<span class=\"text-synapse-cyan\">🔄 Auto-Sync Daemon active (PID: 41209)...</span>",
@@ -528,7 +528,7 @@
         ]
       },
       doctor: {
-        cmd: "cargo run -p neurosurgeon -- doctor --fix",
+        cmd: "cargo run -p synapse -- doctor --fix",
         desc: "# Diagnoses broken symlinks, drifted configs, and auto-repairs parity",
         output: [
           "<span class=\"text-synapse-gold\">🩺 Running Doctor Health Diagnostic...</span>",

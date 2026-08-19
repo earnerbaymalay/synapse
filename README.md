@@ -6,6 +6,10 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/llm-neuro-surgeon/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/actions)
 [![Discord](https://img.shields.io/discord/123456789012345678?style=flat-square&logo=discord)](https://discord.gg/your-invite)
 
+[🌐 View Live Website](https://earnerbaymalay.github.io/llm-neuro-surgeon/) • [⚡ 60s Quickstart](docs/QUICKSTART.md) • [📚 Documentation Hub](docs/README.md) • [🔧 13 Tool Adapters](docs/adapters/README.md) • [🤝 Contributing](docs/development/CONTRIBUTING.md)
+
+---
+
 ## 💡 What is Synapse (LLM-NeuroSurgeon)?
 
 **Synapse (LLM-NeuroSurgeon)** is the local-first configuration engine and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
@@ -28,14 +32,14 @@
 
 ```bash
 # 1. Detect active AI coding tools on your machine
-cargo run -p neurosurgeon -- scan
+cargo run -p synapse -- scan
 
 # 2. Ingest configurations into ~/AIBrain (Git-backed repository)
-cargo run -p neurosurgeon -- import --dry-run
-cargo run -p neurosurgeon -- import
+cargo run -p synapse -- import --dry-run
+cargo run -p synapse -- import
 
 # 3. Launch background auto-sync daemon with 3-way merge resolution
-cargo run -p neurosurgeon -- sync --daemon
+cargo run -p synapse -- sync --daemon
 ```
 
 For full setup prerequisites across Linux, macOS, and Windows, read the **[Quickstart Guide](docs/QUICKSTART.md)**.
@@ -60,8 +64,8 @@ For full setup prerequisites across Linux, macOS, and Windows, read the **[Quick
 When tool configurations drift or symlinks break, Synapse detects and repairs the issue automatically:
 
 ```bash
-cargo run -p neurosurgeon -- doctor
-cargo run -p neurosurgeon -- doctor --fix
+cargo run -p synapse -- doctor
+cargo run -p synapse -- doctor --fix
 ```
 
 ---

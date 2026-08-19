@@ -23,20 +23,20 @@ sudo apt-get update && sudo apt-get install -y \
 
 ### Step 1: Detect Active AI Tools
 ```bash
-cargo run -p neurosurgeon -- scan
+cargo run -p synapse -- scan
 ```
 *Output lists all discovered tools (Claude, Cursor, Gemini, Windsurf, Zed, etc.).*
 
 ### Step 2: Ingest Configurations
 ```bash
-cargo run -p neurosurgeon -- import --dry-run
-cargo run -p neurosurgeon -- import
+cargo run -p synapse -- import --dry-run
+cargo run -p synapse -- import
 ```
 *Creates `~/AIBrain` as a local Git repository and snapshots all existing prompt files.*
 
 ### Step 3: Run the Auto-Sync Watcher
 ```bash
-cargo run -p neurosurgeon -- sync --daemon
+cargo run -p synapse -- sync --daemon
 ```
 
 ---
@@ -47,7 +47,7 @@ To run the Tauri v2 Desktop GUI:
 
 ```bash
 pnpm install
-pnpm --filter desktop tauri dev
+pnpm --filter desktop-app tauri dev
 ```
 
 ---
