@@ -3,37 +3,54 @@
 @tailwind utilities;
 
 /*
- * The Operating Theatre palette — see IDENTITY.md.
+ * SYNAPSE — see brands/synapse/SYNAPSE_Brand_Book.md and
+ * brands/synapse/tokens.json for the full system. This supersedes the
+ * ad-hoc "Operating Theatre" palette (IDENTITY.md kept the structural
+ * principles — no emoji, square corners, monospace data, one accent — this
+ * is those principles under the real brand).
  *
- * Light is the default because the reference is a paper chart clipped to the
- * end of the bed, not a terminal. Dark follows the viewer's system setting.
- * Red is load-bearing: if `--alarm` appears anywhere that is not a critical
- * finding, the palette is broken.
+ * Fonts are vendored locally (assets/fonts/) rather than pulled from a CDN:
+ * the brand's own pitch is "local-first, zero telemetry," so a network
+ * fetch on every launch would contradict the product it's branding.
+ *
+ * Dark is the only palette — no light variant exists in the brand system.
+ * A blueprint held up to a light table doesn't invert; this is that same
+ * deliberate choice, not an oversight.
  */
-:root {
-  --ground: #f4f2ed;
-  --chart: #ffffff;
-  --rule: #d9d5cc;
-  --ink: #14171a;
-  --ink-soft: #5c6068;
-  --drape: #0e7c6b;
-  --alarm: #b3261e;
-  --caution: #8a6100;
-  color-scheme: light;
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-variable.woff2') format('woff2');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-variable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Rubik Mono One';
+  src: url('./assets/fonts/RubikMonoOne-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #14171a;
-    --chart: #1b1f23;
-    --rule: #2c3238;
-    --ink: #e8e6e1;
-    --ink-soft: #9aa0a6;
-    --drape: #2dbfa5;
-    --alarm: #f2685c;
-    --caution: #e0a62b;
-    color-scheme: dark;
-  }
+:root {
+  --ground: #0b0e13;
+  --chart: #12161d;
+  --rule: #262c37;
+  --ink: #d4dae2;
+  --ink-soft: #8b949e;
+  --drape: #1d9bf0;
+  --drape-light: #5cb2f5;
+  --success: #3fb950;
+  --alarm: #ff7b72;
+  --caution: #d29922;
+  color-scheme: dark;
 }
 
 body {
@@ -53,4 +70,45 @@ body {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/*
+ * Blueprint corner marks — the "surgical" registration marks on every
+ * panel/card, per the brand book. A small accent-colored crosshair at each
+ * corner, dim idle, full opacity on hover. Applied via the `.corner` +
+ * `.corner-tl/tr/bl/br` utility classes (see components/chart.tsx Corners).
+ */
+.corner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+}
+.corner::before,
+.corner::after {
+  content: '';
+  position: absolute;
+  background: var(--drape);
+  opacity: 0.4;
+  transition: opacity 0.25s ease;
+}
+.corner::before {
+  width: 100%;
+  height: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.corner::after {
+  width: 1px;
+  height: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.corner-tl { top: -1px; left: -1px; }
+.corner-tr { top: -1px; right: -1px; }
+.corner-bl { bottom: -1px; left: -1px; }
+.corner-br { bottom: -1px; right: -1px; }
+.blueprint:hover .corner::before,
+.blueprint:hover .corner::after {
+  opacity: 1;
 }

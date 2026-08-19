@@ -25,7 +25,11 @@ const GLYPH: Record<Mark, string> = {
 }
 
 const TINT: Record<Mark, string> = {
-  present: 'text-drape',
+  // Status and the UI accent are deliberately different colors — the brand
+  // book scopes "accent" to links/buttons/focus and gives status its own
+  // semantic green, so a healthy row doesn't read as "the same blue as
+  // every button on the page."
+  present: 'text-success',
   partial: 'text-caution',
   warning: 'text-caution',
   critical: 'text-alarm',
@@ -45,6 +49,35 @@ export function Glyph({ mark }: { mark: Mark }) {
   )
 }
 
+// ── blueprint frame ─────────────────────────────────────────────────────
+
+/** The four accent-colored registration marks at a panel's corners. */
+function Corners() {
+  return (
+    <>
+      <i className="corner corner-tl" aria-hidden />
+      <i className="corner corner-tr" aria-hidden />
+      <i className="corner corner-bl" aria-hidden />
+      <i className="corner corner-br" aria-hidden />
+    </>
+  )
+}
+
+/**
+ * The "blueprint" panel every chart sits inside — a hairline border with
+ * four corner registration marks (dim idle, full opacity on hover), per the
+ * brand book's structural system. Applied once per chart, not per row: at
+ * table density, corner marks on every row would be noise, not signal.
+ */
+export function ChartFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="blueprint relative border border-rule p-6">
+      <Corners />
+      {children}
+    </div>
+  )
+}
+
 // ── chart furniture ─────────────────────────────────────────────────────
 
 /**
@@ -60,8 +93,11 @@ export function ChartHead({
 }) {
   return (
     <div className="flex items-baseline justify-between border-b border-rule pb-2">
-      <h1 className="font-mono text-sm font-semibold uppercase tracking-[0.14em]">
-        Neurosurgeon <span className="text-ink-soft">·</span> {procedure}
+      <h1 className="flex items-baseline gap-2 uppercase tracking-[0.06em]">
+        <span className="font-display text-sm text-drape">Synapse</span>
+        <span className="font-mono text-sm font-semibold tracking-[0.14em]">
+          <span className="text-ink-soft">·</span> {procedure}
+        </span>
       </h1>
       {context !== undefined && (
         <p className="font-mono text-xs text-ink-soft">{context}</p>

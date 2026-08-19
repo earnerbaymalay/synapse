@@ -70,10 +70,13 @@ function App() {
     <div className="flex h-screen bg-ground text-ink">
       <aside className="flex w-52 shrink-0 flex-col border-r border-rule">
         <div className="border-b border-rule px-4 py-4">
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.14em]">
-            Neurosurgeon
+          <p className="font-display text-sm uppercase tracking-[0.04em] text-drape">
+            Synapse
           </p>
-          <p className="mt-0.5 font-mono text-xs text-ink-soft">
+          <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-soft">
+            llm-neuro-surgeon
+          </p>
+          <p className="mt-1 font-mono text-xs text-ink-soft">
             {/* Never invent a version: an unread build reports as unknown. */}
             {version ? `v${version}` : 'version unread'}
           </p>

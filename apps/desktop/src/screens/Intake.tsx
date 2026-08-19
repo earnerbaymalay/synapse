@@ -1,4 +1,4 @@
-import { ChartFoot, ChartHead, Field, Row, plural } from '../components/chart'
+import { ChartFoot, ChartFrame, ChartHead, Field, Row, plural } from '../components/chart'
 import type { IntakeReport } from './types'
 
 /**
@@ -18,7 +18,7 @@ export function Intake({ report }: { report: IntakeReport }) {
   const failed = measured.filter((f) => f.error).length
 
   return (
-    <div>
+    <ChartFrame>
       <ChartHead
         procedure="Intake"
         context={`${report.present} of ${report.total} present`}
@@ -53,11 +53,11 @@ export function Intake({ report }: { report: IntakeReport }) {
           report.present === 0
             ? undefined
             : failed > 0
-              ? 'neurosurgeon doctor'
-              : 'neurosurgeon import --dry-run'
+              ? 'synapse doctor'
+              : 'synapse import --dry-run'
         }
       />
-    </div>
+    </ChartFrame>
   )
 }
 

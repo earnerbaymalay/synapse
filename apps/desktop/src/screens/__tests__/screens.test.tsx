@@ -43,7 +43,7 @@ describe('Intake', () => {
 
   it('names the next command to run', () => {
     render(<Intake report={intakeReport()} />)
-    expect(screen.getByText('neurosurgeon import --dry-run')).toBeInTheDocument()
+    expect(screen.getByText('synapse import --dry-run')).toBeInTheDocument()
   })
 
   it('states that nothing was written', () => {
@@ -143,11 +143,11 @@ describe('Examination', () => {
       ],
     })
     const { unmount } = render(<Examination report={fixable} />)
-    expect(screen.getByText('neurosurgeon doctor --fix')).toBeInTheDocument()
+    expect(screen.getByText('synapse doctor --fix')).toBeInTheDocument()
     unmount()
 
     render(<Examination report={examReport()} />)
-    expect(screen.queryByText('neurosurgeon doctor --fix')).not.toBeInTheDocument()
+    expect(screen.queryByText('synapse doctor --fix')).not.toBeInTheDocument()
   })
 })
 

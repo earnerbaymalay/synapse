@@ -1,4 +1,4 @@
-import { ChartFoot, ChartHead, Field, Row, plural } from '../components/chart'
+import { ChartFoot, ChartFrame, ChartHead, Field, Row, plural } from '../components/chart'
 import type { ExamReport, Finding } from './types'
 
 /**
@@ -13,7 +13,7 @@ export function Examination({ report }: { report: ExamReport }) {
   const clean = report.findings.length === 0
 
   return (
-    <div>
+    <ChartFrame>
       <ChartHead
         procedure="Examination"
         context={clean ? 'no findings' : plural(report.findings.length, 'finding')}
@@ -44,7 +44,7 @@ export function Examination({ report }: { report: ExamReport }) {
       </div>
 
       <ChartFoot finding={finding(report)} next={next(report)} />
-    </div>
+    </ChartFrame>
   )
 }
 
@@ -83,7 +83,7 @@ function finding(report: ExamReport): string {
 }
 
 function next(report: ExamReport): string | undefined {
-  if (report.fixable > 0) return 'neurosurgeon doctor --fix'
+  if (report.fixable > 0) return 'synapse doctor --fix'
   if (report.criticals > 0) return undefined
-  return 'neurosurgeon sync --once'
+  return 'synapse sync --once'
 }

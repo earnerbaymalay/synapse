@@ -1,8 +1,9 @@
 /** @type {import('tailwindcss').Config} */
-// Tokens are the IDENTITY.md palette ("The Operating Theatre"), exposed as
-// CSS variables in index.css so light and dark resolve without duplicating
-// every utility. Deliberately absent: a `primary` ramp — the identity allows
-// exactly one accent (`drape`), and a ramp invites decorative colour.
+// SYNAPSE tokens (brands/synapse/tokens.json), exposed as CSS variables in
+// index.css. `drape` is the one working UI accent (Synapse Blue). Gold is
+// deliberately absent here — the brand book reserves it for the marketing
+// hero device only, never UI chrome, so it has no Tailwind color at all in
+// the app.
 export default {
   darkMode: "media",
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
@@ -15,34 +16,30 @@ export default {
         ink: "var(--ink)",
         "ink-soft": "var(--ink-soft)",
         drape: "var(--drape)",
+        "drape-light": "var(--drape-light)",
+        success: "var(--success)",
         alarm: "var(--alarm)",
         caution: "var(--caution)",
       },
       fontFamily: {
-        // Prose. A humanist sans, from the system — no webfont, so the app
-        // renders identically offline and inside the Tauri CSP.
-        sans: [
-          "ui-sans-serif",
-          "-apple-system",
-          "Segoe UI",
-          "Roboto",
-          "Helvetica Neue",
-          "sans-serif",
-        ],
-        // Data. A chart is a table; columns must align.
+        // UI — all interface text.
+        sans: ["Inter", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+        // Technical — commands, code, paths, eyebrows, status readouts. A
+        // chart is a table; columns must align.
         mono: [
+          "JetBrains Mono",
           "ui-monospace",
           "SFMono-Regular",
-          "SF Mono",
           "Menlo",
-          "Consolas",
-          "Liberation Mono",
           "monospace",
         ],
+        // Display — wordmark, hero headlines, stat callouts. Uppercase,
+        // sparing use only (brand book: "never a fourth font").
+        display: ["Rubik Mono One", "ui-monospace", "monospace"],
       },
       borderRadius: {
-        // The identity rules out rounded corners: structure comes from ruled
-        // lines, the way a printed form does.
+        // Square corners everywhere except the pendant/chain marketing
+        // device — deliberate, not an oversight (tokens.json `radius`).
         none: "0",
       },
     },
