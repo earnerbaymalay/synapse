@@ -137,7 +137,7 @@
       <div class="flex items-center gap-6 text-[11px] text-slate-400">
         <div><span class="text-slate-500">ADAPTERS:</span> <strong class="text-white">13/13 ONLINE</strong></div>
         <div><span class="text-slate-500">E2E TESTS:</span> <strong class="text-synapse-cyan">142/142 PASSING</strong></div>
-        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">203/203 PASSING</strong></div>
+        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">231/231 PASSING</strong></div>
         <div class="hidden sm:block"><span class="text-slate-500">STORAGE:</span> <strong class="text-synapse-accentLight">~/AIBrain</strong></div>
       </div>
     </div>
@@ -194,6 +194,7 @@
             <button onclick="setTab('project')" id="tab-project" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">3. project</button>
             <button onclick="setTab('sync')" id="tab-sync" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">4. sync</button>
             <button onclick="setTab('doctor')" id="tab-doctor" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">5. doctor</button>
+            <button onclick="setTab('exec')" id="tab-exec" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">6. exec (compress)</button>
           </div>
         </div>
 
@@ -416,6 +417,62 @@
       </div>
     </section>
 
+    <!-- Synaptic Sensory Gating: Auto-Compression Feature Section -->
+    <section id="compression" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
+      <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-12">
+          <div class="font-mono text-xs text-synapse-cyan uppercase tracking-widest mb-2">// SYNAPTIC SENSORY GATING</div>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">95% Token Auto-Compression for AI Agents</h2>
+          <p class="text-slate-400 mt-2 text-sm max-w-2xl mx-auto">Eliminate agent context bloat. Intercept verbose test suites, build logs, and linters, stripping repetitive noise while preserving 100% of errors, stack traces, and diagnostics.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+          <!-- Before: Raw Noise -->
+          <div class="p-5 bg-[#0e1117] border border-red-500/30 corner-mark relative">
+            <div class="flex items-center justify-between pb-3 border-b border-red-500/20 mb-3">
+              <span class="text-red-400 font-bold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span> RAW AGENT EXECUTION
+              </span>
+              <span class="text-red-400/80 text-[11px]">8,400+ TOKENS</span>
+            </div>
+            <div class="space-y-1 text-slate-500 text-[11px] overflow-hidden max-h-52">
+              <p>test core::adapter::claude_test ... ok</p>
+              <p>test core::adapter::cursor_test ... ok</p>
+              <p>test core::adapter::gemini_test ... ok</p>
+              <p>test core::adapter::windsurf_test ... ok</p>
+              <p class="text-slate-600 italic">... [225 identical "ok" lines flooding context] ...</p>
+              <p>test core::secrets::harvest_test ... ok</p>
+              <p>test result: ok. 230 passed; 0 failed; 0 ignored</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-synapse-border text-[11px] text-red-400">
+              ❌ Context window exhausted • High API cost • Slower inference
+            </div>
+          </div>
+
+          <!-- After: Synapse Compressed -->
+          <div class="p-5 bg-synapse-surface border border-synapse-emerald/50 corner-mark relative glow-cyan">
+            <div class="flex items-center justify-between pb-3 border-b border-synapse-emerald/30 mb-3">
+              <span class="text-synapse-emerald font-bold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-synapse-emerald animate-pulse"></span> SYNAPSE SYNAPTIC FILTER
+              </span>
+              <span class="text-synapse-emerald text-[11px] font-bold">240 TOKENS (97% SAVED)</span>
+            </div>
+            <div class="space-y-2 text-slate-300 text-[11px]">
+              <p><span class="text-synapse-cyan">$</span> synapse exec -- cargo test --workspace</p>
+              <p class="text-synapse-accentLight">✔ 230 tests passed (collapsed by SYNAPSE)</p>
+              <p class="text-white">test result: ok. 230 passed; 0 failed; 0 ignored; finished in 1.4s</p>
+              <p class="text-synapse-emerald text-[10px] bg-synapse-emerald/10 p-2 border border-synapse-emerald/20">
+                ─── [SYNAPSE] Context: 8,400 → 240 tokens (97.1% reduction) • Full log: synapse spool show 8f9b2a ───
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-synapse-border text-[11px] text-synapse-emerald">
+              ✔ 100% Errors preserved • Raw log spooled locally • Zero cloud leakage
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 60-Second Quickstart Guide Section -->
     <section id="quickstart" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
       <div class="max-w-4xl mx-auto">
@@ -517,6 +574,7 @@
           "• Ingested 14 prompt rules from Claude & Cursor",
           "• Ingested 6 custom agents into ~/AIBrain/agents/",
           "• Ingested 4 MCP servers into ~/AIBrain/mcp/servers/",
+          "• Auto-provisioned canonical obsidian-session-worklog skill",
           "<span class=\"text-synapse-emerald pt-1\">✓ Created Git Time Machine commit [c8f912a]</span>"
         ]
       },
@@ -527,6 +585,7 @@
           "<span class=\"text-synapse-cyan\">📤 Projecting Brain configs to all tools...</span>",
           "• Symlinked .cursor/rules/*.mdc -> ~/AIBrain/rules/",
           "• Stamped CLAUDE.md with provenance header",
+          "• Projected Obsidian worklog skill to .claude, .cursor, .agy, .continue",
           "• Merged .gemini/settings.json without data loss",
           "<span class=\"text-synapse-emerald pt-1\">✓ 13/13 tools in lockstep</span>"
         ]
@@ -551,6 +610,16 @@
           "• Checked SHA-256 rule checksums: PARITY VERIFIED",
           "• Audited OS Keychain secret placeholders: CLEAN",
           "<span class=\"text-synapse-emerald pt-1\">✓ 0 Faults Diagnosed. System 100% Healthy.</span>"
+        ]
+      },
+      exec: {
+        cmd: "cargo run -p synapse -- exec -- cargo test --workspace",
+        desc: "# Runs command with Synaptic Sensory Gating: 95% token auto-compression",
+        output: [
+          "<span class=\"text-synapse-cyan\">⚡ [SYNAPSE] Sensory Gating Filter active...</span>",
+          "  ✔ 230 tests passed (collapsed by SYNAPSE)",
+          "test result: ok. 230 passed; 0 failed; 0 ignored; finished in 1.4s",
+          "<span class=\"text-synapse-emerald pt-1\">─── [SYNAPSE] Context: 8,400 → 240 tokens (97.1% reduction) • Full log: synapse spool show 8f9b2a ───</span>"
         ]
       }
     };

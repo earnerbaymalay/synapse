@@ -81,9 +81,115 @@ fn get_git_file_content(brain_root: &Path, rel_path: &str) -> Option<String> {
     }
 }
 
+pub const OBSIDIAN_WORKLOG_SKILL_ID: &str = "obsidian-session-worklog";
+pub const OBSIDIAN_WORKLOG_SKILL_CONTENT: &str = r#"---
+name: obsidian-session-worklog
+description: Inbuilt Obsidian integration skill for AI coding sessions — manages vault notes, session worklogs, and project checklists automatically across all tools.
+version: 1.0.0
+author: SYNAPSE AI
+license: MIT
+metadata:
+  synapse:
+    tags: [Obsidian, Vault, Worklog, Synapse, All-Tools]
+---
+
+# Obsidian Session Worklog Skill
+
+This skill provides automatic and on-demand integration between AI coding sessions (Claude Code, Cursor, Gemini CLI, Windsurf, Zed, Antigravity, Cline, Roo, Aider, Codex, OpenCode, Continue, Copilot) and your local Obsidian vault.
+
+## Vault Location & Discovery
+
+1. Check the `OBSIDIAN_VAULT_PATH` environment variable.
+2. Fallback location: `~/Documents/My-Vault` (or `/home/$USER/Documents/My-Vault`).
+3. If neither path exists, prompt the user for their active Obsidian vault directory.
+
+## Standard Structure
+
+- **AI Session Worklogs**: `${VAULT}/Worklog/AGY Sessions/YYYY-MM-DD - AI Session - ${CONVERSATION_ID}.md`
+- **Project Notes**: `${VAULT}/Projects/${PROJECT_NAME}/Repository To-Do.md`
+
+## Note Template (AI Session Worklog)
+
+```markdown
+---
+type: ai-session-worklog
+date: YYYY-MM-DD
+session_id: "CONVERSATION_ID"
+status: active | completed | partial | blocked
+tags:
+  - ai/session
+  - worklog
+---
+
+# AI Session Worklog — ${TITLE}
+
+## Objective
+High-level summary of the session goal.
+
+## Work Completed
+- [x] Concrete task or milestone achieved.
+
+## Verification
+- Verified build and test results.
+
+## Decisions & Trade-offs
+- Architectural or implementation choices made during session.
+
+## Follow-ups & Next Steps
+- [ ] Task for future work.
+```
+
+## Workflows & Auto-Sync Points
+
+1. **Session Initialization**: Automatically discover and load active Obsidian vault notes and project backlog checklists at the start of each session.
+2. **Milestones & Git Operations**: Record major milestones, commit hashes, test pass metrics, and architectural decisions into the active session worklog.
+3. **Project Checklist Sync**: Reconcile `${VAULT}/Projects/${PROJECT_NAME}/Repository To-Do.md` with git commit state and completed backlog items.
+"#;
+
+/// Ensures built-in canonical skills (e.g. `obsidian-session-worklog`) exist in `brain_root/skills/`.
+pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
+    let mut provisioned = Vec::new();
+    let skill_dir = brain_root.join("skills").join(OBSIDIAN_WORKLOG_SKILL_ID);
+    let skill_md = skill_dir.join("SKILL.md");
+    let skill_yaml = skill_dir.join("skill.yaml");
+
+    if !skill_dir.exists() || !skill_md.exists() {
+        fs::create_dir_all(&skill_dir)
+            .map_err(|e| format!("Failed to create skill directory: {e}"))?;
+
+        write_if_changed(&skill_md, OBSIDIAN_WORKLOG_SKILL_CONTENT)
+            .map_err(|e| format!("Failed to write SKILL.md: {e}"))?;
+
+        let sha256 = crate::adapters::compute_sha256(OBSIDIAN_WORKLOG_SKILL_CONTENT);
+        let skill = Skill {
+            id: OBSIDIAN_WORKLOG_SKILL_ID.to_string(),
+            version: "1.0.0".to_string(),
+            triggers: vec!["*".to_string(), "session-init".to_string(), "milestone".to_string()],
+            targets: vec![
+                "claude-code".to_string(),
+                "cursor".to_string(),
+                "agy-cli".to_string(),
+                "continue".to_string(),
+            ],
+            source: OBSIDIAN_WORKLOG_SKILL_CONTENT.to_string(),
+            sha256,
+        };
+
+        let yaml_content = serde_json::to_string_pretty(&skill)
+            .map_err(|e| format!("Failed to serialize skill.yaml: {e}"))?;
+        write_if_changed(&skill_yaml, yaml_content)
+            .map_err(|e| format!("Failed to write skill.yaml: {e}"))?;
+
+        provisioned.push(format!("skills/{}/SKILL.md", OBSIDIAN_WORKLOG_SKILL_ID));
+    }
+    Ok(provisioned)
+}
+
 /// Imports detected tool configs under `root` into `brain_root` and commits a snapshot.
 pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, String> {
     snapshot::ensure_repo(brain_root).map_err(|e| format!("Failed to ensure brain repo: {e}"))?;
+
+    let _ = ensure_default_skills(brain_root);
 
     let mut imported_paths = Vec::new();
     let mappings_path = brain_root.join(".brain/mappings.json");
@@ -170,6 +276,8 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
 
 /// Projects Brain content from `brain_root` out to `tool_root`.
 pub fn perform_project(brain_root: &Path, tool_root: &Path) -> Result<Vec<String>, String> {
+    let _ = ensure_default_skills(brain_root);
+
     let mut projected_paths = Vec::new();
 
     let mut skills = Vec::new();
@@ -469,5 +577,38 @@ mod tests {
         let projected = perform_project(brain.path(), tool_root.path()).unwrap();
         assert!(!projected.is_empty());
         assert!(tool_root.path().join("AGENTS.md").exists());
+    }
+
+    #[test]
+    fn test_default_obsidian_skill_auto_provisioned_and_projected() {
+        let brain = tempfile::tempdir().unwrap();
+        let tool_root = tempfile::tempdir().unwrap();
+
+        // Projecting from an empty brain should auto-provision the obsidian-session-worklog skill
+        let projected = perform_project(brain.path(), tool_root.path()).unwrap();
+        assert!(!projected.is_empty());
+
+        // Check brain has the skill
+        let brain_skill = brain.path().join("skills/obsidian-session-worklog/SKILL.md");
+        assert!(brain_skill.exists(), "Brain must contain obsidian-session-worklog SKILL.md");
+        let content = fs::read_to_string(&brain_skill).unwrap();
+        assert!(content.contains("Obsidian Session Worklog"));
+
+        // Check projected to tool targets:
+        // Claude Code
+        let claude_skill = tool_root.path().join(".claude/skills/obsidian-session-worklog/SKILL.md");
+        assert!(claude_skill.exists(), "Claude must have obsidian skill projected");
+
+        // Cursor
+        let cursor_rule = tool_root.path().join(".cursor/rules/obsidian-session-worklog.mdc");
+        assert!(cursor_rule.exists(), "Cursor must have obsidian rule projected");
+
+        // AGY / Agents
+        let agy_skill = tool_root.path().join(".agents/skills/obsidian-session-worklog/SKILL.md");
+        assert!(agy_skill.exists(), "AGY must have obsidian skill projected");
+
+        // Continue
+        let continue_rule = tool_root.path().join(".continue/rules/obsidian-session-worklog.md");
+        assert!(continue_rule.exists(), "Continue must have obsidian rule projected");
     }
 }

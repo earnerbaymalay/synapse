@@ -240,7 +240,9 @@ impl Adapter for ClaudeCodeAdapter {
         let memory_skills: Vec<&Skill> = claude_skills
             .iter()
             .filter(|s| {
-                !s.id.starts_with(SKILL_ID_PREFIX) && !s.id.starts_with(AGENT_SKILL_ID_PREFIX)
+                !s.id.starts_with(SKILL_ID_PREFIX)
+                    && !s.id.starts_with(AGENT_SKILL_ID_PREFIX)
+                    && s.id != "obsidian-session-worklog"
             })
             .copied()
             .collect();
@@ -263,9 +265,12 @@ impl Adapter for ClaudeCodeAdapter {
 
         for skill in claude_skills
             .iter()
-            .filter(|s| s.id.starts_with(SKILL_ID_PREFIX))
+            .filter(|s| s.id.starts_with(SKILL_ID_PREFIX) || s.id == "obsidian-session-worklog")
         {
-            let slug = &skill.id[SKILL_ID_PREFIX.len()..];
+            let slug = skill
+                .id
+                .strip_prefix(SKILL_ID_PREFIX)
+                .unwrap_or(&skill.id);
             let rel_path = format!(".claude/skills/{}/SKILL.md", slug);
             let target_path = safe_join(root, &rel_path)?;
             if let Some(dir) = target_path.parent() {

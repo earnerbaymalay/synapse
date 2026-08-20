@@ -15,6 +15,8 @@ Welcome to the **SYNAPSE** User Guide. This document provides a complete referen
    - [synapse sync](#synapse-sync)
    - [synapse doctor](#synapse-doctor)
    - [synapse snapshot & rollback](#synapse-snapshot--rollback)
+   - [synapse exec & filter](#synapse-exec--filter-synaptic-auto-compression)
+   - [synapse spool](#synapse-spool)
 3. [Supported Tool Adapters (13/13)](#3-supported-tool-adapters-1313)
 4. [Desktop GUI Application](#4-desktop-gui-application)
 5. [MCP Hub & OS Keychain Integration](#5-mcp-hub--os-keychain-integration)
@@ -53,6 +55,12 @@ flowchart TD
 > **The Three-Command Loop:**  
 > `synapse scan` → `synapse import` → `synapse project`.  
 > Once imported into `~/AIBrain`, use `synapse sync --daemon` to keep every tool automatically in lockstep.
+
+### Inbuilt Obsidian Session Worklog Skill
+Every freshly initialized or imported Brain automatically provisions the canonical `obsidian-session-worklog` skill into `~/AIBrain/skills/obsidian-session-worklog/` and projects it across all tools:
+- **Automatic Vault Discovery**: Locates `$OBSIDIAN_VAULT_PATH` or fallback `~/Documents/My-Vault`.
+- **Session Worklog Tracking**: Standardized markdown note creation at `${VAULT}/Worklog/AGY Sessions/YYYY-MM-DD - AI Session - ${CONVERSATION_ID}.md`.
+- **Cross-Tool Projection**: Projected as `.claude/skills/`, `.cursor/rules/`, `.agents/skills/`, and `.continue/rules/` across all 13 coding assistants.
 
 ---
 
@@ -128,6 +136,32 @@ synapse snapshot "Added Rust refactoring skill"
 
 # Revert to snapshot revision
 synapse rollback <commit-hash>
+```
+
+### `synapse exec & filter` (Synaptic Auto-Compression)
+Executes arbitrary terminal commands or streams with intelligent sensory gating—reducing agent token consumption by ~95% while strictly preserving errors and stack traces.
+
+```bash
+# Wrap command execution with real-time semantic compression
+synapse exec -- cargo test --workspace
+synapse exec -- pnpm test:e2e
+synapse exec -- pytest tests/
+
+# Pipe standard input through the compression filter
+cargo test 2>&1 | synapse filter --level aggressive
+```
+
+### `synapse spool`
+Inspects, searches, or replays the local raw uncompressed execution logs.
+
+```bash
+# List all cached execution logs and token reduction ratios
+synapse spool list
+
+# Display full uncompressed log or filter by pattern
+synapse spool show <id>
+synapse spool show <id> --grep "panic"
+synapse spool show <id> --tail 50
 ```
 
 ---

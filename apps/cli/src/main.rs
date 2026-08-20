@@ -64,12 +64,64 @@ enum Command {
         /// Snapshot id or git ref to restore
         snapshot: String,
     },
+    /// Execute a command and compress its terminal output for AI agents
+    Exec {
+        /// Compression level: balanced (default), aggressive, or strict
+        #[arg(short, long)]
+        level: Option<String>,
+        /// Custom spool directory for raw logs (defaults to ~/.synapse/spool)
+        #[arg(long, value_name = "PATH")]
+        spool_dir: Option<PathBuf>,
+        /// Command and arguments to execute
+        #[arg(trailing_var_arg = true, required = true, value_name = "COMMAND")]
+        command: Vec<String>,
+    },
+    /// Stream stdin through the Synaptic compression filter
+    Filter {
+        /// Compression level: balanced (default), aggressive, or strict
+        #[arg(short, long)]
+        level: Option<String>,
+        /// Custom spool directory for raw logs
+        #[arg(long, value_name = "PATH")]
+        spool_dir: Option<PathBuf>,
+    },
+    /// Inspect or list raw spooled execution logs
+    Spool {
+        #[command(subcommand)]
+        action: SpoolAction,
+    },
 }
 
+#[derive(Debug, Subcommand)]
+enum SpoolAction {
+    /// List all cached execution logs and token reduction statistics
+    List {
+        #[arg(long, value_name = "PATH")]
+        spool_dir: Option<PathBuf>,
+    },
+    /// Show raw uncompressed log for a specific execution ID
+    Show {
+        /// Spool log ID (e.g. 8f9b2a)
+        id: String,
+        /// Limit output to last N lines
+        #[arg(short, long)]
+        tail: Option<usize>,
+        /// Filter lines matching substring
+        #[arg(short, long)]
+        grep: Option<String>,
+        #[arg(long, value_name = "PATH")]
+        spool_dir: Option<PathBuf>,
+    },
+}
+
+use neurosurgeon_core::compression::{
+    execute_with_compression, CompressionLevel, SpoolManager,
+};
 use neurosurgeon_core::snapshot::{rollback, snapshot};
 use neurosurgeon_core::sync::{
     perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
 };
+use std::io::Read;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -350,6 +402,112 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Command::Exec {
+            level,
+            spool_dir,
+            command,
+        } => {
+            if command.is_empty() {
+                chart::fault("exec", "No command specified to execute", None);
+                return ExitCode::FAILURE;
+            }
+            let comp_level = level
+                .as_deref()
+                .and_then(CompressionLevel::from_str)
+                .unwrap_or_default();
+
+            let bin = &command[0];
+            let args = &command[1..];
+
+            match execute_with_compression(bin, args, comp_level, spool_dir.as_deref()) {
+                Ok((compressed, status)) => {
+                    println!("{}", compressed.text);
+                    if status.success() {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::from(status.code().unwrap_or(1) as u8)
+                    }
+                }
+                Err(e) => {
+                    chart::fault("exec", &e.to_string(), None);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Filter { level, spool_dir } => {
+            let comp_level = level
+                .as_deref()
+                .and_then(CompressionLevel::from_str)
+                .unwrap_or_default();
+
+            let mut input = String::new();
+            if let Err(e) = std::io::stdin().read_to_string(&mut input) {
+                chart::fault("filter", &e.to_string(), None);
+                return ExitCode::FAILURE;
+            }
+
+            let spool_path = spool_dir.unwrap_or_else(SpoolManager::default_dir);
+            let spooler = SpoolManager::new(spool_path);
+            match spooler.record("stdin stream", &input, comp_level) {
+                Ok(compressed) => {
+                    println!("{}", compressed.text);
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    chart::fault("filter", &e.to_string(), None);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Spool { action } => match action {
+            SpoolAction::List { spool_dir } => {
+                let spool_path = spool_dir.unwrap_or_else(SpoolManager::default_dir);
+                let spooler = SpoolManager::new(spool_path.clone());
+                match spooler.list() {
+                    Ok(entries) => {
+                        chart::open("spool", &chart::plural(entries.len(), "execution log"));
+                        chart::field("Spool Dir", &spool_path.display().to_string());
+                        println!();
+                        if entries.is_empty() {
+                            chart::row(chart::Mark::Absent, "empty", "no spooled logs recorded");
+                        } else {
+                            for e in entries {
+                                let desc = format!(
+                                    "{} tokens ({}% reduction) • {}",
+                                    e.raw_tokens, e.reduction_percent, e.command
+                                );
+                                chart::row(chart::Mark::Present, &e.id, &desc);
+                            }
+                        }
+                        chart::close("View full logs with: synapse spool show <id>", None);
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        chart::fault("spool", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            SpoolAction::Show {
+                id,
+                tail,
+                grep,
+                spool_dir,
+            } => {
+                let spool_path = spool_dir.unwrap_or_else(SpoolManager::default_dir);
+                let spooler = SpoolManager::new(spool_path);
+                match spooler.read_log(&id, tail, grep.as_deref()) {
+                    Ok(content) => {
+                        println!("{}", content);
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        chart::fault("spool", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        },
     }
 }
 
@@ -667,7 +825,7 @@ mod tests {
     fn help_lists_every_verb() {
         let help = Cli::command().render_long_help().to_string();
         for verb in [
-            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback",
+            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec", "filter", "spool",
         ] {
             assert!(help.contains(verb), "--help is missing verb: {verb}");
         }
@@ -682,6 +840,10 @@ mod tests {
         assert!(Cli::try_parse_from(["synapse", "doctor", "--fix"]).is_ok());
         assert!(Cli::try_parse_from(["synapse", "snapshot", "before upgrade"]).is_ok());
         assert!(Cli::try_parse_from(["synapse", "rollback", "abc123"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "exec", "--", "cargo", "test"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "filter", "--level", "aggressive"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "spool", "list"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "spool", "show", "test_id"]).is_ok());
     }
 
     #[test]

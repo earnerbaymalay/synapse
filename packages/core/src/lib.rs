@@ -11,6 +11,7 @@ pub(crate) mod test_home;
 
 pub mod adapter;
 pub mod adapters;
+pub mod compression;
 pub mod conflict_queue;
 pub mod doctor;
 pub mod drift;
@@ -29,6 +30,10 @@ pub mod updater;
 pub mod watcher;
 
 pub use adapter::Adapter;
+pub use compression::{
+    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression,
+    CompressedOutput, CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
+};
 pub use conflict_queue::{reconcile, ConflictQueue, QueuedConflict};
 pub use doctor::{diagnose, Diagnosis, DoctorContext, Severity};
 pub use drift::{DriftReport, DriftStatus};

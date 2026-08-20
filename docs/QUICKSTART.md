@@ -39,6 +39,13 @@ cargo run -p synapse -- import
 cargo run -p synapse -- sync --daemon
 ```
 
+### ⚡ Bonus: Synaptic Auto-Compression for Agent Commands
+```bash
+# Save 95% tokens when running verbose test suites inside AI coding agents:
+synapse exec -- cargo test
+synapse exec -- pnpm test
+```
+
 ---
 
 ## 🖥️ 3. Launching the Desktop UI
