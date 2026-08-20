@@ -2,21 +2,24 @@
 
 <img src="./assets/hero.svg" width="100%" alt="SYNAPSE // LLM-NeuroSurgeon Hero Banner">
 
-# SYNAPSE (LLM-NeuroSurgeon)
-### One Brain. All Models. Permanent Lockstep.
+# SYNAPSE
+### Your Local, Privacy-First "LLM Neuro-Surgeon"
+**One Brain. All Models. Permanent Lockstep.** — 100% local execution, zero telemetry, fully open-source (MIT), every line auditable.
 
-[![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-00f0ff?style=flat-square&logo=github)](https://earnerbaymalay.github.io/llm-neuro-surgeon/)
-[![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/llm-neuro-surgeon/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/actions)
+[![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-00f0ff?style=flat-square&logo=github)](https://earnerbaymalay.github.io/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)
 [![E2E Vitest](https://img.shields.io/badge/E2E_Tests-142%2F142_Passed-success?style=flat-square&logo=vitest)](packages/e2e/)
 [![Rust Tests](https://img.shields.io/badge/Rust_Tests-225%2F225_Passed-success?style=flat-square&logo=rust)](packages/core/)
-[![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/releases)
+[![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/synapse?style=flat-square)](https://github.com/earnerbaymalay/synapse/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Open Source](https://img.shields.io/badge/source-100%25_open-1d9bf0?style=flat-square&logo=opensourceinitiative)](https://github.com/earnerbaymalay/synapse)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-10B981?style=flat-square)](docs/security.md)
+[![Local Only](https://img.shields.io/badge/execution-100%25_local-10B981?style=flat-square)](docs/security.md)
 [![Rust 1.75+](https://img.shields.io/badge/rust-1.75%2B-dea584?style=flat-square&logo=rust)](https://www.rust-lang.org/)
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8DB?style=flat-square&logo=tauri)](https://v2.tauri.app/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square)](docs/packaging/RELEASE_PACKAGING.md)
 
-**[🌐 Live Site](https://earnerbaymalay.github.io/llm-neuro-surgeon/)** • **[⚡ Quickstart](#-60-second-quickstart)** • **[🔌 13 Adapters](#-13-verified-tool-adapters)** • **[🏛️ Architecture](#%EF%B8%8F-architecture--mental-model)** • **[💻 Desktop App](#-desktop-gui-application)** • **[🩺 The Doctor](#-the-doctor-self-healing-configurations)** • **[📚 Docs Hub](docs/README.md)**
+**[🌐 Live Site](https://earnerbaymalay.github.io/)** • **[🔒 Privacy & Safety](#-privacy--safety-by-design)** • **[⚡ Quickstart](#-60-second-quickstart)** • **[🔌 13 Adapters](#-13-verified-tool-adapters)** • **[🏛️ Architecture](#%EF%B8%8F-architecture--mental-model)** • **[💻 Desktop App](#-desktop-gui-application)** • **[🩺 The Doctor](#-the-doctor-self-healing-configurations)** • **[📚 Docs Hub](docs/README.md)**
 
 ---
 
@@ -45,9 +48,23 @@
 
 ## 💡 What is SYNAPSE?
 
-**SYNAPSE (LLM-NeuroSurgeon)** is the local-first configuration engine and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
+**SYNAPSE** — your local, privacy-first "LLM Neuro-Surgeon" — is the open-source configuration engine and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
 
-AI coding tools each invent their own idiosyncratic configuration locations and formats (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.gemini/settings.json`, `.continue/rules/`). When you refine a skill or update an MCP server in one assistant, your other tools fall out of sync. **SYNAPSE eliminates prompt drift by establishing a single canonical Git-backed Brain (`~/AIBrain`) and losslessly translating your rules to all 13 tools.**
+AI coding tools each invent their own idiosyncratic configuration locations and formats (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.gemini/settings.json`, `.continue/rules/`). When you refine a skill or update an MCP server in one assistant, your other tools fall out of sync. **SYNAPSE eliminates prompt drift by establishing a single canonical Git-backed Brain (`~/AIBrain`) and losslessly translating your rules to all 13 tools — entirely on your machine.**
+
+### 🔒 Privacy & Safety by Design
+
+Your AI tooling config touches every API key and every rule you've written — SYNAPSE treats that as something to protect, not collect:
+
+| Guarantee | What it means |
+|---|---|
+| **100% Local Execution** | Every scan, import, and projection runs on-device. No API calls, no sync servers, no round-trips. |
+| **Zero Telemetry** | No phone-home calls, no usage tracking, no crash reporting to a third party — verifiable in the source. |
+| **OS Keychain Secrets** | API keys live in `libsecret` / macOS Keychain / Credential Manager. Projected configs only ever hold `${ENV_VAR}` references — raw secrets are never written to plaintext. |
+| **Fully Open Source** | MIT licensed, every line of the Rust core and every adapter auditable on GitHub — no closed-source binary blobs. |
+| **Pre-op Snapshots & Rollback** | Nothing is written without a dry-run preview first, and every change ships with an instant undo path. |
+
+Full detail in the **[Security & Threat Model Audit](docs/security.md)**.
 
 ### 🩺 Clinical Operating Identity
 A developer's AI tooling environment is treated like a vital clinical system:
@@ -227,14 +244,14 @@ In addition to the high-speed CLI, SYNAPSE includes a cross-platform desktop das
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE // llm-neuro-surgeon                                  v1.0.0 │
+│  SYNAPSE // Privacy-First LLM Neuro-Surgeon                    v1.0.0 │
 ├───────────────┬────────────────────────────────────────────────────────┤
 │ [Dashboard]   │  SYNAPSE DASHBOARD — One Brain. All Models.             │
 │ [Config]      │  ┌──────────────────┐ ┌────────────────┐ ┌────────────┐ │
 │ [Adapters]    │  │ 13 Adapters      │ │ ~/AIBrain      │ │ Status: OK │ │
 │ [Vitals]      │  └──────────────────┘ └────────────────┘ └────────────┘ │
 │ [CLI & Debug] │  Active Targets:                                       │
-│ [Onboarding]  │  • llm-neuro-surgeon               [SYNAPSE IN SYNC]   │
+│ [Onboarding]  │  • synapse                         [SYNAPSE IN SYNC]   │
 │ [Marketplace] │  • anthropics-skills-bundle       [13 SKILLS LOADED]  │
 │ [MCP Hub]     │  • OS Keychain Secrets             [6 TOKENS LOCKED]   │
 └───────────────┴────────────────────────────────────────────────────────┘
@@ -293,7 +310,7 @@ Read the full **[Security & Threat Model Audit](docs/security.md)** for details.
 
 ### 1. Pre-built Release Packages
 
-Download verified release binaries for your operating system from the **[GitHub Releases](https://github.com/earnerbaymalay/llm-neuro-surgeon/releases)** page:
+Download verified release binaries for your operating system from the **[GitHub Releases](https://github.com/earnerbaymalay/synapse/releases)** page:
 
 | Operating System | Package Format | Installation |
 |---|---|---|
@@ -308,8 +325,8 @@ Download verified release binaries for your operating system from the **[GitHub 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone repository & build
-git clone https://github.com/earnerbaymalay/llm-neuro-surgeon.git
-cd llm-neuro-surgeon
+git clone https://github.com/earnerbaymalay/synapse.git
+cd synapse
 cargo build --release -p synapse
 
 # Binary is available at:
@@ -362,7 +379,7 @@ SYNAPSE enforces a 100% test pass requirement across all CI tiers:
 
 Contributions are warmly welcomed! To get started:
 
-1. Fork the repository on [GitHub](https://github.com/earnerbaymalay/llm-neuro-surgeon).
+1. Fork the repository on [GitHub](https://github.com/earnerbaymalay/synapse).
 2. Read the **[Contributing Guidelines](docs/development/CONTRIBUTING.md)** and **[Adapter Authoring Guide](docs/ADAPTER_AUTHORING_GUIDE.md)**.
 3. Run `cargo test --workspace` and `pnpm test` to ensure all tests pass.
 4. Submit a Pull Request.
