@@ -13,8 +13,8 @@ pub struct AppConfig {
     pub sync_enabled: bool,
 }
 
-impl AppConfig {
-    pub fn default() -> Self {
+impl Default for AppConfig {
+    fn default() -> Self {
         Self {
             project_root: "~/AIBrain".to_string(),
             adapter_paths: vec![
@@ -28,7 +28,9 @@ impl AppConfig {
             sync_enabled: false,
         }
     }
+}
 
+impl AppConfig {
     pub fn load(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
         let config: AppConfig = serde_json::from_str(&content)?;
