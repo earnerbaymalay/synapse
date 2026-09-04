@@ -190,22 +190,25 @@ synapse spool show <id> --tail 50
 
 ## 4. Desktop GUI Application
 
-The React Desktop GUI provides an 8-screen dashboard built with the **SYNAPSE Dark Precision Design System** (`bg-ink-950`, Synapse Blue accent `#1d9bf0`, square corner cards, zero emojis).
+The React desktop app has two screens, both backed by real reads against
+your machine and Brain — nothing on either screen is sample data:
 
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE // llm-neuro-surgeon                             v1.0.0      │
-├───────────────┬────────────────────────────────────────────────────────┤
-│ [Dashboard]   │  SYNAPSE DASHBOARD — One Brain. All Models.             │
-│ [Config]      │  ┌──────────────────┐ ┌────────────────┐ ┌────────────┐ │
-│ [Adapters]    │  │ 13 Adapters      │ │ ~/AIBrain      │ │ Status: OK │ │
-│ [Vitals]      │  └──────────────────┘ └────────────────┘ └────────────┘ │
-│ [CLI & Debug] │  Active Brain Targets:                                  │
-│ [Onboarding]  │  • llm-neuro-surgeon               [SYNAPSE IN SYNC]   │
-│ [Marketplace] │  • anthropics-skills-bundle       [13 SKILLS LOADED]  │
-│ [MCP Hub]     │                                                        │
-└───────────────┴────────────────────────────────────────────────────────┘
-```
+- **Intake** — runs every adapter's `detect()`/`import()` against the
+  scanned site and charts what it finds, including the tools that
+  *aren't* installed (absence is a finding, not an empty row).
+- **Examination** — runs the Doctor's diagnostics and charts the result.
+  Read-only: opening this screen calls `diagnose()`, never
+  `apply_fixes()`, so it cannot change the Brain on its own.
+
+Both render in the SYNAPSE brand system (ink/accent-blue palette,
+square-cornered "blueprint" panels with corner registration marks, zero
+emoji — `brands/synapse/tokens.json`). Every "Next" hint at the bottom
+of a chart names the real CLI command that continues the workflow, so
+the desktop app teaches the CLI rather than duplicating it.
+
+There is no separate Config/Adapters/Vitals/Onboarding/Marketplace/MCP
+Hub screen — those verbs are CLI-only for now (`synapse doctor`,
+`synapse mcp`, `synapse marketplace`; see §2 and §5).
 
 ---
 
@@ -255,7 +258,7 @@ trust). Nothing is written into the Brain by either command; there's no
 
 ## 6. Doctor Diagnostic Engine
 
-The Doctor engine continuously monitors your machine for configuration drift, orphaned symlinks, and broken projections.
+`synapse doctor` is a one-shot diagnostic pass over your Brain and its projections — configuration drift, orphaned symlinks, broken projections. For continuous monitoring, run `synapse sync` (no `--once`): that starts the watcher and resolves drift as it happens; `doctor` is what you run to see what it found, or to check things by hand.
 
 ```mermaid
 flowchart LR
@@ -272,12 +275,12 @@ flowchart LR
 
 > [!CAUTION]
 > **Modifying Projected Files:**  
-> Never edit projected files directly (e.g. `CLAUDE.md` stamped with generated headers). Always make edits inside `~/AIBrain` — the auto-sync daemon will project your changes automatically.
+> Never edit projected files directly (e.g. `CLAUDE.md` stamped with generated headers). Always make edits inside `~/AIBrain` — `synapse sync` (running, without `--once`) will project your changes automatically.
 
 ### Common Questions
 
 - **Where is my Brain located?**  
-  By default, the Brain is stored at `~/AIBrain`. You can override this location by setting `AIBRAIN_PATH=/your/custom/path`.
+  By default, the Brain is stored at `~/AIBrain`. Override it by setting `NEUROSURGEON_BRAIN` (or pass `--brain <PATH>` to `synapse doctor`).
 - **How do I roll back a bad configuration edit?**  
   Run `synapse rollback HEAD~1` to restore the previous Git snapshot of your Brain working tree.
 
