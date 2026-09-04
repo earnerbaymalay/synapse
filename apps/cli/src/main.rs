@@ -38,7 +38,8 @@ enum Command {
     },
     /// Run one import + project pass and resolve or queue conflicts
     Sync {
-        /// Run once and exit instead of starting the watcher/scheduler
+        /// Accepted for forward compatibility with a future watch mode;
+        /// sync currently always runs a single reconciliation pass and exits
         #[arg(long)]
         once: bool,
     },

@@ -117,7 +117,7 @@ synapse scan
 synapse import --dry-run
 synapse import
 
-# 3. Project Brain configurations out to all tools & start the watcher
+# 3. Project Brain configurations out to all tools, then reconcile drift
 synapse project
 synapse sync
 ```
@@ -364,9 +364,9 @@ SYNAPSE enforces a 100% test pass requirement across all CI tiers:
 |---|---|---|
 | **[Docs Hub](docs/README.md)** | Centralized documentation navigation & command index | All users & contributors |
 | **[Quickstart Guide](docs/QUICKSTART.md)** | Step-by-step setup in under 60 seconds | First-time evaluators |
-| **[User Guide](docs/USER_GUIDE.md)** | Day-to-day workflow, daemon sync, MCP hub & Doctor self-healing | Daily development |
+| **[User Guide](docs/USER_GUIDE.md)** | Day-to-day workflow, sync reconciliation, MCP hub & Doctor self-healing | Daily development |
 | **[Onboarding Journey](docs/ONBOARDING.md)** | 4-phase journey from fragmented configs to permanent lockstep | Getting started |
-| **[Architecture Blueprint](docs/ARCHITECTURE.md)** | 3-way merge engine, file system watcher & monorepo layout | Core engine developers |
+| **[Architecture Blueprint](docs/ARCHITECTURE.md)** | 3-way merge engine & monorepo layout | Core engine developers |
 | **[Adapters Hub](docs/adapters/README.md)** | Complete matrix and individual adapter specifications | Tool dialect reference |
 | **[Adapter Authoring Guide](docs/ADAPTER_AUTHORING_GUIDE.md)** | Step-by-step guide to authoring a new Rust tool adapter | Tool integrators |
 | **[Security & Threat Model](docs/security.md)** | Threat model, path traversal defense, and OS Keychain audit | Security & compliance |
