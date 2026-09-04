@@ -14,9 +14,10 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Compression aggressiveness levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CompressionLevel {
     /// Preserves warnings, failures, summaries, and key structural milestones (default)
+    #[default]
     Balanced,
     /// Strips warnings, preserves only failures, errors, panic traces, and final summary
     Aggressive,
@@ -24,14 +25,11 @@ pub enum CompressionLevel {
     StrictErrorsOnly,
 }
 
-impl Default for CompressionLevel {
-    fn default() -> Self {
-        Self::Balanced
-    }
-}
-
 impl CompressionLevel {
-    pub fn from_str(s: &str) -> Option<Self> {
+    /// Parses a level name. Not `FromStr::from_str` on purpose — that trait
+    /// method returns `Result`, and every caller here wants `Option` to feed
+    /// straight into `.and_then(...).unwrap_or_default()`.
+    pub fn parse_level(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "balanced" => Some(Self::Balanced),
             "aggressive" => Some(Self::Aggressive),
@@ -73,7 +71,7 @@ pub fn estimate_tokens(text: &str) -> usize {
         return 0;
     }
     let char_count = text.chars().count();
-    (char_count + 3) / 4
+    char_count.div_ceil(4)
 }
 
 /// Detected output dialect format
@@ -153,12 +151,13 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
                         passed_count = 0;
                     }
                     kept_lines.push(line.to_string());
-                } else if in_failure_block || in_summary {
+                } else if in_failure_block
+                    || in_summary
+                    || ((trimmed.contains("error[E") || trimmed.contains("warning:"))
+                        && (level != CompressionLevel::StrictErrorsOnly
+                            || trimmed.contains("error")))
+                {
                     kept_lines.push(line.to_string());
-                } else if trimmed.contains("error[E") || trimmed.contains("warning:") {
-                    if level != CompressionLevel::StrictErrorsOnly || trimmed.contains("error") {
-                        kept_lines.push(line.to_string());
-                    }
                 }
             }
             if passed_count > 0 && kept_lines.is_empty() {
@@ -195,12 +194,12 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
                     }
                     in_error_frame = false;
                     kept_lines.push(line.to_string());
-                } else if in_error_frame {
+                } else if in_error_frame
+                    || ((trimmed.contains("Error:") || trimmed.contains("warn "))
+                        && (level != CompressionLevel::StrictErrorsOnly
+                            || trimmed.contains("Error")))
+                {
                     kept_lines.push(line.to_string());
-                } else if trimmed.contains("Error:") || trimmed.contains("warn ") {
-                    if level != CompressionLevel::StrictErrorsOnly || trimmed.contains("Error") {
-                        kept_lines.push(line.to_string());
-                    }
                 }
             }
             if passed_count > 0 && kept_lines.is_empty() {
@@ -389,7 +388,7 @@ impl SpoolManager {
                     .to_string();
                 let metadata = entry.metadata()?;
                 let raw_bytes = metadata.len() as usize;
-                let raw_tokens = (raw_bytes + 3) / 4;
+                let raw_tokens = raw_bytes.div_ceil(4);
                 let timestamp = metadata
                     .modified()
                     .unwrap_or(SystemTime::UNIX_EPOCH)
@@ -410,7 +409,7 @@ impl SpoolManager {
                 });
             }
         }
-        entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        entries.sort_by_key(|e| std::cmp::Reverse(e.timestamp));
         Ok(entries)
     }
 

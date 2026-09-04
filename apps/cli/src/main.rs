@@ -411,7 +411,7 @@ fn main() -> ExitCode {
             }
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::from_str)
+                .and_then(CompressionLevel::parse_level)
                 .unwrap_or_default();
 
             let bin = &command[0];
@@ -435,7 +435,7 @@ fn main() -> ExitCode {
         Command::Filter { level, spool_dir } => {
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::from_str)
+                .and_then(CompressionLevel::parse_level)
                 .unwrap_or_default();
 
             let mut input = String::new();
