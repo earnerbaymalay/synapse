@@ -56,17 +56,25 @@ flowchart TD
 > **Path Traversal Attacks:**  
 > A malicious tool config could specify a rule filename like `../../.bashrc` to attempt overwriting system files outside the tool root.
 
-`packages/core/src/adapters/mod.rs` implements `safe_join(root, relative)`:
+`packages/core/src/adapters/mod.rs` implements `safe_join(root, relative)`.
+It's a lexical check on `relative`'s path components — deliberately not
+`canonicalize()`-based, since canonicalizing requires the target to
+already exist on disk, which would break every write of a *new* file:
 
 ```rust
 pub fn safe_join(root: &Path, relative: &str) -> Result<PathBuf, AdapterError> {
-    let target = root.join(relative);
-    let canonical_root = root.canonicalize()?;
-    let canonical_target = target.canonicalize()?;
-    if !canonical_target.starts_with(&canonical_root) {
-        return Err(AdapterError::Malformed("Path traversal detected".into()));
+    let candidate = Path::new(relative);
+    for component in candidate.components() {
+        match component {
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(AdapterError::Malformed(format!(
+                    "refusing to write outside the target root: {relative}"
+                )));
+            }
+            Component::CurDir | Component::Normal(_) => {}
+        }
     }
-    Ok(target)
+    Ok(root.join(candidate))
 }
 ```
 
@@ -74,13 +82,19 @@ pub fn safe_join(root: &Path, relative: &str) -> Result<PathBuf, AdapterError> {
 
 ## 4. Symlink Loop Defenses
 
-To prevent symlink loop denial-of-service (e.g. `a -> b -> a`) or escaping into sensitive system directories, directory recursion uses non-following metadata checks:
+To prevent symlink loop denial-of-service (e.g. `a -> b -> a`) or escaping into sensitive system directories, directory recursion never follows a symlinked directory — it's skipped outright, not inspected:
 
 ```rust
-if entry.file_type().is_symlink() {
-    // Audit symlink target before following
+if file_type.is_symlink() {
+    continue;
 }
 ```
+
+There is no target-auditing step: a symlink encountered during a recursive
+scan (see `packages/core/src/adapters/github_copilot.rs`) is simply not
+descended into, which is what makes the defense immune to loops (`a -> b ->
+a`) and escapes alike — the recursion never follows the pointer far enough
+to hit either problem.
 
 ---
 
