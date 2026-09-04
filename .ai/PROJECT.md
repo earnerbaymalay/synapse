@@ -1,13 +1,14 @@
 # Project: LLM Neurosurgeon Core Engine Adapters
 
 ## Architecture
-- All 12 adapters implement the `Adapter` trait defined in `packages/core/src/adapter.rs`.
+- All 13 adapters implement the `Adapter` trait defined in `packages/core/src/adapter.rs`.
 - Each adapter maps between its specific file format (JSON, YAML, Markdown) and the canonical `Skill`, `Agent`, and `McpServer` models defined in `packages/core/src/model.rs`.
 - The engine uses these adapters to `detect` tool configurations, `import` them into the canonical brain model, and `project` them back to the tool's filesystem layout.
 
 ## Code Layout
 - `packages/core/src/adapter.rs`: Trait definition and error types.
 - `packages/core/src/adapters/`: Folder containing individual adapter implementations:
+  - `agy_cli.rs`
   - `aider.rs`
   - `claude_code.rs`
   - `cline.rs`
@@ -20,7 +21,7 @@
   - `roo_code.rs`
   - `windsurf.rs`
   - `zed.rs`
-  - `mod.rs`: Registry listing all 12 adapters.
+  - `mod.rs`: Registry listing all 13 adapters.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |

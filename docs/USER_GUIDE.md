@@ -56,7 +56,7 @@ flowchart TD
 > [!NOTE]
 > **The Three-Command Loop:**  
 > `synapse scan` → `synapse import` → `synapse project`.  
-> Once imported into `~/AIBrain`, use `synapse sync` to keep every tool automatically in lockstep — omit `--once` and it stays running.
+> Once imported into `~/AIBrain`, run `synapse sync` any time to reconcile drift in one pass.
 
 ### Inbuilt Obsidian Session Worklog Skill
 Every freshly initialized or imported Brain automatically provisions the canonical `obsidian-session-worklog` skill into `~/AIBrain/skills/obsidian-session-worklog/` and projects it across all tools:
@@ -76,7 +76,7 @@ stateDiagram-v2
     Unconfigured --> Discovered : synapse scan
     Discovered --> Imported : synapse import
     Imported --> Projected : synapse project
-    Projected --> AutoSync : synapse sync
+    Projected --> Reconciled : synapse sync
     Projected --> Snapshot : synapse snapshot
     Snapshot --> Restored : synapse rollback
 ```
@@ -108,14 +108,14 @@ synapse project
 ```
 
 ### `synapse sync`
-Starts background lockstep monitoring or executes a one-time reconciliation.
+Runs one import + project reconciliation pass and exits. There is no watch
+or daemon mode yet — `packages/core` has `watcher.rs` and `scheduler.rs`
+modules for a future continuous-sync mode, but no CLI command wires them up,
+so `synapse sync` always does a single pass today.
 
 ```bash
-# One-time sync, then exit
-synapse sync --once
-
-# Start the watcher and stay running, resolving drift as it happens
 synapse sync
+synapse sync --once   # accepted for forward compatibility; same behaviour
 ```
 
 ### `synapse doctor`
@@ -258,7 +258,7 @@ trust). Nothing is written into the Brain by either command; there's no
 
 ## 6. Doctor Diagnostic Engine
 
-`synapse doctor` is a one-shot diagnostic pass over your Brain and its projections — configuration drift, orphaned symlinks, broken projections. For continuous monitoring, run `synapse sync` (no `--once`): that starts the watcher and resolves drift as it happens; `doctor` is what you run to see what it found, or to check things by hand.
+`synapse doctor` is a one-shot diagnostic pass over your Brain and its projections — configuration drift, orphaned symlinks, broken projections. There's no continuous-monitoring mode yet: run `synapse sync` any time you want drift reconciled, and `synapse doctor` any time you want to see what's wrong before deciding whether to fix it.
 
 ```mermaid
 flowchart LR
@@ -275,7 +275,7 @@ flowchart LR
 
 > [!CAUTION]
 > **Modifying Projected Files:**  
-> Never edit projected files directly (e.g. `CLAUDE.md` stamped with generated headers). Always make edits inside `~/AIBrain` — `synapse sync` (running, without `--once`) will project your changes automatically.
+> Never edit projected files directly (e.g. `CLAUDE.md` stamped with generated headers). Always make edits inside `~/AIBrain` and run `synapse sync` (or `synapse project`) to project your changes back out.
 
 ### Common Questions
 

@@ -70,7 +70,7 @@ Once your Brain is initialized, unlock long-term features:
 | Feature | Command | Benefits |
 |---|---|---|
 | ⏳ **Time Machine** | `synapse snapshot "msg"` | Every sync is a Git commit. Revert anytime with `synapse rollback <hash>`. |
-| 🔄 **Auto-Sync** | `synapse sync` | Watches the Brain and all tools; resolves drift with a 3-way merge in real time. Add `--once` for a single pass instead of staying running. |
+| 🔄 **Sync** | `synapse sync` | Runs one import + project reconciliation pass over the Brain and all tools and exits. No watch/daemon mode yet. |
 | 🩺 **Doctor Auto-Repair** | `synapse doctor --fix` | Diagnoses broken symlinks and config drift, repairing them automatically. |
 | 🔌 **MCP Registry** | `synapse mcp search <query>`, `synapse mcp health <command-or-url>` | Search the official MCP registry; health-check a server yourself before trusting it — nothing is spawned without you naming it explicitly. |
 | 🛒 **Marketplace** | `synapse marketplace search`, `synapse marketplace show <slug>` | Browse skills from `anthropics/skills` with SHA-256 provenance. Metadata only for now — installing into the Brain isn't wired up yet. |
