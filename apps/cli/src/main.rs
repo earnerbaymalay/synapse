@@ -114,9 +114,7 @@ enum SpoolAction {
     },
 }
 
-use neurosurgeon_core::compression::{
-    execute_with_compression, CompressionLevel, SpoolManager,
-};
+use neurosurgeon_core::compression::{execute_with_compression, CompressionLevel, SpoolManager};
 use neurosurgeon_core::snapshot::{rollback, snapshot};
 use neurosurgeon_core::sync::{
     perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
@@ -825,7 +823,8 @@ mod tests {
     fn help_lists_every_verb() {
         let help = Cli::command().render_long_help().to_string();
         for verb in [
-            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec", "filter", "spool",
+            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec",
+            "filter", "spool",
         ] {
             assert!(help.contains(verb), "--help is missing verb: {verb}");
         }

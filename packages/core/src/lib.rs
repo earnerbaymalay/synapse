@@ -31,8 +31,8 @@ pub mod watcher;
 
 pub use adapter::Adapter;
 pub use compression::{
-    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression,
-    CompressedOutput, CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
+    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression, CompressedOutput,
+    CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
 };
 pub use conflict_queue::{reconcile, ConflictQueue, QueuedConflict};
 pub use doctor::{diagnose, Diagnosis, DoctorContext, Severity};
