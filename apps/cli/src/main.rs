@@ -90,6 +90,56 @@ enum Command {
         #[command(subcommand)]
         action: SpoolAction,
     },
+    /// Search the official MCP registry and health-check a server
+    Mcp {
+        #[command(subcommand)]
+        action: McpAction,
+    },
+    /// Browse skills available from the anthropics/skills marketplace
+    Marketplace {
+        #[command(subcommand)]
+        action: MarketplaceAction,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum McpAction {
+    /// Search registry.modelcontextprotocol.io for a server
+    Search {
+        /// Free-text query (name/description)
+        query: String,
+        /// Maximum results to return
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+    },
+    /// Spawn (stdio) or POST (http/https) a server once and check it answers
+    /// the MCP `initialize` handshake. Running this command IS the explicit
+    /// enable — see docs/security.md: a server search result is never
+    /// spawned on your behalf, only one you name here yourself.
+    Health {
+        /// A stdio command line (e.g. "npx -y some-mcp-server") or an
+        /// http(s) URL. Treated as stdio unless it starts with http:// or
+        /// https://.
+        command_or_url: String,
+        /// Seconds to wait for the handshake response
+        #[arg(long, value_name = "SECS", default_value_t = 10)]
+        timeout: u64,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum MarketplaceAction {
+    /// List skill slugs under anthropics/skills, optionally filtered
+    Search {
+        /// Substring filter on the skill slug (omit to list every skill)
+        query: Option<String>,
+    },
+    /// Fetch one skill's provenance, license, and executable-content flag.
+    /// Metadata only — nothing is written into the Brain by this command.
+    Show {
+        /// Skill slug, e.g. "algorithmic-art"
+        slug: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -115,11 +165,15 @@ enum SpoolAction {
 }
 
 use neurosurgeon_core::compression::{execute_with_compression, CompressionLevel, SpoolManager};
+use neurosurgeon_core::marketplace::{fetch_anthropic_skill, list_anthropic_skills};
+use neurosurgeon_core::mcp_registry::{health_check, search_official_registry, InstalledMcpServer};
+use neurosurgeon_core::model::{HealthStatus, McpServer};
 use neurosurgeon_core::snapshot::{rollback, snapshot};
 use neurosurgeon_core::sync::{
     perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
 };
 use std::io::Read;
+use std::time::Duration;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -506,6 +560,180 @@ fn main() -> ExitCode {
                 }
             }
         },
+        Command::Mcp { action } => match action {
+            McpAction::Search { query, limit } => match search_official_registry(&query, limit) {
+                Ok(results) => {
+                    chart::open("mcp · search", &chart::plural(results.len(), "result"));
+                    chart::field("Query", &query);
+                    println!();
+                    if results.is_empty() {
+                        chart::row(chart::Mark::Absent, "none", "no matching servers");
+                    } else {
+                        for r in &results {
+                            chart::row(
+                                chart::Mark::Present,
+                                &r.server.id,
+                                &format!("{} · {}", r.server.transport, r.description),
+                            );
+                            chart::detail(&r.server.command_or_url);
+                            if !r.server.env_placeholders.is_empty() {
+                                chart::detail(&format!(
+                                    "requires: {}",
+                                    r.server.env_placeholders.join(", ")
+                                ));
+                            }
+                        }
+                    }
+                    chart::close(
+                        &format!(
+                            "{} found. Nothing was run.",
+                            chart::plural(results.len(), "server")
+                        ),
+                        results
+                            .first()
+                            .map(|_| "synapse mcp health <command-or-url>"),
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    chart::fault("mcp", &e.to_string(), None);
+                    ExitCode::FAILURE
+                }
+            },
+            McpAction::Health {
+                command_or_url,
+                timeout,
+            } => {
+                let transport = if command_or_url.starts_with("http://")
+                    || command_or_url.starts_with("https://")
+                {
+                    "streamable-http"
+                } else {
+                    "stdio"
+                };
+                let mut installed = InstalledMcpServer::install(McpServer {
+                    id: command_or_url.clone(),
+                    transport: transport.to_string(),
+                    command_or_url: command_or_url.clone(),
+                    env_placeholders: Vec::new(),
+                    targets: Vec::new(),
+                    health: HealthStatus::Unknown,
+                });
+                // Running this command is itself the explicit human enable —
+                // see docs/security.md. A registry search result is never
+                // reached here without the user naming it themselves.
+                installed.enable();
+
+                chart::open("mcp · health", transport);
+                chart::field("Target", &command_or_url);
+                println!();
+
+                match health_check(&installed, Duration::from_secs(timeout)) {
+                    Ok(HealthStatus::Healthy) => {
+                        chart::row(chart::Mark::Present, "handshake", "responded to initialize");
+                        chart::close("Healthy.", None);
+                        ExitCode::SUCCESS
+                    }
+                    Ok(HealthStatus::Unreachable) => {
+                        chart::row(
+                            chart::Mark::Critical,
+                            "handshake",
+                            "no valid initialize response before the timeout",
+                        );
+                        chart::close("Unreachable.", None);
+                        ExitCode::FAILURE
+                    }
+                    Ok(HealthStatus::Unknown) => {
+                        chart::row(chart::Mark::Partial, "handshake", "status undetermined");
+                        chart::close("Unknown.", None);
+                        ExitCode::FAILURE
+                    }
+                    Err(e) => {
+                        chart::fault("mcp", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        },
+        Command::Marketplace { action } => match action {
+            MarketplaceAction::Search { query } => match list_anthropic_skills() {
+                Ok(slugs) => {
+                    let filtered: Vec<&String> = match &query {
+                        Some(q) => slugs.iter().filter(|s| s.contains(q.as_str())).collect(),
+                        None => slugs.iter().collect(),
+                    };
+                    chart::open(
+                        "marketplace · search",
+                        &format!(
+                            "{} of {}",
+                            chart::plural(filtered.len(), "skill"),
+                            slugs.len()
+                        ),
+                    );
+                    if let Some(q) = &query {
+                        chart::field("Query", q);
+                    }
+                    println!();
+                    if filtered.is_empty() {
+                        chart::row(chart::Mark::Absent, "none", "no matching skills");
+                    } else {
+                        for slug in &filtered {
+                            chart::row(chart::Mark::Present, slug, "");
+                        }
+                    }
+                    chart::close(
+                        &format!("{} listed.", chart::plural(filtered.len(), "skill")),
+                        filtered.first().map(|_| "synapse marketplace show <slug>"),
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    chart::fault("marketplace", &e.to_string(), None);
+                    ExitCode::FAILURE
+                }
+            },
+            MarketplaceAction::Show { slug } => match fetch_anthropic_skill(&slug) {
+                Ok(skill) => {
+                    chart::open("marketplace · show", &slug);
+                    chart::field("Source", &skill.source_url);
+                    chart::field("SHA256", &skill.sha256);
+                    println!();
+                    chart::row(
+                        chart::Mark::NotApplicable,
+                        "description",
+                        if skill.description.is_empty() {
+                            "(none provided)"
+                        } else {
+                            &skill.description
+                        },
+                    );
+                    chart::row(
+                        chart::Mark::NotApplicable,
+                        "license",
+                        skill.license_note.as_deref().unwrap_or("(none declared)"),
+                    );
+                    if skill.contains_executable_content {
+                        chart::row(
+                            chart::Mark::Warning,
+                            "content",
+                            "ships executable files — review before enabling",
+                        );
+                    } else {
+                        chart::row(
+                            chart::Mark::Present,
+                            "content",
+                            "no executable files detected",
+                        );
+                    }
+                    chart::close("Metadata only. Nothing was written to the Brain.", None);
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    chart::fault("marketplace", &e.to_string(), None);
+                    ExitCode::FAILURE
+                }
+            },
+        },
     }
 }
 
@@ -823,8 +1051,18 @@ mod tests {
     fn help_lists_every_verb() {
         let help = Cli::command().render_long_help().to_string();
         for verb in [
-            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec",
-            "filter", "spool",
+            "scan",
+            "import",
+            "project",
+            "sync",
+            "doctor",
+            "snapshot",
+            "rollback",
+            "exec",
+            "filter",
+            "spool",
+            "mcp",
+            "marketplace",
         ] {
             assert!(help.contains(verb), "--help is missing verb: {verb}");
         }
@@ -843,6 +1081,67 @@ mod tests {
         assert!(Cli::try_parse_from(["synapse", "filter", "--level", "aggressive"]).is_ok());
         assert!(Cli::try_parse_from(["synapse", "spool", "list"]).is_ok());
         assert!(Cli::try_parse_from(["synapse", "spool", "show", "test_id"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "mcp", "search", "filesystem"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "mcp", "health", "npx -y some-server"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "marketplace", "search"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "marketplace", "show", "algorithmic-art"]).is_ok());
+    }
+
+    #[test]
+    fn mcp_and_marketplace_require_a_subcommand() {
+        assert!(Cli::try_parse_from(["synapse", "mcp"]).is_err());
+        assert!(Cli::try_parse_from(["synapse", "marketplace"]).is_err());
+    }
+
+    /// End-to-end against a local fixture, same pattern as
+    /// mcp_registry::tests — no network needed, so it runs everywhere.
+    #[cfg(unix)]
+    #[test]
+    fn mcp_health_handshakes_with_a_fixture_server() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("fixture-mcp.sh");
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nsleep 0.05\nread _line\nprintf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"0.0.1\"}}}'\nsleep 5\n",
+        )
+        .unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let mut installed = InstalledMcpServer::install(McpServer {
+            id: script.display().to_string(),
+            transport: "stdio".to_string(),
+            command_or_url: script.display().to_string(),
+            env_placeholders: Vec::new(),
+            targets: Vec::new(),
+            health: HealthStatus::Unknown,
+        });
+        installed.enable();
+
+        let status = health_check(&installed, Duration::from_secs(2)).unwrap();
+        assert_eq!(status, HealthStatus::Healthy);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn mcp_health_detects_remote_transport_from_url_scheme() {
+        // Mirrors the CLI's own dispatch: only http(s):// is treated as
+        // remote, everything else is stdio.
+        for (input, expect_stdio) in [
+            ("npx -y some-server", true),
+            ("http://localhost:1234/mcp", false),
+            ("https://example.com/mcp", false),
+            ("/usr/local/bin/some-mcp-server", true),
+        ] {
+            let transport = if input.starts_with("http://") || input.starts_with("https://") {
+                "streamable-http"
+            } else {
+                "stdio"
+            };
+            assert_eq!(transport == "stdio", expect_stdio, "input: {input}");
+        }
     }
 
     #[test]

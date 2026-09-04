@@ -17,9 +17,11 @@ Welcome to the **SYNAPSE** User Guide. This document provides a complete referen
    - [synapse snapshot & rollback](#synapse-snapshot--rollback)
    - [synapse exec & filter](#synapse-exec--filter-synaptic-auto-compression)
    - [synapse spool](#synapse-spool)
+   - [synapse mcp](#synapse-mcp)
+   - [synapse marketplace](#synapse-marketplace)
 3. [Supported Tool Adapters (13/13)](#3-supported-tool-adapters-1313)
 4. [Desktop GUI Application](#4-desktop-gui-application)
-5. [MCP Hub & OS Keychain Integration](#5-mcp-hub--os-keychain-integration)
+5. [MCP Registry & Marketplace](#5-mcp-registry--marketplace)
 6. [Doctor Diagnostic Engine](#6-doctor-diagnostic-engine)
 7. [Troubleshooting & FAQ](#7-troubleshooting--faq)
 
@@ -207,26 +209,47 @@ The React Desktop GUI provides an 8-screen dashboard built with the **SYNAPSE Da
 
 ---
 
-## 5. MCP Hub & OS Keychain Integration
+## 5. MCP Registry & Marketplace
 
-SYNAPSE manages Model Context Protocol (MCP) servers across all tools with built-in OS Keychain secret resolution.
+### `synapse mcp`
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant CLI as SYNAPSE MCP Hub
-    participant KC as OS Keychain
-    participant Config as Tool Config (.mcp.json)
+```bash
+# Search the official MCP registry (registry.modelcontextprotocol.io)
+synapse mcp search filesystem
 
-    User->>CLI: Harvest secret (API Key)
-    CLI->>KC: Store key securely in Keychain
-    CLI->>Config: Project config with ${VAR} placeholder
-    Note over Config: Raw API keys are NEVER written to disk
+# Health-check a server yourself — running this command IS the explicit
+# enable. A search result is never spawned or contacted on your behalf.
+synapse mcp health "npx -y @modelcontextprotocol/server-filesystem"
+synapse mcp health https://example.com/mcp
 ```
 
-> [!IMPORTANT]
-> Raw API tokens and credentials are never stored in plaintext config files. All projected MCP configs reference variables as `${ENV_KEY}`, resolving keys from the OS Keychain at execution time.
+`mcp search` never executes anything it finds — a registry entry's
+`command_or_url` is displayed, not run. Env vars a server declares
+(`env_placeholders`) are shown by name only; no value is ever fetched
+from the registry.
+
+> [!NOTE]
+> OS Keychain secret storage exists in the core library
+> (`packages/core::secrets` — `harvest_env`, `OsKeychainStore`) but isn't
+> wired into a CLI command yet. Today, `env_placeholders` are names you'd
+> set yourself; there's no `synapse mcp harvest` verb.
+
+### `synapse marketplace`
+
+```bash
+# List skill slugs from anthropics/skills, optionally filtered
+synapse marketplace search
+synapse marketplace search algo
+
+# Fetch one skill's provenance, license, and executable-content flag
+synapse marketplace show algorithmic-art
+```
+
+`marketplace show` fetches metadata only — description, license note,
+SHA-256 of the skill content, and whether it ships files that look
+executable (`.sh`, `.py`, `.js`, etc., flagged so you look before you
+trust). Nothing is written into the Brain by either command; there's no
+`synapse marketplace import` yet.
 
 ---
 

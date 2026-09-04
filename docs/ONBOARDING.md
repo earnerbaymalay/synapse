@@ -72,8 +72,8 @@ Once your Brain is initialized, unlock long-term features:
 | ⏳ **Time Machine** | `synapse snapshot "msg"` | Every sync is a Git commit. Revert anytime with `synapse rollback <hash>`. |
 | 🔄 **Auto-Sync** | `synapse sync` | Watches the Brain and all tools; resolves drift with a 3-way merge in real time. Add `--once` for a single pass instead of staying running. |
 | 🩺 **Doctor Auto-Repair** | `synapse doctor --fix` | Diagnoses broken symlinks and config drift, repairing them automatically. |
-| 🔌 **MCP Key Protection** | `synapse mcp harvest` | Browse MCP servers; API keys stay securely in the OS Keychain via `${VAR}` placeholders. |
-| 🛒 **Marketplace** | `synapse marketplace` | Pull skills and agents from any Git repo (`anthropics/skills`), with SHA-256 provenance cards. |
+| 🔌 **MCP Registry** | `synapse mcp search <query>`, `synapse mcp health <command-or-url>` | Search the official MCP registry; health-check a server yourself before trusting it — nothing is spawned without you naming it explicitly. |
+| 🛒 **Marketplace** | `synapse marketplace search`, `synapse marketplace show <slug>` | Browse skills from `anthropics/skills` with SHA-256 provenance. Metadata only for now — installing into the Brain isn't wired up yet. |
 
 ---
 
