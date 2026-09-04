@@ -117,9 +117,9 @@ synapse scan
 synapse import --dry-run
 synapse import
 
-# 3. Project Brain configurations out to all tools & start daemon
+# 3. Project Brain configurations out to all tools & start the watcher
 synapse project
-synapse sync --daemon
+synapse sync
 ```
 
 > [!TIP]

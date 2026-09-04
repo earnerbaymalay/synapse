@@ -54,7 +54,7 @@ flowchart TD
 > [!NOTE]
 > **The Three-Command Loop:**  
 > `synapse scan` → `synapse import` → `synapse project`.  
-> Once imported into `~/AIBrain`, use `synapse sync --daemon` to keep every tool automatically in lockstep.
+> Once imported into `~/AIBrain`, use `synapse sync` to keep every tool automatically in lockstep — omit `--once` and it stays running.
 
 ### Inbuilt Obsidian Session Worklog Skill
 Every freshly initialized or imported Brain automatically provisions the canonical `obsidian-session-worklog` skill into `~/AIBrain/skills/obsidian-session-worklog/` and projects it across all tools:
@@ -74,7 +74,7 @@ stateDiagram-v2
     Unconfigured --> Discovered : synapse scan
     Discovered --> Imported : synapse import
     Imported --> Projected : synapse project
-    Projected --> AutoSync : synapse sync --daemon
+    Projected --> AutoSync : synapse sync
     Projected --> Snapshot : synapse snapshot
     Snapshot --> Restored : synapse rollback
 ```
@@ -109,11 +109,11 @@ synapse project
 Starts background lockstep monitoring or executes a one-time reconciliation.
 
 ```bash
-# One-time sync
+# One-time sync, then exit
 synapse sync --once
 
-# Background daemon watcher
-synapse sync --daemon
+# Start the watcher and stay running, resolving drift as it happens
+synapse sync
 ```
 
 ### `synapse doctor`
