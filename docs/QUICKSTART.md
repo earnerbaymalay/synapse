@@ -36,7 +36,7 @@ cargo run -p synapse -- import
 
 ### Step 3: Run the Auto-Sync Watcher
 ```bash
-cargo run -p synapse -- sync --daemon
+cargo run -p synapse -- sync
 ```
 
 ### ⚡ Bonus: Synaptic Auto-Compression for Agent Commands
