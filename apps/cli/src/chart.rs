@@ -84,7 +84,6 @@ pub fn paint(paint: Paint, text: &str) -> String {
 /// The fixed status vocabulary from IDENTITY.md. Always one cell wide, always
 /// the first column of a row.
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // the full vocabulary is the spec — see IDENTITY.md
 pub enum Mark {
     /// Detected, healthy, in sync.
     Present,

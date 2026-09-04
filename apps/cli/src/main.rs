@@ -1029,14 +1029,6 @@ fn run_doctor(brain_root: &Path, tool_root: &Path, fix: bool) -> ExitCode {
     }
 }
 
-/// The Brain-writing side of `import`/`project`/`sync`, and git-backed
-/// `snapshot`/`rollback`, are Phase 3/4 scope not yet landed.
-#[allow(dead_code)]
-fn not_yet_implemented(verb: &str, args: &str) -> ExitCode {
-    eprintln!("synapse {verb}: not yet implemented ({args}) — see PLAN.md Phase 3/4");
-    ExitCode::FAILURE
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
