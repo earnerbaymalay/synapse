@@ -32,7 +32,7 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "Universal AI tool config manager — one Brain, all models",
-    "longDescription": "LLM Neurosurgeon unifies the configuration of every AI coding tool on your machine into one canonical, git-backed Brain — and keeps every tool in sync automatically.",
+    "longDescription": "LLM Neurosurgeon unifies the configuration of every AI coding tool on your machine into one canonical, git-backed Brain, and reconciles drift back out to every tool on demand.",
     "linux": {
       "deb": {
         "depends": [
