@@ -17,7 +17,7 @@
 ### 🏛️ 2. Architecture & Design
 * **[Architecture Overview](ARCHITECTURE.md)** — Monorepo layout, adapter parsing, and 3-way merge resolution.
 * **[Architecture Decisions (ADRs)](DECISIONS.md)** — Record of architectural RFCs and choices.
-* **[Design Pack](DESIGN_PACK.md)** — Design tokens, component specs, and ASCII wireframes.
+* **[Design Pack](DESIGN_PACK.md)** — Superseded Phase 1 brainstorm; the real design authority is `IDENTITY.md` and `brands/synapse/tokens.json`.
 * **[Security Architecture](security.md)** — Threat model, path traversal defense (`safe_join`), symlink loop guards, and OS Keychain integration.
 
 ### 🔌 3. Verified Tool Adapters (13 Ecosystems)

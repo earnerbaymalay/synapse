@@ -1,5 +1,15 @@
 # DESIGN_PACK.md
 
+> [!WARNING]
+> **Superseded.** This is the original Phase 1 / Gate 0 exploratory draft,
+> written before the SYNAPSE rebrand. None of the 8 screens below were ever
+> built, and the shipped desktop app looks nothing like them: it has two
+> real screens, `Intake` and `Examination`
+> (`apps/desktop/src/screens/Intake.tsx`, `Examination.tsx`), described
+> accurately in `docs/USER_GUIDE.md` §4. The real design authority is
+> `IDENTITY.md` and `brands/synapse/tokens.json`. Kept here only as
+> historical record of the early brainstorm — do not build against it.
+
 ## Phase 1: Design Pack → GATE 1 (human)
 
 ### T1.1  Compile DESIGN_PACK.md with tokens, components, voice, accessibility
@@ -244,10 +254,11 @@ Total: 8 screens for ASCII wireframes
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Verification
-- [ ] DESIGN_PACK.md wireframes section lists all 8 screens ✓
-- [ ] Component inventory populated ✓
-- [ ] Visual tokens documented ✓
-- [ ] Voice rules established ✓
+### Verification (as of this early draft — see superseded notice above)
+- [ ] DESIGN_PACK.md wireframes section lists all 8 screens
+- [ ] Component inventory populated
+- [ ] Visual tokens documented
+- [ ] Voice rules established
 
-Next: Update DECISIONS.md with Gate 0 decisions; proceed with RALPH_PROMPT.md and task breakdown.
+None of the above were carried into the shipped app; see the superseded
+notice at the top of this file for what actually exists today.
