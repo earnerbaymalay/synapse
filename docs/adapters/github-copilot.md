@@ -13,7 +13,7 @@
 | **Native Configs** | `.github/copilot-instructions.md`, `.github/instructions/**/*.md` |
 | **Parsing Engine** | Scoped Markdown instruction parser |
 | **Projection Target** | Stamped `.github/copilot-instructions.md` |
-| **Symlink Support** | Direct symlink supported |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 

@@ -13,7 +13,7 @@
 | **Native Configs** | `AGENTS.md`, `.opencode/rules/` |
 | **Parsing Engine** | Multi-Agent Markdown parser |
 | **Projection Target** | Stamped `AGENTS.md` |
-| **Symlink Support** | Direct symlink for rule files |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 

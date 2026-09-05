@@ -13,7 +13,7 @@
 | **Native Configs** | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.mcp.json` |
 | **Parsing Engine** | Bi-directional Markdown & JSON frontmatter parser |
 | **Projection Target** | Dedicated `.claude/` directory + stamped `CLAUDE.md` |
-| **Symlink Support** | Direct symlink for `.claude/skills/*.md` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 

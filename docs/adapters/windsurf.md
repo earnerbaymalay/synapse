@@ -13,7 +13,7 @@
 | **Native Configs** | `.windsurfrules`, `mcp_config.json` |
 | **Parsing Engine** | Markdown rules + MCP configuration JSON |
 | **Projection Target** | Stamped `.windsurfrules` |
-| **Symlink Support** | Direct symlink where supported, fallback to stamped generated file |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 

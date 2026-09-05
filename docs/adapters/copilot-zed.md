@@ -13,7 +13,7 @@
 | **Native Configs** | `.github/copilot-instructions.md` | `.rules`, `.zed/settings.json`, `AGENTS.md` |
 | **Parsing Engine** | Markdown instruction parser | Markdown + JSON settings parser |
 | **Projection Target** | `.github/copilot-instructions.md` | `.rules` + `AGENTS.md` |
-| **Symlink Support** | Direct symlink supported | Direct symlink for `.rules` |
+| **Symlink Support** | None — always writes a stamped plain file | None — always writes stamped plain files |
 
 ---
 
