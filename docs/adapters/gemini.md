@@ -19,7 +19,7 @@
 
 ## 📥 Ingestion & Projection Strategy
 
-- Reads instructions from `GEMINI.md` into `~/AIBrain/rules/global.md`.
+- Reads instructions from `GEMINI.md` as a `gemini-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Safely merges MCP and tool settings into `.gemini/settings.json`.
 
 ---

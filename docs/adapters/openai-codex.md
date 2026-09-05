@@ -20,7 +20,7 @@
 ## 📥 Ingestion Strategy
 
 - Ingests system instructions and directives from `.codex/instructions.md` and `AGENTS.md`.
-- Ingests model configurations from `.codex/config.toml`.
+- Ingests MCP server entries from `.codex/config.toml`'s `mcp_servers` table (other keys are preserved verbatim on write-back but not parsed into the canonical model).
 
 ---
 

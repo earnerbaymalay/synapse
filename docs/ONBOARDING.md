@@ -7,7 +7,7 @@ Welcome to **SYNAPSE**. This guide walks you through the four phases of setting 
 flowchart TD
     Phase1[Phase 1: The Hook\nIdentify fragmented tool configs] --> Phase2[Phase 2: The Solution\nInitialize canonical ~/AIBrain]
     Phase2 --> Phase3[Phase 3: Immediate Value\nExecute scan -> import -> project]
-    Phase3 --> Phase4[Phase 4: Long-Term Power\nDaemon sync + Time Machine snapshots]
+    Phase3 --> Phase4[Phase 4: Long-Term Power\nSync reconciliation + Time Machine snapshots]
 ```
 
 ---

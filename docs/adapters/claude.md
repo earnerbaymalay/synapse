@@ -10,7 +10,7 @@
 | Property | Value |
 |---|---|
 | **Adapter ID** | `claude` |
-| **Native Configs** | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.mcp.json` |
+| **Native Configs** | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.mcp.json` |
 | **Parsing Engine** | Bi-directional Markdown & JSON frontmatter parser |
 | **Projection Target** | Dedicated `.claude/` directory + stamped `CLAUDE.md` |
 | **Symlink Support** | None — always writes stamped plain files |
@@ -20,10 +20,13 @@
 ## 📥 Ingestion Strategy
 
 Ingests:
-- System instructions from `CLAUDE.md` into `~/AIBrain/rules/global.md`
-- Skill definitions from `.claude/skills/` into `~/AIBrain/skills/<slug>/`
-- Custom agents from `.claude/agents/` into `~/AIBrain/agents/<slug>.md`
-- MCP server definitions from `.mcp.json` into `~/AIBrain/mcp/servers/`
+- System instructions from `CLAUDE.md` as a skill (there is no `rules/`
+  directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s
+  implementation-status note)
+- Skill definitions from `.claude/skills/`
+- Custom agents from `.claude/agents/`
+- MCP server definitions from **both** `.claude/settings.json` and
+  `.mcp.json` (either's `mcpServers`/`mcp_servers` key)
 
 ---
 

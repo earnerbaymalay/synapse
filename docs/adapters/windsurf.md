@@ -19,7 +19,7 @@
 
 ## 📥 Ingestion & Projection Strategy
 
-- Reads prompt conventions from `.windsurfrules` into `~/AIBrain/rules/global.md`.
+- Reads prompt conventions from `.windsurfrules` as a `windsurf-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Ingests MCP tool configurations from `mcp_config.json`.
 
 ---
