@@ -43,7 +43,7 @@ flowchart TD
 ## 2. The `Adapter` Trait in Rust
 
 ```rust
-pub trait Adapter: Send + Sync {
+pub trait Adapter {
     fn id(&self) -> &'static str;
     fn detect(&self, root: &Path) -> bool;
     fn import(&self, root: &Path) -> Result<ImportResult, AdapterError>;

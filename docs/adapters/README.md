@@ -23,7 +23,7 @@ Synapse includes 13 verified tool adapters, each purpose-built for bi-directiona
 | **GitHub Copilot** | [Spec](github-copilot.md) | `.github/copilot-instructions.md` | Markdown | Scoped Instructions | `.github/copilot-instructions.md` |
 | **Zed** | [Spec](zed.md) | `.rules`, `.zed/settings.json`, `AGENTS.md` | Text, JSON, Markdown | Settings & Rules | `.rules` + `AGENTS.md` |
 | **OpenCode** | [Spec](opencode.md) | `AGENTS.md` | Markdown | Multi-Agent Rules | `AGENTS.md` |
-| **Antigravity CLI** | [Spec](antigravity.md) | `AGENTS.md`, `.agy/skills/`, `.gemini/settings.json` | Markdown, YAML | Skills & Settings | `AGENTS.md` + `.agy/skills/` |
+| **Antigravity CLI** | [Spec](antigravity.md) | `AGENTS.md`, `.agents/skills/`, `.agents/mcp_config.json` | Markdown, JSON | Skills, Agents & MCP | `AGENTS.md` + `.agents/skills/` |
 
 ---
 
