@@ -7,7 +7,7 @@ Welcome to **SYNAPSE**. This guide walks you through the four phases of setting 
 flowchart TD
     Phase1[Phase 1: The Hook\nIdentify fragmented tool configs] --> Phase2[Phase 2: The Solution\nInitialize canonical ~/AIBrain]
     Phase2 --> Phase3[Phase 3: Immediate Value\nExecute scan -> import -> project]
-    Phase3 --> Phase4[Phase 4: Long-Term Power\nDaemon sync + Time Machine snapshots]
+    Phase3 --> Phase4[Phase 4: Long-Term Power\nSync reconciliation + Time Machine snapshots]
 ```
 
 ---
@@ -70,10 +70,10 @@ Once your Brain is initialized, unlock long-term features:
 | Feature | Command | Benefits |
 |---|---|---|
 | ⏳ **Time Machine** | `synapse snapshot "msg"` | Every sync is a Git commit. Revert anytime with `synapse rollback <hash>`. |
-| 🔄 **Auto-Sync Daemon** | `synapse sync --daemon` | Watches the Brain and all tools; resolves drift with a 3-way merge in real time. |
+| 🔄 **Sync** | `synapse sync` | Runs one import + project reconciliation pass over the Brain and all tools and exits. No watch/daemon mode yet. |
 | 🩺 **Doctor Auto-Repair** | `synapse doctor --fix` | Diagnoses broken symlinks and config drift, repairing them automatically. |
-| 🔌 **MCP Key Protection** | `synapse mcp harvest` | Browse MCP servers; API keys stay securely in the OS Keychain via `${VAR}` placeholders. |
-| 🛒 **Marketplace** | `synapse marketplace` | Pull skills and agents from any Git repo (`anthropics/skills`), with SHA-256 provenance cards. |
+| 🔌 **MCP Registry** | `synapse mcp search <query>`, `synapse mcp health <command-or-url>` | Search the official MCP registry; health-check a server yourself before trusting it — nothing is spawned without you naming it explicitly. |
+| 🛒 **Marketplace** | `synapse marketplace search`, `synapse marketplace show <slug>` | Browse skills from `anthropics/skills` with SHA-256 provenance. Metadata only for now — installing into the Brain isn't wired up yet. |
 
 ---
 

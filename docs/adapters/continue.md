@@ -13,13 +13,13 @@
 | **Native Configs** | `.continue/rules/*.md`, `.continue/config.json`, `.continue/prompts/*.prompt` |
 | **Parsing Engine** | MDC Markdown frontmatter + JSON config parser |
 | **Projection Target** | Stamped `.continue/rules/*.md` |
-| **Symlink Support** | Full symlink support for individual rule files |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
 ## 📥 Ingestion Strategy
 
-- Ingests rule files with glob patterns from `.continue/rules/*.md` into `~/AIBrain/rules/scoped/`.
+- Ingests rule files with glob patterns from `.continue/rules/*.md`, each as its own skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Reads custom prompt templates and model configurations from `.continue/config.json`.
 
 ---

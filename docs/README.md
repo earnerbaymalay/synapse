@@ -15,9 +15,9 @@
 * **[Onboarding Journey](ONBOARDING.md)** — Four-phase walkthrough from fragmented configs to permanent lockstep.
 
 ### 🏛️ 2. Architecture & Design
-* **[Architecture Overview](ARCHITECTURE.md)** — Monorepo layout, file system watchers, AST dialect parsers, and 3-way merge resolution.
+* **[Architecture Overview](ARCHITECTURE.md)** — Monorepo layout, adapter parsing, and 3-way merge resolution.
 * **[Architecture Decisions (ADRs)](DECISIONS.md)** — Record of architectural RFCs and choices.
-* **[Design Pack](DESIGN_PACK.md)** — Design tokens, component specs, and ASCII wireframes.
+* **[Design Pack](DESIGN_PACK.md)** — Superseded Phase 1 brainstorm; the real design authority is `IDENTITY.md` and `brands/synapse/tokens.json`.
 * **[Security Architecture](security.md)** — Threat model, path traversal defense (`safe_join`), symlink loop guards, and OS Keychain integration.
 
 ### 🔌 3. Verified Tool Adapters (13 Ecosystems)
@@ -54,7 +54,7 @@ synapse scan              # Scan filesystem for active AI coding tools
 synapse import --dry-run  # Preview config ingestion into ~/AIBrain
 synapse import            # Ingest native configs into ~/AIBrain
 synapse project           # Project canonical Brain configs out to all tools
-synapse sync --daemon     # Launch real-time background sync daemon
+synapse sync              # Run one import + project reconciliation pass
 synapse doctor            # Run diagnostic self-healing health check
 synapse doctor --fix      # Remediate config drift and broken symlinks
 synapse snapshot "msg"    # Commit a named snapshot in the Brain Time Machine

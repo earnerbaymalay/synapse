@@ -11,7 +11,7 @@ Synapse includes 13 verified tool adapters, each purpose-built for bi-directiona
 
 | Tool | Specification | Config Location | Format | Import Capabilities | Projection Target |
 |---|---|---|---|---|---|
-| **Claude Code / Desktop** | [Spec](claude.md) | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.mcp.json` | Markdown, JSON | Skills, Agents, MCP Servers | `.claude/` structure |
+| **Claude Code / Desktop** | [Spec](claude.md) | `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.mcp.json` | Markdown, JSON | Skills, Agents, MCP Servers | `.claude/` structure |
 | **Gemini CLI** | [Spec](gemini.md) | `GEMINI.md`, `.gemini/settings.json` | Markdown, JSON | Rules, Settings | Stamped `GEMINI.md` |
 | **OpenAI Codex CLI** | [Spec](openai-codex.md) | `.codex/config.toml`, `.codex/instructions.md` | TOML, Markdown | Rules, Config | `AGENTS.md` + `.codex/` |
 | **Cursor** | [Spec](cursor.md) | `.cursorrules`, `.cursor/rules/*.mdc` | MDC Frontmatter | MDC Rules & Globs | `.cursor/rules/*.mdc` |
@@ -23,7 +23,7 @@ Synapse includes 13 verified tool adapters, each purpose-built for bi-directiona
 | **GitHub Copilot** | [Spec](github-copilot.md) | `.github/copilot-instructions.md` | Markdown | Scoped Instructions | `.github/copilot-instructions.md` |
 | **Zed** | [Spec](zed.md) | `.rules`, `.zed/settings.json`, `AGENTS.md` | Text, JSON, Markdown | Settings & Rules | `.rules` + `AGENTS.md` |
 | **OpenCode** | [Spec](opencode.md) | `AGENTS.md` | Markdown | Multi-Agent Rules | `AGENTS.md` |
-| **Antigravity CLI** | [Spec](antigravity.md) | `AGENTS.md`, `.agy/skills/`, `.gemini/settings.json` | Markdown, YAML | Skills & Settings | `AGENTS.md` + `.agy/skills/` |
+| **Antigravity CLI** | [Spec](antigravity.md) | `AGENTS.md`, `.agents/skills/`, `.agents/mcp_config.json` | Markdown, JSON | Skills, Agents & MCP | `AGENTS.md` + `.agents/skills/` |
 
 ---
 

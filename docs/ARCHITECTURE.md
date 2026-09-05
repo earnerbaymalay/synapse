@@ -24,7 +24,11 @@ llm-neuro-surgeon/
 
 ---
 
-## 🔄 3-Way Merge & Sync Daemon Engine
+## 🔄 3-Way Merge & Sync Engine
+
+`synapse sync` runs this merge in a single pass and exits — there is no
+daemon or watch mode. `packages/core` ships `watcher.rs`/`scheduler.rs` for
+a future continuous-sync mode, but no CLI command wires them up yet.
 
 ```text
                   ┌───────────────────────┐

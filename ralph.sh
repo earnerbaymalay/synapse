@@ -2,13 +2,14 @@
 #
 # ralph.sh — the RALPH outer loop.
 #
-# Repeatedly invokes `claude -p "$(cat RALPH_PROMPT.md)"`. Each iteration the
-# agent reads PLAN.md, picks the single highest-priority unchecked, non-gate
-# task, implements it, runs its `verify:` check, commits, and ticks the box.
-# Fresh context per iteration is the token saver (see MASTER_PROMPT.md §2).
+# Repeatedly invokes `claude -p "$(cat .ai/RALPH_PROMPT.md)"`. Each iteration
+# the agent reads .ai/PLAN.md, picks the single highest-priority unchecked,
+# non-gate task, implements it, runs its `verify:` check, commits, and ticks
+# the box. Fresh context per iteration is the token saver (see
+# .ai/MASTER_PROMPT.md §2).
 #
 # The loop stops when any of these is true:
-#   - no unchecked non-gate tasks remain in PLAN.md               (done)
+#   - no unchecked non-gate tasks remain in .ai/PLAN.md           (done)
 #   - the next unchecked task is a human GATE                     (needs review)
 #   - an iteration completed no task (a task went [BLOCKED])      (avoid a spin)
 #   - MAX_ITERATIONS is reached                                   (safety cap)
@@ -26,8 +27,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT" || exit 1
 
-PLAN="$ROOT/PLAN.md"
-PROMPT_FILE="$ROOT/RALPH_PROMPT.md"
+PLAN="$ROOT/.ai/PLAN.md"
+PROMPT_FILE="$ROOT/.ai/RALPH_PROMPT.md"
 MAX_ITERATIONS="${MAX_ITERATIONS:-20}"
 PERMISSION_MODE="${PERMISSION_MODE:-acceptEdits}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
@@ -63,7 +64,7 @@ while :; do
   nxt="$(next_task)"
 
   if [[ "$remaining" -eq 0 ]]; then
-    echo "ralph: no unchecked non-gate tasks left in PLAN.md — done."
+    echo "ralph: no unchecked non-gate tasks left in .ai/PLAN.md — done."
     break
   fi
 
@@ -84,7 +85,7 @@ while :; do
 
   if [[ "$DRY_RUN" == "1" ]]; then
     echo "     [dry-run] would run:" \
-      "$CLAUDE_BIN -p \"\$(cat RALPH_PROMPT.md)\" --permission-mode $PERMISSION_MODE"
+      "$CLAUDE_BIN -p \"\$(cat .ai/RALPH_PROMPT.md)\" --permission-mode $PERMISSION_MODE"
     break
   fi
 

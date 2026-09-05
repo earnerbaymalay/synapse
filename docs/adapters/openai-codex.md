@@ -13,14 +13,14 @@
 | **Native Configs** | `.codex/config.toml`, `.codex/instructions.md`, `AGENTS.md` |
 | **Parsing Engine** | TOML configuration + Markdown multi-agent parser |
 | **Projection Target** | `AGENTS.md` + `.codex/instructions.md` |
-| **Symlink Support** | Symlink for instruction files where supported |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
 ## 📥 Ingestion Strategy
 
 - Ingests system instructions and directives from `.codex/instructions.md` and `AGENTS.md`.
-- Ingests model configurations from `.codex/config.toml`.
+- Ingests MCP server entries from `.codex/config.toml`'s `mcp_servers` table (other keys are preserved verbatim on write-back but not parsed into the canonical model).
 
 ---
 

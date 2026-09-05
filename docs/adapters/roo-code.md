@@ -13,14 +13,14 @@
 | **Native Configs** | `.roomodes`, `.clinerules`, `.roomodes.json` |
 | **Parsing Engine** | Custom Mode JSON Schema + Markdown rules parser |
 | **Projection Target** | Stamped `.roomodes` + `.clinerules` |
-| **Symlink Support** | Direct symlink for `.clinerules` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
 ## 📥 Ingestion Strategy
 
 - Ingests custom agent modes and prompt overrides from `.roomodes` into `~/AIBrain/agents/<slug>.md`.
-- Ingests global prompt rules from `.clinerules` into `~/AIBrain/rules/global.md`.
+- Ingests global prompt rules from `.clinerules` as a `roo-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 
 ---
 

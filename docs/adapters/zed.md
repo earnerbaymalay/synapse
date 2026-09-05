@@ -13,13 +13,13 @@
 | **Native Configs** | `.rules`, `.zed/settings.json`, `AGENTS.md` |
 | **Parsing Engine** | Markdown rules + JSON settings parser |
 | **Projection Target** | Stamped `.rules` + `AGENTS.md` |
-| **Symlink Support** | Direct symlink for `.rules` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
 ## 📥 Ingestion Strategy
 
-- Ingests slash command prompt rules from `.rules` into `~/AIBrain/rules/global.md`.
+- Ingests slash command prompt rules from `.rules` as a `zed-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Ingests multi-agent directives from `AGENTS.md`.
 - Ingests editor model settings and custom assistant configuration from `.zed/settings.json`.
 

@@ -2,9 +2,11 @@
 //! trait, projection policy, and sync outcomes. Consumed by `apps/cli`
 //! directly and by `apps/desktop` via Tauri commands.
 //!
-//! Phase 2 (this crate's current state) only defines the shapes; adapter
-//! implementations, real filesystem scanning, and the sync daemon land in
-//! Phase 3/4 (see PLAN.md).
+//! This crate implements 13 real adapters, filesystem scanning, git-backed
+//! snapshots, and a single-pass sync (`sync::perform_import`/
+//! `perform_project`) — not just shapes. `watcher.rs`/`scheduler.rs` exist
+//! as library modules for a future continuous-sync mode, but no CLI command
+//! wires them up yet: there is no daemon.
 
 #[cfg(test)]
 pub(crate) mod test_home;
@@ -31,8 +33,8 @@ pub mod watcher;
 
 pub use adapter::Adapter;
 pub use compression::{
-    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression,
-    CompressedOutput, CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
+    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression, CompressedOutput,
+    CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
 };
 pub use conflict_queue::{reconcile, ConflictQueue, QueuedConflict};
 pub use doctor::{diagnose, Diagnosis, DoctorContext, Severity};

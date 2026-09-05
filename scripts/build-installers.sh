@@ -3,7 +3,7 @@
 # build-installers.sh — Build all LLM Neurosurgeon installers
 #
 # Generates:
-#   - CLI binary  (target/release/neurosurgeon)
+#   - CLI binary  (target/release/synapse)
 #   - Desktop app (Tauri bundle: .deb, .AppImage, etc.)
 #
 # Usage:
@@ -46,14 +46,14 @@ OPTIONS:
     --skip-desktop   Skip building the desktop app and Tauri bundles
 
 WHAT IT BUILDS:
-  1. CLI binary          — cargo build -p neurosurgeon --release
+  1. CLI binary          — cargo build -p synapse --release
   2. Desktop frontend    — pnpm install && pnpm build (in apps/desktop)
   3. App icons           — python3 build-icons.py (in apps/desktop/src-tauri)
   4. Tauri desktop app   — cargo build --release (in apps/desktop)
   5. Tauri bundles       — pnpm tauri build (in apps/desktop)
 
 OUTPUT LOCATIONS:
-  CLI binary:       target/release/neurosurgeon
+  CLI binary:       target/release/synapse
   Desktop frontend: apps/desktop/dist/
   Tauri binary:     apps/desktop/src-tauri/target/release/desktop-app
   Tauri bundles:    apps/desktop/src-tauri/target/release/bundle/
@@ -196,21 +196,21 @@ check_versions() {
 # ── Build steps ────────────────────────────────────────────────────────────────
 
 build_cli() {
-    header "Step 1/5: Building CLI binary (neurosurgeon)"
+    header "Step 1/5: Building CLI binary (synapse)"
 
     cd "${PROJECT_ROOT}"
 
-    info "Running: cargo build -p neurosurgeon --${CARGO_PROFILE} -j${JOBS}"
-    cargo build -p neurosurgeon --"${CARGO_PROFILE}" -j"${JOBS}"
+    info "Running: cargo build -p synapse --${CARGO_PROFILE} -j${JOBS}"
+    cargo build -p synapse --"${CARGO_PROFILE}" -j"${JOBS}"
 
     echo ""
     ok "CLI binary built successfully!"
 
     # Determine the output path
     if [ "${CARGO_PROFILE}" = "release" ]; then
-        cli_binary="${PROJECT_ROOT}/target/release/neurosurgeon"
+        cli_binary="${PROJECT_ROOT}/target/release/synapse"
     else
-        cli_binary="${PROJECT_ROOT}/target/${CARGO_PROFILE}/neurosurgeon"
+        cli_binary="${PROJECT_ROOT}/target/${CARGO_PROFILE}/synapse"
     fi
 
     if [ -f "${cli_binary}" ]; then
@@ -342,9 +342,9 @@ print_summary() {
 
     if [ "${BUILD_CLI}" -eq 1 ]; then
         if [ "${CARGO_PROFILE}" = "release" ]; then
-            cli_path="${PROJECT_ROOT}/target/release/neurosurgeon"
+            cli_path="${PROJECT_ROOT}/target/release/synapse"
         else
-            cli_path="${PROJECT_ROOT}/target/${CARGO_PROFILE}/neurosurgeon"
+            cli_path="${PROJECT_ROOT}/target/${CARGO_PROFILE}/synapse"
         fi
         if [ -f "${cli_path}" ]; then
             ok "CLI binary:       ${cli_path}"
@@ -381,7 +381,7 @@ print_summary() {
 
     echo ""
     info "All done! Install the CLI with:"
-    echo "  sudo cp target/release/neurosurgeon /usr/local/bin/"
+    echo "  sudo cp target/release/synapse /usr/local/bin/"
     echo ""
     info "Install the desktop app via the bundle in:"
     echo "  ${TAURI_DIR}/target/release/bundle/"

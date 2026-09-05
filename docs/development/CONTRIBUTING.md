@@ -23,7 +23,7 @@ pnpm install
 pnpm --filter e2e test
 
 # 4. Launch Desktop GUI in dev mode
-pnpm --filter desktop tauri dev
+pnpm --filter desktop-app tauri dev
 ```
 
 ---
@@ -32,9 +32,9 @@ pnpm --filter desktop tauri dev
 
 Before opening a pull request, ensure all test suites pass:
 
-* `cargo test --workspace` (179/179 Rust tests)
-* `pnpm --filter e2e test` (142/142 E2E tests)
-* `cargo clippy --workspace --all-targets` (0 warnings)
+* `cargo test --workspace` (all Rust tests passing)
+* `pnpm --filter @llm-neurosurgeon/e2e test` (all E2E tests passing)
+* `cargo clippy --workspace --all-targets --all-features -- -D warnings` (0 warnings — enforced in CI's "Rust lints (clippy)" job)
 
 ---
 
