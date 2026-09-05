@@ -54,9 +54,10 @@ current:
   `apps/desktop/src/assets/fonts/` rather than fetched from a CDN — the
   brand's own claim is "local-first, zero telemetry," so a font fetch on
   every launch would contradict the product it's branding.
-- CLI binary renamed `neurosurgeon` → `synapse` (the internal
-  `neurosurgeon-core` library crate and `NEUROSURGEON_*` env vars are
-  unchanged — that's implementation detail, not brand surface).
+- CLI binary's brand-facing name is `synapse` (the crate still builds a
+  `neurosurgeon` binary too, from the same `main.rs`, kept only as a
+  compatibility alias — it's not brand surface, and neither is the internal
+  `neurosurgeon-core` library crate or the `NEUROSURGEON_*` env vars).
 
 ## What this still rules out
 

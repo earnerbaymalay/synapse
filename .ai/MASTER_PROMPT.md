@@ -50,6 +50,15 @@ AIBrain/
   .git/                 full history
 ```
 
+**Implementation status (updated as of the doc-accuracy audit, not part of the
+original prompt):** `packages/core/src/model.rs` implements `skills/`,
+`agents/`, and `mcp/servers/` — the `rules/`, `memory/`, and `prompts/`
+directories above are still spec, not code; no adapter or projector writes
+them today. Likewise §1.4's "Auto-Sync Daemon" is unbuilt: `packages/core`
+ships `watcher.rs`/`scheduler.rs` as library modules, but no CLI command
+wires them up — `synapse sync` always runs a single reconciliation pass and
+exits (see `docs/ARCHITECTURE.md` and `docs/USER_GUIDE.md` for the same note).
+
 ---
 
 ## §2 OPERATING SYSTEM — file-state, loop, and communication protocol
