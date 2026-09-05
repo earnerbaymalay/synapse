@@ -45,6 +45,8 @@
 - [x] T7.4  Doc set: README, user guide, adapter-authoring guide, CHANGELOG :: verify: docs build
 
 ## Phase 8 — Package & Release → GATE 4 (human)
-- [x] T8.1  Signed installers .dmg/.msi/AppImage/.deb + CLI formulae drafts :: verify: smoke-test install matrix
+- [ ] T8.1  Signed installers .dmg/.msi/AppImage/.deb + CLI formulae drafts :: verify: smoke-test install matrix
+  - Actually shipped: unsigned `.deb`/`.AppImage` via `scripts/build-installers.sh`. No macOS/Windows bundling, no code signing, no CLI install scripts or Homebrew formula exist — see docs/packaging/RELEASE_PACKAGING.md's "Planned, not yet built" section (corrected 2026-09-05; the doc previously described this fabricated pipeline as already shipped).
 - [x] T8.2  Reproducible-build notes :: verify: build notes present
+  - Note: the build notes this originally verified against (docs/packaging/RELEASE_PACKAGING.md) were themselves fabricated and have since been corrected to describe the real `.deb`/`.AppImage`-only pipeline.
 - [ ] T8.3  Gate 4: human installs on real machine and runs onboarding
