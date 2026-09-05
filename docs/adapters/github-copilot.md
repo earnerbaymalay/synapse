@@ -19,7 +19,7 @@
 
 ## 📥 Ingestion Strategy
 
-- Ingests workspace instructions from `.github/copilot-instructions.md` into `~/AIBrain/rules/global.md`.
+- Ingests workspace instructions from `.github/copilot-instructions.md` as a `github-copilot-instructions` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Ingests path-specific instructions into scoped Brain rules.
 
 ---

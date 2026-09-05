@@ -20,7 +20,7 @@
 ## 📥 Ingestion & Projection Strategy
 
 - Extracts agent modes from `.roomodes` into `~/AIBrain/agents/<slug>.md`.
-- Extracts system prompts from `.clinerules` into `~/AIBrain/rules/global.md`.
+- Extracts system prompts from `.clinerules` as a `cline-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 
 ---
 

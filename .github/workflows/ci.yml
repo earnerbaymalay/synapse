@@ -1,9 +1,12 @@
 name: CI
 
 # Fast, always-verifiable checks that run on every push and pull request.
-# The heavier cross-platform Tauri build lives in build.yml and is opt-in
-# (workflow_dispatch) until the desktop app compiles end-to-end — see
-# docs/CODE_REVIEW.md for the remaining Phase 2 work.
+# The desktop app builds and tests clean as part of this workflow (see the
+# rust-test and rust-clippy jobs below). The heavier cross-platform release
+# build lives in build.yml, gated to version tags and manual dispatch by
+# design, not because of a compile blocker. docs/CODE_REVIEW.md is a
+# historical record of Phase 2/T2.1's state, not a live tracker — see its
+# own 2026-07-12 addendum before trusting anything past §1.
 
 on:
   push:
