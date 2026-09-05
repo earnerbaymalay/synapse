@@ -13,7 +13,7 @@
 | **Native Configs** | `.roomodes`, `.clinerules`, `.roomodes.json` |
 | **Parsing Engine** | Custom Mode JSON Schema + Markdown rules parser |
 | **Projection Target** | Stamped `.roomodes` + `.clinerules` |
-| **Symlink Support** | Direct symlink for `.clinerules` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 

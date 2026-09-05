@@ -13,7 +13,7 @@
 | **Native Configs** | `CONVENTIONS.md`, `.aider.conf.yml` |
 | **Parsing Engine** | Markdown conventions + YAML configuration parser |
 | **Projection Target** | Stamped `CONVENTIONS.md` |
-| **Symlink Support** | Direct symlink for `CONVENTIONS.md` |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 

@@ -13,7 +13,7 @@
 | **Native Configs** | `.codex/config.toml`, `.codex/instructions.md`, `AGENTS.md` |
 | **Parsing Engine** | TOML configuration + Markdown multi-agent parser |
 | **Projection Target** | `AGENTS.md` + `.codex/instructions.md` |
-| **Symlink Support** | Symlink for instruction files where supported |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 

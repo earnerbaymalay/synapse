@@ -13,7 +13,7 @@
 | **Native Configs** | `.clinerules`, `.roomodes`, `cline_mcp_settings.json` |
 | **Parsing Engine** | Markdown rules + Custom Mode JSON schema |
 | **Projection Target** | Stamped `.clinerules` + `.roomodes` |
-| **Symlink Support** | Direct symlink for `.clinerules` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 

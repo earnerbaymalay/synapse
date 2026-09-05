@@ -13,7 +13,7 @@
 | **Native Configs** | `.continue/rules/*.md`, `.continue/config.json`, `.continue/prompts/*.prompt` |
 | **Parsing Engine** | MDC Markdown frontmatter + JSON config parser |
 | **Projection Target** | Stamped `.continue/rules/*.md` |
-| **Symlink Support** | Full symlink support for individual rule files |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 

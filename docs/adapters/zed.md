@@ -13,7 +13,7 @@
 | **Native Configs** | `.rules`, `.zed/settings.json`, `AGENTS.md` |
 | **Parsing Engine** | Markdown rules + JSON settings parser |
 | **Projection Target** | Stamped `.rules` + `AGENTS.md` |
-| **Symlink Support** | Direct symlink for `.rules` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
