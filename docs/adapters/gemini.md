@@ -9,7 +9,7 @@
 
 | Property | Value |
 |---|---|
-| **Adapter ID** | `gemini` |
+| **Adapter ID** | `gemini-cli` |
 | **Native Configs** | `GEMINI.md`, `.gemini/settings.json` |
 | **Parsing Engine** | Markdown system prompt + JSON settings parser |
 | **Projection Target** | Stamped `GEMINI.md` + merged `.gemini/settings.json` |

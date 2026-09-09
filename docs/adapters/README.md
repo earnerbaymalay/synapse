@@ -21,7 +21,7 @@ Synapse includes 13 verified tool adapters, each purpose-built for bi-directiona
 | **Aider** | [Spec](aider.md) | `CONVENTIONS.md`, `.aider.conf.yml` | Markdown, YAML | Conventions & Config | `CONVENTIONS.md` |
 | **Continue** | [Spec](continue.md) | `.continue/rules/*.md`, `.continue/config.json` | MDC, JSON | MDC Rules & Config | `.continue/rules/` |
 | **GitHub Copilot** | [Spec](github-copilot.md) | `.github/copilot-instructions.md` | Markdown | Scoped Instructions | `.github/copilot-instructions.md` |
-| **Zed** | [Spec](zed.md) | `.rules`, `.zed/settings.json`, `AGENTS.md` | Text, JSON, Markdown | Settings & Rules | `.rules` + `AGENTS.md` |
+| **Zed** | [Spec](zed.md) | `.rules`, `.zed/settings.json`, `.config/zed/AGENTS.md` | Text, JSON, Markdown | Settings & Rules | `.rules` + `.config/zed/AGENTS.md` |
 | **OpenCode** | [Spec](opencode.md) | `AGENTS.md` | Markdown | Multi-Agent Rules | `AGENTS.md` |
 | **Antigravity CLI** | [Spec](antigravity.md) | `AGENTS.md`, `.agents/skills/`, `.agents/mcp_config.json` | Markdown, JSON | Skills, Agents & MCP | `AGENTS.md` + `.agents/skills/` |
 

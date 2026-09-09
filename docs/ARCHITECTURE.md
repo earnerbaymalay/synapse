@@ -32,7 +32,8 @@ a future continuous-sync mode, but no CLI command wires them up yet.
 
 ```text
                   ┌───────────────────────┐
-                  │ Base Hash (State.json)│
+                  │ Base: last git-        │
+                  │ committed content      │
                   └──────────┬────────────┘
                              │
             ┌────────────────┴────────────────┐
@@ -51,10 +52,15 @@ a future continuous-sync mode, but no CLI command wires them up yet.
             ┌────────────────┴────────────────┐
             ▼                                 ▼
 ┌───────────────────────┐         ┌───────────────────────┐
-│ Clean Merge: Commit   │         │ Conflict: Queue Item  │
-│ to Git Time Machine   │         │ for Doctor Resolution │
+│ Clean Merge: Commit   │         │ Conflict: Queued,     │
+│ to Git Time Machine   │         │ reported by CLI sync  │
 └───────────────────────┘         └───────────────────────┘
 ```
+
+The queue's only consumer today is `synapse sync`'s own CLI output
+(`SyncOutcome::ConflictQueued`) — there is no GUI review screen and
+`synapse doctor` does not read the conflict queue (see
+`packages/core/src/conflict_queue.rs`'s module doc for the full gap).
 
 ---
 

@@ -1,8 +1,11 @@
 //! Three-way text merge — T4.2. Per MASTER_PROMPT.md pillar 4: when both
 //! sides of a sync changed since the last snapshot, "three-way merge
 //! against last git snapshot; disjoint markdown merges auto-resolve, real
-//! conflicts enter a review queue in the GUI." This module is the merge
-//! half; `crate::conflict_queue` is the review-queue half.
+//! conflicts enter a review queue." That's the spec's original vision — as
+//! shipped, the queue's only consumer is `synapse sync`'s CLI output (see
+//! `Command::Sync` in apps/cli/src/main.rs); there is no GUI review screen
+//! and no daemon calling this automatically. This module is the merge
+//! half; `crate::conflict_queue` is the queue half.
 //!
 //! Wraps the `diffy` crate's diff3-style merge rather than hand-rolling
 //! one — a buggy bespoke three-way merge would silently corrupt a user's
