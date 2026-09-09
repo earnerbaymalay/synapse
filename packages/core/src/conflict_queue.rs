@@ -1,8 +1,10 @@
 //! Conflict queue — T4.2's other half. Per MASTER_PROMPT.md pillar 4,
-//! "real conflicts enter a review queue in the GUI" — this module is that
-//! queue's data model and the `reconcile()` entry point the sync daemon
-//! calls once per canonical item whose Brain-side and tool-projected-side
-//! content both changed since the last snapshot.
+//! "real conflicts enter a review queue" — this module is that queue's
+//! data model and the `reconcile()` entry point `synapse sync` calls once
+//! per canonical item whose Brain-side and tool-projected-side content both
+//! changed since the last snapshot. As shipped there is no sync daemon and
+//! no GUI diff view; the queue surfaces today only as `synapse sync`'s CLI
+//! output (`SyncOutcome::ConflictQueued` in apps/cli/src/main.rs).
 
 use crate::adapter::AdapterError;
 use crate::merge::{three_way_merge, MergeOutcome};
@@ -10,9 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-/// One conflict awaiting human review. Carries all three sides so the GUI
-/// can show a diff view, plus the pre-computed `merged_with_markers` text
-/// as a ready-to-edit starting point.
+/// One conflict awaiting human review. Carries all three sides so a future
+/// diff view (none exists today — see the module doc) could be built
+/// without a schema change, plus the pre-computed `merged_with_markers`
+/// text as a ready-to-edit starting point.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueuedConflict {
     /// Stable id derived from `canonical_path` — re-running `reconcile()`
