@@ -34,10 +34,11 @@ cargo run -p synapse -- import
 ```
 *Creates `~/AIBrain` as a local Git repository and snapshots all existing prompt files.*
 
-### Step 3: Run the Auto-Sync Watcher
+### Step 3: Reconcile Drift
 ```bash
-cargo run -p synapse -- sync --daemon
+cargo run -p synapse -- sync
 ```
+*Runs one import + project reconciliation pass and exits — there's no watch/daemon mode yet.*
 
 ### ⚡ Bonus: Synaptic Auto-Compression for Agent Commands
 ```bash

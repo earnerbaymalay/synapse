@@ -39,7 +39,7 @@ On every turn, RALPH:
 - Architecture and frameworks before UI polish
 
 ## Command Sequence
-- Use dedicated tools (read_file, edit, write_file, glob, grep_search, run_shell_command) for all file operations
+- Use dedicated tools (Read, Edit, Write, Glob, Grep, Bash — `ralph.sh` drives Claude Code's `claude -p`, whose tool names are these, not the snake_case names other agent CLIs use) for all file operations
 - For verification: use project-specific test commands from README, linters, and type-checkers
 - All file paths must be absolute; follow project conventions strictly
 - Never make assumptions; validate before editing

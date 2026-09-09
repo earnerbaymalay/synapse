@@ -267,10 +267,7 @@ impl Adapter for ClaudeCodeAdapter {
             .iter()
             .filter(|s| s.id.starts_with(SKILL_ID_PREFIX) || s.id == "obsidian-session-worklog")
         {
-            let slug = skill
-                .id
-                .strip_prefix(SKILL_ID_PREFIX)
-                .unwrap_or(&skill.id);
+            let slug = skill.id.strip_prefix(SKILL_ID_PREFIX).unwrap_or(&skill.id);
             let rel_path = format!(".claude/skills/{}/SKILL.md", slug);
             let target_path = safe_join(root, &rel_path)?;
             if let Some(dir) = target_path.parent() {

@@ -164,7 +164,11 @@ pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
         let skill = Skill {
             id: OBSIDIAN_WORKLOG_SKILL_ID.to_string(),
             version: "1.0.0".to_string(),
-            triggers: vec!["*".to_string(), "session-init".to_string(), "milestone".to_string()],
+            triggers: vec![
+                "*".to_string(),
+                "session-init".to_string(),
+                "milestone".to_string(),
+            ],
             targets: vec![
                 "claude-code".to_string(),
                 "cursor".to_string(),
@@ -589,26 +593,48 @@ mod tests {
         assert!(!projected.is_empty());
 
         // Check brain has the skill
-        let brain_skill = brain.path().join("skills/obsidian-session-worklog/SKILL.md");
-        assert!(brain_skill.exists(), "Brain must contain obsidian-session-worklog SKILL.md");
+        let brain_skill = brain
+            .path()
+            .join("skills/obsidian-session-worklog/SKILL.md");
+        assert!(
+            brain_skill.exists(),
+            "Brain must contain obsidian-session-worklog SKILL.md"
+        );
         let content = fs::read_to_string(&brain_skill).unwrap();
         assert!(content.contains("Obsidian Session Worklog"));
 
         // Check projected to tool targets:
         // Claude Code
-        let claude_skill = tool_root.path().join(".claude/skills/obsidian-session-worklog/SKILL.md");
-        assert!(claude_skill.exists(), "Claude must have obsidian skill projected");
+        let claude_skill = tool_root
+            .path()
+            .join(".claude/skills/obsidian-session-worklog/SKILL.md");
+        assert!(
+            claude_skill.exists(),
+            "Claude must have obsidian skill projected"
+        );
 
         // Cursor
-        let cursor_rule = tool_root.path().join(".cursor/rules/obsidian-session-worklog.mdc");
-        assert!(cursor_rule.exists(), "Cursor must have obsidian rule projected");
+        let cursor_rule = tool_root
+            .path()
+            .join(".cursor/rules/obsidian-session-worklog.mdc");
+        assert!(
+            cursor_rule.exists(),
+            "Cursor must have obsidian rule projected"
+        );
 
         // AGY / Agents
-        let agy_skill = tool_root.path().join(".agents/skills/obsidian-session-worklog/SKILL.md");
+        let agy_skill = tool_root
+            .path()
+            .join(".agents/skills/obsidian-session-worklog/SKILL.md");
         assert!(agy_skill.exists(), "AGY must have obsidian skill projected");
 
         // Continue
-        let continue_rule = tool_root.path().join(".continue/rules/obsidian-session-worklog.md");
-        assert!(continue_rule.exists(), "Continue must have obsidian rule projected");
+        let continue_rule = tool_root
+            .path()
+            .join(".continue/rules/obsidian-session-worklog.md");
+        assert!(
+            continue_rule.exists(),
+            "Continue must have obsidian rule projected"
+        );
     }
 }

@@ -13,13 +13,13 @@
 | **Native Configs** | `AGENTS.md`, `.opencode/rules/` |
 | **Parsing Engine** | Multi-Agent Markdown parser |
 | **Projection Target** | Stamped `AGENTS.md` |
-| **Symlink Support** | Direct symlink for rule files |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 
 ## 📥 Ingestion Strategy
 
-- Ingests multi-agent specifications and system rules from `AGENTS.md` into `~/AIBrain/agents/` and `~/AIBrain/rules/`.
+- Ingests multi-agent specifications from `AGENTS.md` into `~/AIBrain/agents/`, and its system-rules preamble as an `opencode-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 
 ---
 

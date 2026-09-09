@@ -9,7 +9,7 @@
 
 | Property | Value |
 |---|---|
-| **Adapter ID** | `gemini` |
+| **Adapter ID** | `gemini-cli` |
 | **Native Configs** | `GEMINI.md`, `.gemini/settings.json` |
 | **Parsing Engine** | Markdown system prompt + JSON settings parser |
 | **Projection Target** | Stamped `GEMINI.md` + merged `.gemini/settings.json` |
@@ -19,7 +19,7 @@
 
 ## 📥 Ingestion & Projection Strategy
 
-- Reads instructions from `GEMINI.md` into `~/AIBrain/rules/global.md`.
+- Reads instructions from `GEMINI.md` as a `gemini-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Safely merges MCP and tool settings into `.gemini/settings.json`.
 
 ---

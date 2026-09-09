@@ -13,14 +13,14 @@
 | **Native Configs** | `CONVENTIONS.md`, `.aider.conf.yml` |
 | **Parsing Engine** | Markdown conventions + YAML configuration parser |
 | **Projection Target** | Stamped `CONVENTIONS.md` |
-| **Symlink Support** | Direct symlink for `CONVENTIONS.md` |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 
 ## 📥 Ingestion Strategy
 
-- Ingests repository conventions and guidelines from `CONVENTIONS.md` into `~/AIBrain/rules/global.md`.
-- Ingests model preferences and settings from `.aider.conf.yml`.
+- Ingests `CONVENTIONS.md` as a `conventions` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
+- From `.aider.conf.yml`, ingests only the files listed under its `read:` key (each becomes its own skill); other keys (`model`, `auto-commits`, etc.) are preserved verbatim on write-back but are not parsed into the canonical model.
 
 ---
 

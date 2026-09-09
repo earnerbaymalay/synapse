@@ -10,17 +10,18 @@
 | Property | Value |
 |---|---|
 | **Adapter ID** | `github-copilot` |
-| **Native Configs** | `.github/copilot-instructions.md`, `.github/instructions/**/*.md` |
+| **Native Configs** | `.github/copilot-instructions.md`, `copilot-instructions.md` (root fallback), any `**/*.instructions.md` found anywhere in the project, `.vscode/mcp.json` |
 | **Parsing Engine** | Scoped Markdown instruction parser |
 | **Projection Target** | Stamped `.github/copilot-instructions.md` |
-| **Symlink Support** | Direct symlink supported |
+| **Symlink Support** | None — always writes a stamped plain file |
 
 ---
 
 ## 📥 Ingestion Strategy
 
-- Ingests workspace instructions from `.github/copilot-instructions.md` into `~/AIBrain/rules/global.md`.
-- Ingests path-specific instructions into scoped Brain rules.
+- Ingests workspace instructions from `.github/copilot-instructions.md` as a `github-copilot-instructions` skill, and a root-level `copilot-instructions.md` fallback as a separate `copilot-instructions-root` skill.
+- Recursively finds every `*.instructions.md` file in the project (skipping `.git`/`node_modules`/`target` and never following symlinked directories) and ingests each as its own skill, scoped to its directory.
+- Ingests MCP server entries from `.vscode/mcp.json`.
 
 ---
 

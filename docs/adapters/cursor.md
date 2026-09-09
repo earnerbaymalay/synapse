@@ -13,15 +13,15 @@
 | **Native Configs** | `.cursorrules`, `.cursor/rules/*.mdc` |
 | **Parsing Engine** | YAML Frontmatter + Scoped File Globs (`globs: ["*.rs"]`) |
 | **Projection Target** | `.cursor/rules/*.mdc` (MDC rule files) |
-| **Symlink Support** | Full symlink support for individual `.mdc` files |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
 ## 📥 Ingestion & Projection Strategy
 
-- Converts legacy `.cursorrules` into `~/AIBrain/rules/global.md`.
+- Converts legacy `.cursorrules` into a skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
 - Parses `.cursor/rules/*.mdc` frontmatter into scoped rules with file matching patterns.
-- Symlinks canonical Brain rules directly into `.cursor/rules/`.
+- Projects canonical Brain rules as stamped plain files into `.cursor/rules/` (no symlinking).
 
 ---
 

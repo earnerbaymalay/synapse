@@ -17,9 +17,11 @@ Welcome to the **SYNAPSE** User Guide. This document provides a complete referen
    - [synapse snapshot & rollback](#synapse-snapshot--rollback)
    - [synapse exec & filter](#synapse-exec--filter-synaptic-auto-compression)
    - [synapse spool](#synapse-spool)
+   - [synapse mcp](#synapse-mcp)
+   - [synapse marketplace](#synapse-marketplace)
 3. [Supported Tool Adapters (13/13)](#3-supported-tool-adapters-1313)
 4. [Desktop GUI Application](#4-desktop-gui-application)
-5. [MCP Hub & OS Keychain Integration](#5-mcp-hub--os-keychain-integration)
+5. [MCP Registry & Marketplace](#5-mcp-registry--marketplace)
 6. [Doctor Diagnostic Engine](#6-doctor-diagnostic-engine)
 7. [Troubleshooting & FAQ](#7-troubleshooting--faq)
 
@@ -54,7 +56,7 @@ flowchart TD
 > [!NOTE]
 > **The Three-Command Loop:**  
 > `synapse scan` → `synapse import` → `synapse project`.  
-> Once imported into `~/AIBrain`, use `synapse sync --daemon` to keep every tool automatically in lockstep.
+> Once imported into `~/AIBrain`, run `synapse sync` any time to reconcile drift in one pass.
 
 ### Inbuilt Obsidian Session Worklog Skill
 Every freshly initialized or imported Brain automatically provisions the canonical `obsidian-session-worklog` skill into `~/AIBrain/skills/obsidian-session-worklog/` and projects it across all tools:
@@ -74,7 +76,7 @@ stateDiagram-v2
     Unconfigured --> Discovered : synapse scan
     Discovered --> Imported : synapse import
     Imported --> Projected : synapse project
-    Projected --> AutoSync : synapse sync --daemon
+    Projected --> Reconciled : synapse sync
     Projected --> Snapshot : synapse snapshot
     Snapshot --> Restored : synapse rollback
 ```
@@ -106,14 +108,14 @@ synapse project
 ```
 
 ### `synapse sync`
-Starts background lockstep monitoring or executes a one-time reconciliation.
+Runs one import + project reconciliation pass and exits. There is no watch
+or daemon mode yet — `packages/core` has `watcher.rs` and `scheduler.rs`
+modules for a future continuous-sync mode, but no CLI command wires them up,
+so `synapse sync` always does a single pass today.
 
 ```bash
-# One-time sync
-synapse sync --once
-
-# Background daemon watcher
-synapse sync --daemon
+synapse sync
+synapse sync --once   # accepted for forward compatibility; same behaviour
 ```
 
 ### `synapse doctor`
@@ -188,51 +190,75 @@ synapse spool show <id> --tail 50
 
 ## 4. Desktop GUI Application
 
-The React Desktop GUI provides an 8-screen dashboard built with the **SYNAPSE Dark Precision Design System** (`bg-ink-950`, Synapse Blue accent `#1d9bf0`, square corner cards, zero emojis).
+The React desktop app has two screens, both backed by real reads against
+your machine and Brain — nothing on either screen is sample data:
 
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE // llm-neuro-surgeon                             v1.0.0      │
-├───────────────┬────────────────────────────────────────────────────────┤
-│ [Dashboard]   │  SYNAPSE DASHBOARD — One Brain. All Models.             │
-│ [Config]      │  ┌──────────────────┐ ┌────────────────┐ ┌────────────┐ │
-│ [Adapters]    │  │ 13 Adapters      │ │ ~/AIBrain      │ │ Status: OK │ │
-│ [Vitals]      │  └──────────────────┘ └────────────────┘ └────────────┘ │
-│ [CLI & Debug] │  Active Brain Targets:                                  │
-│ [Onboarding]  │  • llm-neuro-surgeon               [SYNAPSE IN SYNC]   │
-│ [Marketplace] │  • anthropics-skills-bundle       [13 SKILLS LOADED]  │
-│ [MCP Hub]     │                                                        │
-└───────────────┴────────────────────────────────────────────────────────┘
-```
+- **Intake** — runs every adapter's `detect()`/`import()` against the
+  scanned site and charts what it finds, including the tools that
+  *aren't* installed (absence is a finding, not an empty row).
+- **Examination** — runs the Doctor's diagnostics and charts the result.
+  Read-only: opening this screen calls `diagnose()`, never
+  `apply_fixes()`, so it cannot change the Brain on its own.
+
+Both render in the SYNAPSE brand system (ink/accent-blue palette,
+square-cornered "blueprint" panels with corner registration marks, zero
+emoji — `brands/synapse/tokens.json`). Every "Next" hint at the bottom
+of a chart names the real CLI command that continues the workflow, so
+the desktop app teaches the CLI rather than duplicating it.
+
+There is no separate Config/Adapters/Vitals/Onboarding/Marketplace/MCP
+Hub screen — those verbs are CLI-only for now (`synapse doctor`,
+`synapse mcp`, `synapse marketplace`; see §2 and §5).
 
 ---
 
-## 5. MCP Hub & OS Keychain Integration
+## 5. MCP Registry & Marketplace
 
-SYNAPSE manages Model Context Protocol (MCP) servers across all tools with built-in OS Keychain secret resolution.
+### `synapse mcp`
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant CLI as SYNAPSE MCP Hub
-    participant KC as OS Keychain
-    participant Config as Tool Config (.mcp.json)
+```bash
+# Search the official MCP registry (registry.modelcontextprotocol.io)
+synapse mcp search filesystem
 
-    User->>CLI: Harvest secret (API Key)
-    CLI->>KC: Store key securely in Keychain
-    CLI->>Config: Project config with ${VAR} placeholder
-    Note over Config: Raw API keys are NEVER written to disk
+# Health-check a server yourself — running this command IS the explicit
+# enable. A search result is never spawned or contacted on your behalf.
+synapse mcp health "npx -y @modelcontextprotocol/server-filesystem"
+synapse mcp health https://example.com/mcp
 ```
 
-> [!IMPORTANT]
-> Raw API tokens and credentials are never stored in plaintext config files. All projected MCP configs reference variables as `${ENV_KEY}`, resolving keys from the OS Keychain at execution time.
+`mcp search` never executes anything it finds — a registry entry's
+`command_or_url` is displayed, not run. Env vars a server declares
+(`env_placeholders`) are shown by name only; no value is ever fetched
+from the registry.
+
+> [!NOTE]
+> OS Keychain secret storage exists in the core library
+> (`packages/core::secrets` — `harvest_env`, `OsKeychainStore`) but isn't
+> wired into a CLI command yet. Today, `env_placeholders` are names you'd
+> set yourself; there's no `synapse mcp harvest` verb.
+
+### `synapse marketplace`
+
+```bash
+# List skill slugs from anthropics/skills, optionally filtered
+synapse marketplace search
+synapse marketplace search algo
+
+# Fetch one skill's provenance, license, and executable-content flag
+synapse marketplace show algorithmic-art
+```
+
+`marketplace show` fetches metadata only — description, license note,
+SHA-256 of the skill content, and whether it ships files that look
+executable (`.sh`, `.py`, `.js`, etc., flagged so you look before you
+trust). Nothing is written into the Brain by either command; there's no
+`synapse marketplace import` yet.
 
 ---
 
 ## 6. Doctor Diagnostic Engine
 
-The Doctor engine continuously monitors your machine for configuration drift, orphaned symlinks, and broken projections.
+`synapse doctor` is a one-shot diagnostic pass over your Brain and its projections — configuration drift, orphaned symlinks, broken projections. There's no continuous-monitoring mode yet: run `synapse sync` any time you want drift reconciled, and `synapse doctor` any time you want to see what's wrong before deciding whether to fix it.
 
 ```mermaid
 flowchart LR
@@ -249,12 +275,12 @@ flowchart LR
 
 > [!CAUTION]
 > **Modifying Projected Files:**  
-> Never edit projected files directly (e.g. `CLAUDE.md` stamped with generated headers). Always make edits inside `~/AIBrain` — the auto-sync daemon will project your changes automatically.
+> Never edit projected files directly (e.g. `CLAUDE.md` stamped with generated headers). Always make edits inside `~/AIBrain` and run `synapse sync` (or `synapse project`) to project your changes back out.
 
 ### Common Questions
 
 - **Where is my Brain located?**  
-  By default, the Brain is stored at `~/AIBrain`. You can override this location by setting `AIBRAIN_PATH=/your/custom/path`.
+  By default, the Brain is stored at `~/AIBrain`. Override it by setting `NEUROSURGEON_BRAIN` (or pass `--brain <PATH>` to `synapse doctor`).
 - **How do I roll back a bad configuration edit?**  
   Run `synapse rollback HEAD~1` to restore the previous Git snapshot of your Brain working tree.
 

@@ -24,11 +24,16 @@ llm-neuro-surgeon/
 
 ---
 
-## 🔄 3-Way Merge & Sync Daemon Engine
+## 🔄 3-Way Merge & Sync Engine
+
+`synapse sync` runs this merge in a single pass and exits — there is no
+daemon or watch mode. `packages/core` ships `watcher.rs`/`scheduler.rs` for
+a future continuous-sync mode, but no CLI command wires them up yet.
 
 ```text
                   ┌───────────────────────┐
-                  │ Base Hash (State.json)│
+                  │ Base: last git-        │
+                  │ committed content      │
                   └──────────┬────────────┘
                              │
             ┌────────────────┴────────────────┐
@@ -47,10 +52,15 @@ llm-neuro-surgeon/
             ┌────────────────┴────────────────┐
             ▼                                 ▼
 ┌───────────────────────┐         ┌───────────────────────┐
-│ Clean Merge: Commit   │         │ Conflict: Queue Item  │
-│ to Git Time Machine   │         │ for Doctor Resolution │
+│ Clean Merge: Commit   │         │ Conflict: Queued,     │
+│ to Git Time Machine   │         │ reported by CLI sync  │
 └───────────────────────┘         └───────────────────────┘
 ```
+
+The queue's only consumer today is `synapse sync`'s own CLI output
+(`SyncOutcome::ConflictQueued`) — there is no GUI review screen and
+`synapse doctor` does not read the conflict queue (see
+`packages/core/src/conflict_queue.rs`'s module doc for the full gap).
 
 ---
 

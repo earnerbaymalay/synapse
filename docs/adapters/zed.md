@@ -10,18 +10,18 @@
 | Property | Value |
 |---|---|
 | **Adapter ID** | `zed` |
-| **Native Configs** | `.rules`, `.zed/settings.json`, `AGENTS.md` |
+| **Native Configs** | `.rules`, `.zed/settings.json` or `.config/zed/settings.json` (project or global), `.config/zed/AGENTS.md` (project or global) |
 | **Parsing Engine** | Markdown rules + JSON settings parser |
-| **Projection Target** | Stamped `.rules` + `AGENTS.md` |
-| **Symlink Support** | Direct symlink for `.rules` |
+| **Projection Target** | Stamped `.rules` + `.config/zed/AGENTS.md` |
+| **Symlink Support** | None — always writes stamped plain files |
 
 ---
 
 ## 📥 Ingestion Strategy
 
-- Ingests slash command prompt rules from `.rules` into `~/AIBrain/rules/global.md`.
-- Ingests multi-agent directives from `AGENTS.md`.
-- Ingests editor model settings and custom assistant configuration from `.zed/settings.json`.
+- Ingests slash command prompt rules from `.rules` as a `zed-rules` skill (there is no `rules/` directory in the Brain today — see `.ai/MASTER_PROMPT.md`'s implementation-status note).
+- Ingests multi-agent directives from `.config/zed/AGENTS.md` (checked in the project root, then the user's global Zed config dir).
+- Ingests MCP/context-server entries (`context_servers`/`mcp_servers`, either casing) from `.zed/settings.json` or `.config/zed/settings.json`; other settings keys are not parsed into the canonical model.
 
 ---
 
