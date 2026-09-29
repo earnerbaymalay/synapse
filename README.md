@@ -9,8 +9,8 @@
 [![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-00f0ff?style=flat-square&logo=github)](https://earnerbaymalay.github.io/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)
 [![E2E Vitest](https://img.shields.io/badge/E2E_Tests-142%2F142_Passed-success?style=flat-square&logo=vitest)](packages/e2e/)
-[![Rust Tests](https://img.shields.io/badge/Rust_Tests-225%2F225_Passed-success?style=flat-square&logo=rust)](packages/core/)
-[![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/synapse?style=flat-square)](https://github.com/earnerbaymalay/synapse/releases)
+[![Rust Tests](https://img.shields.io/badge/Rust_Tests-236%2F236_Passed-success?style=flat-square&logo=rust)](packages/core/)
+[![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Open Source](https://img.shields.io/badge/source-100%25_open-1d9bf0?style=flat-square&logo=opensourceinitiative)](https://github.com/earnerbaymalay/synapse)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-10B981?style=flat-square)](docs/security.md)
@@ -19,7 +19,7 @@
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8DB?style=flat-square&logo=tauri)](https://v2.tauri.app/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square)](docs/packaging/RELEASE_PACKAGING.md)
 
-**[🌐 Live Site](https://earnerbaymalay.github.io/)** • **[🔒 Privacy & Safety](#-privacy--safety-by-design)** • **[⚡ Quickstart](#-60-second-quickstart)** • **[🔌 13 Adapters](#-13-verified-tool-adapters)** • **[🏛️ Architecture](#%EF%B8%8F-architecture--mental-model)** • **[💻 Desktop App](#-desktop-gui-application)** • **[🩺 The Doctor](#-the-doctor-self-healing-configurations)** • **[📚 Docs Hub](docs/README.md)**
+**[🌐 Live Site](https://earnerbaymalay.github.io/)** • **[🔒 Privacy & Safety](#-privacy--safety-by-design)** • **[⚡ Quickstart](#-60-second-quickstart)** • **[🔌 13 Adapters](#-13-verified-tool-adapters)** • **[🏛️ Architecture](#%EF%B8%8F-architecture--mental-model)** • **[💻 Desktop App](#-desktop-gui-application)** • **[🩺 The Doctor](#-the-doctor-self-healing-configurations)** • **[📚 Docs Hub](docs/README.md)** • **[⚡ Quickstart](#-60-second-quickstart)** • **[🔌 13 Adapters](#-13-verified-tool-adapters)** • **[🩺 Runtime Gateway](#-the-runtime-gateway-local-model-proxy--tool-stabilizer)** • **[📊 Vital Signs HUD](#-live-vital-signs-hud--terminal-cockpit)** • **[🏛️ Architecture](#%EF%B8%8F-architecture--mental-model)**
 
 ---
 
@@ -31,6 +31,8 @@
   - [Clinical Operating Identity](#-clinical-operating-identity)
   - [Terminal Walkthrough](#-terminal-walkthrough)
 - [⚡ 60-Second Quickstart](#-60-second-quickstart)
+- [🩺 The Runtime Gateway: Local Model Proxy & Tool Stabilizer (`synapse serve`)](#-the-runtime-gateway-local-model-proxy--tool-stabilizer)
+- [📊 Live Vital Signs HUD & Terminal Cockpit (`synapse hud`)](#-live-vital-signs-hud--terminal-cockpit)
 - [🏛️ Architecture & Mental Model](#%EF%B8%8F-architecture--mental-model)
 - [🔌 13 Verified Tool Adapters](#-13-verified-tool-adapters)
 - [⚡ Synaptic Sensory Gating: 95% Agent Token Auto-Compression](#-synaptic-sensory-gating-95-agent-token-auto-compression)
@@ -48,9 +50,9 @@
 
 ## 💡 What is SYNAPSE?
 
-**SYNAPSE** — your local, privacy-first "LLM Neuro-Surgeon" — is the open-source configuration engine and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
+**SYNAPSE (LLM-NeuroSurgeon)** is the local-first configuration engine, runtime proxy, and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
 
-AI coding tools each invent their own idiosyncratic configuration locations and formats (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.gemini/settings.json`, `.continue/rules/`). When you refine a skill or update an MCP server in one assistant, your other tools fall out of sync. **SYNAPSE eliminates prompt drift by establishing a single canonical Git-backed Brain (`~/AIBrain`) and losslessly translating your rules to all 13 tools — entirely on your machine.**
+AI coding tools each invent their own idiosyncratic configuration locations and formats (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.gemini/settings.json`, `.continue/rules/`). When you refine a skill or update an MCP server in one assistant, your other tools fall out of sync. **SYNAPSE eliminates prompt drift by establishing a single canonical Git-backed Brain (`~/AIBrain`), losslessly translating your rules to all 13 tools, and providing an ultra-low-RAM local runtime proxy and live HUD.**
 
 ### 🔒 Privacy & Safety by Design
 
@@ -75,6 +77,8 @@ A developer's AI tooling environment is treated like a vital clinical system:
 | **The Grafts** | **13 Adapters** | Lossless bi-directional translators projecting canonical rules into each tool's native dialect. |
 | **The Surgeon** | `synapse` | Accountable for every modification — with dry-run verification, pre-op snapshots, and instant rollbacks. |
 | **The Doctor** | `synapse doctor` | Continuous diagnostic self-healing to detect configuration drift and heal broken symlinks. |
+| **The Gate** | `synapse serve` | Local runtime reverse proxy stabilizing tool-calls and executing live Sensory Gating token compression. |
+| **The HUD** | `synapse hud` | Zero-RAM terminal cockpit & HUD monitoring live token burn, latency, and Brain lockstep. |
 
 ### 🖥️ Terminal Walkthrough
 
@@ -126,6 +130,66 @@ synapse sync --daemon
 > You can also run the CLI via Cargo in development: `cargo run -p synapse -- scan`.
 
 For system prerequisites and platform-specific details across Linux, macOS, and Windows, read the **[Quickstart Guide](docs/QUICKSTART.md)**.
+
+---
+
+## 🩺 The Runtime Gateway: Local Model Proxy & Tool Stabilizer (`synapse serve`)
+
+When coding agents (Claude Code, Antigravity CLI, Cursor, Aider) are pointed directly at local models (e.g. Qwen 2.5 Coder, DeepSeek on Ollama/llama.cpp), local models often choke on strict tool-calling JSON schemas, hallucinate formatting, or bloat the context window.
+
+`synapse serve` launches a blazing-fast local HTTP reverse proxy (`< 15MB RAM`) on `http://127.0.0.1:8088`:
+
+* **Standard Compatibility**: Implements OpenAI `/v1/chat/completions` and Anthropic `/v1/messages`.
+* **Runtime Sensory Gating**: Automatically intercepts prompt payloads, scanning for verbose test logs, compiler outputs, and large file dumps, running them through `compress_text` to save up to 95% of tokens.
+* **Tool-Calling Normalization**: Sanitizes incoming tool schemas and repairs raw text/markdown-fenced JSON responses from local models into valid OpenAI `tool_calls` structures.
+* **Zero-Telemetry Audit**: Tracks token savings and latency strictly locally.
+
+```bash
+# Start the local gateway pointing to Ollama (default port 8088)
+synapse serve --upstream http://localhost:11434 --model qwen2.5-coder:7b
+
+# Point Claude Code / Cursor to your local gateway:
+# Base URL: http://localhost:8088/v1
+```
+
+---
+
+## 📊 Live Vital Signs HUD & Terminal Cockpit (`synapse hud`)
+
+The **Vital Signs HUD** is a zero-RAM, clinical terminal dashboard for monitoring your active AI workstation in real time.
+
+```text
+┌──────────────────────────────────────────────────────────────────────────┐
+│  SYNAPSE VITAL SIGNS HUD // RUNTIME COCKPIT                     v1.0.0  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+🩺 RUNTIME GATEWAY
+  Status:   ● ONLINE (Listening on 127.0.0.1:8088)
+  Upstream: http://127.0.0.1:11434 (Ollama)
+  Model:    qwen2.5-coder:7b (12ms latency)
+
+⚡ SYNAPTIC SENSORY GATING & TOKEN METRICS
+  Requests Handled:     14
+  Raw Prompt Tokens:    148,200
+  Gated Prompt Tokens:  8,940
+  Tokens Pruned/Saved:  139,260 (93% reduction)
+
+🏛️ CANONICAL BRAIN (THE ORGAN)
+  Path:      /home/ebaymlay/AIBrain
+  Adapters:  13 verified tools
+  Doctor:    ✔ LOCKSTEP SYNCED (0 faults)
+
+────────────────────────────────────────────────────────────────────────────
+  Shortcuts: [s] Sync Brain  •  [d] Doctor Diagnostic  •  [p] Project  •  [q] Quit
+```
+
+```bash
+# Open interactive live refreshing HUD
+synapse hud
+
+# Print a single clinical snapshot and exit
+synapse hud --once
+```
 
 ---
 

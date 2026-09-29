@@ -90,6 +90,48 @@ enum Command {
         #[command(subcommand)]
         action: SpoolAction,
     },
+    /// Start the SYNAPSE local runtime gateway proxy on localhost
+    Serve {
+        /// Port to bind the local proxy to (default: 8088)
+        #[arg(short, long, default_value_t = 8088)]
+        port: u16,
+        /// Host address to bind to (default: 127.0.0.1)
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        /// Upstream LLM endpoint (default: http://127.0.0.1:11434)
+        #[arg(short, long, default_value = "http://127.0.0.1:11434")]
+        upstream: String,
+        /// Default model name when not specified in request
+        #[arg(short, long)]
+        model: Option<String>,
+        /// Sensory Gating compression level: balanced (default), aggressive, strict, or off
+        #[arg(short, long, default_value = "balanced")]
+        gate_level: String,
+        /// Optional upstream API key (or set via environment/keychain)
+        #[arg(long)]
+        api_key: Option<String>,
+    },
+    /// Open the live Vital Signs HUD & Terminal Cockpit
+    Hud {
+        /// Gateway address to connect to (default: 127.0.0.1:8088)
+        #[arg(short, long, default_value = "127.0.0.1:8088")]
+        gateway: String,
+        /// Disable ANSI color formatting
+        #[arg(long)]
+        no_color: bool,
+        /// Refresh interval in seconds (default: 2)
+        #[arg(short, long, default_value_t = 2)]
+        interval: u64,
+        /// Print a single snapshot and exit
+        #[arg(long)]
+        once: bool,
+        /// Brain directory to examine
+        #[arg(long, value_name = "PATH")]
+        brain: Option<PathBuf>,
+        /// Tool config root
+        #[arg(long, value_name = "PATH")]
+        tool_root: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -117,6 +159,8 @@ enum SpoolAction {
 use neurosurgeon_core::compression::{
     execute_with_compression, CompressionLevel, SpoolManager,
 };
+use neurosurgeon_core::gateway::{GatewayConfig, GatewayServer, UpstreamKind};
+use neurosurgeon_core::hud::{format_hud, HudSnapshot};
 use neurosurgeon_core::snapshot::{rollback, snapshot};
 use neurosurgeon_core::sync::{
     perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
@@ -508,6 +552,87 @@ fn main() -> ExitCode {
                 }
             }
         },
+        Command::Serve {
+            port,
+            host,
+            upstream,
+            model,
+            gate_level,
+            api_key,
+        } => {
+            let comp_level = CompressionLevel::from_str(&gate_level).unwrap_or(CompressionLevel::Balanced);
+            let upstream_kind = UpstreamKind::from_url_or_name(&upstream);
+            let bind_addr = format!("{}:{}", host, port);
+
+            let config = GatewayConfig {
+                bind_addr: bind_addr.clone(),
+                upstream_url: upstream.clone(),
+                upstream_kind,
+                default_model: model.clone(),
+                gate_level: comp_level,
+                api_key,
+            };
+
+            chart::open("gateway", "runtime server starting");
+            chart::field("Bind", &format!("http://{}", bind_addr));
+            chart::field("Upstream", &upstream);
+            chart::field("Sensory Gate", &format!("{:?}", comp_level));
+            if let Some(ref m) = model {
+                chart::field("Model", m);
+            }
+            println!();
+            chart::row(chart::Mark::Present, "openai", &format!("http://{}/v1/chat/completions", bind_addr));
+            chart::row(chart::Mark::Present, "anthropic", &format!("http://{}/v1/messages", bind_addr));
+            chart::row(chart::Mark::Present, "health", &format!("http://{}/health", bind_addr));
+            println!();
+            chart::close("Point Claude Code, AGY CLI, or Cursor to this proxy endpoint. Press Ctrl+C to stop.", None);
+
+            let mut server = GatewayServer::new(config);
+            if let Err(e) = server.start_background() {
+                chart::fault("gateway", &e, None);
+                return ExitCode::FAILURE;
+            }
+
+            while server.is_running() {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+            ExitCode::SUCCESS
+        }
+        Command::Hud {
+            gateway,
+            no_color,
+            interval,
+            once,
+            brain,
+            tool_root,
+        } => {
+            let brain_root = match resolve_brain_root(brain) {
+                Ok(b) => b,
+                Err(e) => {
+                    chart::fault("hud", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+            };
+            let tool_root = match resolve_tool_root(tool_root) {
+                Ok(t) => t,
+                Err(e) => {
+                    chart::fault("hud", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            if once {
+                let snap = HudSnapshot::collect(&gateway, &brain_root, &tool_root);
+                print!("{}", format_hud(&snap, !no_color));
+                ExitCode::SUCCESS
+            } else {
+                loop {
+                    let snap = HudSnapshot::collect(&gateway, &brain_root, &tool_root);
+                    print!("\x1b[2J\x1b[1;1H{}", format_hud(&snap, !no_color));
+                    std::thread::sleep(std::time::Duration::from_secs(interval));
+                }
+            }
+        }
     }
 }
 
@@ -825,7 +950,7 @@ mod tests {
     fn help_lists_every_verb() {
         let help = Cli::command().render_long_help().to_string();
         for verb in [
-            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec", "filter", "spool",
+            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec", "filter", "spool", "serve", "hud",
         ] {
             assert!(help.contains(verb), "--help is missing verb: {verb}");
         }
@@ -844,6 +969,8 @@ mod tests {
         assert!(Cli::try_parse_from(["synapse", "filter", "--level", "aggressive"]).is_ok());
         assert!(Cli::try_parse_from(["synapse", "spool", "list"]).is_ok());
         assert!(Cli::try_parse_from(["synapse", "spool", "show", "test_id"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "serve", "--port", "8088"]).is_ok());
+        assert!(Cli::try_parse_from(["synapse", "hud", "--once"]).is_ok());
     }
 
     #[test]

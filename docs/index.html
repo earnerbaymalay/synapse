@@ -137,7 +137,7 @@
       <div class="flex items-center gap-6 text-[11px] text-slate-400">
         <div><span class="text-slate-500">ADAPTERS:</span> <strong class="text-white">13/13 ONLINE</strong></div>
         <div><span class="text-slate-500">E2E TESTS:</span> <strong class="text-synapse-cyan">142/142 PASSING</strong></div>
-        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">231/231 PASSING</strong></div>
+        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">236/236 PASSING</strong></div>
         <div class="hidden sm:block"><span class="text-slate-500">STORAGE:</span> <strong class="text-synapse-accentLight">~/AIBrain</strong></div>
       </div>
     </div>
@@ -188,13 +188,15 @@
           </div>
 
           <!-- Interactive Action Buttons -->
-          <div class="flex items-center gap-1 text-[10px]">
+          <div class="flex items-center gap-1 text-[10px] flex-wrap">
             <button onclick="setTab('scan')" id="tab-scan" class="tab-btn px-2.5 py-1 bg-synapse-cyan text-synapse-ink font-semibold">1. scan</button>
             <button onclick="setTab('import')" id="tab-import" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">2. import</button>
             <button onclick="setTab('project')" id="tab-project" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">3. project</button>
             <button onclick="setTab('sync')" id="tab-sync" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">4. sync</button>
             <button onclick="setTab('doctor')" id="tab-doctor" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">5. doctor</button>
-            <button onclick="setTab('exec')" id="tab-exec" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">6. exec (compress)</button>
+            <button onclick="setTab('exec')" id="tab-exec" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">6. exec</button>
+            <button onclick="setTab('serve')" id="tab-serve" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">7. serve</button>
+            <button onclick="setTab('hud')" id="tab-hud" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">8. hud</button>
           </div>
         </div>
 
@@ -473,6 +475,57 @@
       </div>
     </section>
 
+    <!-- Runtime Gateway & Live HUD Section -->
+    <section id="runtime" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
+      <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-12">
+          <div class="font-mono text-xs text-synapse-cyan uppercase tracking-widest mb-2">// LOCAL RUNTIME & TELEMETRY</div>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">Runtime Gateway & Live HUD Cockpit</h2>
+          <p class="text-slate-400 mt-2 text-sm max-w-2xl mx-auto">Point Claude Code, Antigravity CLI, or Cursor to a local reverse proxy that enforces strict tool-calling grammar on local models, gates context tokens, and visualizes vital signs in a zero-RAM terminal HUD.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+          <!-- Gateway Card -->
+          <div class="p-6 bg-synapse-surface border border-synapse-border corner-mark glow-card">
+            <div class="flex items-center justify-between pb-3 border-b border-synapse-border mb-4">
+              <span class="text-synapse-cyan font-bold flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-synapse-cyan animate-pulse"></span> 🩺 RUNTIME GATEWAY
+              </span>
+              <span class="text-slate-500 text-[10px]">&lt; 15MB RAM</span>
+            </div>
+            <p class="text-slate-400 mb-4 text-[11px] font-sans">Local reverse proxy at <code>127.0.0.1:8088</code> supporting OpenAI <code>/v1/chat/completions</code> & Anthropic <code>/v1/messages</code> with on-the-fly Sensory Gating & tool repair.</p>
+            <div class="bg-synapse-ink p-3 border border-synapse-border text-slate-300 text-[11px] space-y-1 mb-4">
+              <p><span class="text-synapse-cyan">$</span> synapse serve --upstream http://localhost:11434</p>
+              <p class="text-slate-500">• Upstream: Ollama / llama.cpp / BYOK</p>
+              <p class="text-slate-500">• Tool-Calling Normalizer: ACTIVE</p>
+            </div>
+            <div class="text-[11px] text-synapse-emerald">
+              ✔ Prevents JSON formatting breakage on 7B/14B local models
+            </div>
+          </div>
+
+          <!-- HUD Cockpit Card -->
+          <div class="p-6 bg-synapse-surface border border-synapse-border corner-mark glow-card">
+            <div class="flex items-center justify-between pb-3 border-b border-synapse-border mb-4">
+              <span class="text-synapse-emerald font-bold flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-synapse-emerald"></span> 📊 VITAL SIGNS HUD
+              </span>
+              <span class="text-slate-500 text-[10px]">TERMINAL TUI</span>
+            </div>
+            <p class="text-slate-400 mb-4 text-[11px] font-sans">Interactive terminal HUD displaying real-time token throughput, Sensory Gating compression savings, and canonical Brain lockstep.</p>
+            <div class="bg-synapse-ink p-3 border border-synapse-border text-slate-300 text-[11px] space-y-1 mb-4">
+              <p><span class="text-synapse-cyan">$</span> synapse hud</p>
+              <p class="text-slate-400">• Real-Time Gating: 93% Reduction</p>
+              <p class="text-slate-400">• Doctor Diagnostic: 0 Faults</p>
+            </div>
+            <div class="text-[11px] text-synapse-cyan">
+              ✔ Instant keyboard shortcuts: [s] Sync • [d] Doctor • [p] Project
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 60-Second Quickstart Guide Section -->
     <section id="quickstart" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
       <div class="max-w-4xl mx-auto">
@@ -620,6 +673,29 @@
           "  ✔ 230 tests passed (collapsed by SYNAPSE)",
           "test result: ok. 230 passed; 0 failed; 0 ignored; finished in 1.4s",
           "<span class=\"text-synapse-emerald pt-1\">─── [SYNAPSE] Context: 8,400 → 240 tokens (97.1% reduction) • Full log: synapse spool show 8f9b2a ───</span>"
+        ]
+      },
+      serve: {
+        cmd: "cargo run -p synapse -- serve --port 8088 --upstream http://localhost:11434",
+        desc: "# Launches local runtime reverse proxy & tool-calling stabilizer (<15MB RAM)",
+        output: [
+          "<span class=\"text-synapse-cyan\">🩺 SYNAPSE Runtime Gateway listening on http://127.0.0.1:8088...</span>",
+          "• Upstream Provider: http://127.0.0.1:11434 (Ollama)",
+          "• Endpoints: /v1/chat/completions (OpenAI) • /v1/messages (Anthropic)",
+          "• Runtime Sensory Gating: BALANCED • Tool-Calling Normalizer: ACTIVE",
+          "<span class=\"text-synapse-emerald pt-1\">✓ Point Claude Code, Cursor, or AGY to localhost:8088/v1</span>"
+        ]
+      },
+      hud: {
+        cmd: "cargo run -p synapse -- hud",
+        desc: "# Opens zero-RAM live Vital Signs terminal cockpit & real-time telemetry HUD",
+        output: [
+          "<span class=\"text-synapse-cyan\">┌────────────────────────────────────────────────────────────┐</span>",
+          "<span class=\"text-white font-bold\">│  SYNAPSE VITAL SIGNS HUD // RUNTIME COCKPIT       v1.0.0   │</span>",
+          "<span class=\"text-synapse-cyan\">└────────────────────────────────────────────────────────────┘</span>",
+          "🩺 GATEWAY: <span class=\"text-synapse-emerald\">● ONLINE (127.0.0.1:8088)</span> • <span class=\"text-slate-400\">Model: qwen2.5-coder:7b</span>",
+          "⚡ SENSORY GATING: <span class=\"text-synapse-emerald\">139,260 tokens saved (93% reduction)</span>",
+          "🏛️ BRAIN: <span class=\"text-synapse-emerald\">✔ LOCKSTEP SYNCED</span> • <span class=\"text-slate-400\">13 verified adapters</span>"
         ]
       }
     };

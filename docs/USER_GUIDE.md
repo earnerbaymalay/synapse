@@ -17,6 +17,8 @@ Welcome to the **SYNAPSE** User Guide. This document provides a complete referen
    - [synapse snapshot & rollback](#synapse-snapshot--rollback)
    - [synapse exec & filter](#synapse-exec--filter-synaptic-auto-compression)
    - [synapse spool](#synapse-spool)
+   - [synapse serve](#synapse-serve-runtime-gateway)
+   - [synapse hud](#synapse-hud-vital-signs-cockpit)
 3. [Supported Tool Adapters (13/13)](#3-supported-tool-adapters-1313)
 4. [Desktop GUI Application](#4-desktop-gui-application)
 5. [MCP Hub & OS Keychain Integration](#5-mcp-hub--os-keychain-integration)
@@ -162,6 +164,28 @@ synapse spool list
 synapse spool show <id>
 synapse spool show <id> --grep "panic"
 synapse spool show <id> --tail 50
+```
+
+### `synapse serve` (Runtime Gateway)
+Starts a local HTTP reverse proxy (`< 15MB RAM`) that intercepts OpenAI `/v1/chat/completions` and Anthropic `/v1/messages` requests from coding agents (Claude Code, Antigravity CLI, Cursor, Aider). Automatically prunes bloated token payloads with Sensory Gating and enforces valid JSON tool-calling structures when routing to local models (Ollama, llama.cpp).
+
+```bash
+# Start gateway proxying to local Ollama instance on port 8088
+synapse serve --port 8088 --upstream http://localhost:11434 --model qwen2.5-coder:7b
+
+# Run with aggressive Sensory Gating compression level
+synapse serve --gate-level aggressive
+```
+
+### `synapse hud` (Vital Signs Cockpit)
+Launches the zero-RAM terminal cockpit HUD displaying live gateway connectivity, token burn rate, Sensory Gating compression percentages, upstream latency, and canonical `~/AIBrain` doctor health diagnostics.
+
+```bash
+# Open interactive live refreshing HUD
+synapse hud
+
+# Print single clinical snapshot and exit
+synapse hud --once
 ```
 
 ---

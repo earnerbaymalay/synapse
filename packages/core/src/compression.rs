@@ -13,8 +13,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::{Deserialize, Serialize};
+
 /// Compression aggressiveness levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompressionLevel {
     /// Preserves warnings, failures, summaries, and key structural milestones (default)
     Balanced,
