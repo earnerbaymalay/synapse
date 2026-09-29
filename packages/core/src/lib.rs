@@ -15,6 +15,8 @@ pub mod compression;
 pub mod conflict_queue;
 pub mod doctor;
 pub mod drift;
+pub mod gateway;
+pub mod hud;
 pub mod mappings;
 pub mod marketplace;
 pub mod mcp_registry;
@@ -37,6 +39,8 @@ pub use compression::{
 pub use conflict_queue::{reconcile, ConflictQueue, QueuedConflict};
 pub use doctor::{diagnose, Diagnosis, DoctorContext, Severity};
 pub use drift::{DriftReport, DriftStatus};
+pub use gateway::{GatewayConfig, GatewayServer, GatewayStats, UpstreamKind};
+pub use hud::{format_hud, HudSnapshot};
 pub use mappings::{Mapping, MappingsFile};
 pub use marketplace::{MarketplaceError, MarketplaceSkill};
 pub use mcp_registry::{RegistryError, RegistryServer};
