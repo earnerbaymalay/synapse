@@ -82,6 +82,7 @@ fn test_gateway_server_lifecycle_and_endpoints() {
         default_model: Some("qwen2.5-coder:7b".to_string()),
         gate_level: CompressionLevel::Balanced,
         api_key: None,
+        fold_keep_recent: None,
     };
 
     let mut server = GatewayServer::new(config);

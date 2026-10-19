@@ -5,6 +5,16 @@ All notable changes to **SYNAPSE / llm-neuro-surgeon** will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Synaptic Memory (`synapse mem`)** — persistent cross-session memory for AI agents, adapted from claude-mem but local-first and zero-telemetry:
+  - `mem hook session-start|prompt|post-tool|stop` captures lifecycle events from agent hooks (`mem hooks` prints the Claude Code config; nothing is written automatically).
+  - Progressive disclosure: `mem search` (token-costed index) → `mem timeline <id>` → `mem get <ids>`; `mem context` is the SessionStart injection block.
+  - No LLM in the loop: tool output is distilled with the Sensory Gating engine; `<private>…</private>` spans are dropped and credential-looking tokens redacted before anything touches disk.
+  - Storage is an append-only JSONL at `~/.synapse/memory/` (override: `SYNAPSE_MEMORY_DIR`); `mem forget`, `mem stats`, `mem observe` for management.
+- **Reversible context folding (`synapse serve --fold-keep N`)** — inspired by billion-context, but deterministic and model-free: tool results older than the newest N messages (OpenAI `tool` and Anthropic `tool_result` shapes) collapse into a short digest stub; the original is spooled under a content-addressed id and restored with `synapse spool show <id>`. Stubs are byte-stable across requests so prefix caching is preserved. Off by default.
+
 ## [1.0.0] - 2026-08-19
 
 ### Added

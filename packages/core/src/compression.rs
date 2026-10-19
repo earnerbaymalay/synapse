@@ -17,8 +17,10 @@ use serde::{Deserialize, Serialize};
 
 /// Compression aggressiveness levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum CompressionLevel {
     /// Preserves warnings, failures, summaries, and key structural milestones (default)
+    #[default]
     Balanced,
     /// Strips warnings, preserves only failures, errors, panic traces, and final summary
     Aggressive,
@@ -26,14 +28,9 @@ pub enum CompressionLevel {
     StrictErrorsOnly,
 }
 
-impl Default for CompressionLevel {
-    fn default() -> Self {
-        Self::Balanced
-    }
-}
 
 impl CompressionLevel {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "balanced" => Some(Self::Balanced),
             "aggressive" => Some(Self::Aggressive),
@@ -75,7 +72,7 @@ pub fn estimate_tokens(text: &str) -> usize {
         return 0;
     }
     let char_count = text.chars().count();
-    (char_count + 3) / 4
+    char_count.div_ceil(4)
 }
 
 /// Detected output dialect format
@@ -137,13 +134,13 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
                         passed_count = 0;
                     }
                     kept_lines.push(line.to_string());
-                } else if in_failure_block || in_summary {
-                    kept_lines.push(line.to_string());
-                } else if trimmed.contains("error[E") || trimmed.contains("warning:") {
-                    if level != CompressionLevel::StrictErrorsOnly || trimmed.contains("error") {
+                } else if in_failure_block
+                    || in_summary
+                    || ((trimmed.contains("error[E") || trimmed.contains("warning:"))
+                        && (level != CompressionLevel::StrictErrorsOnly || trimmed.contains("error")))
+                {
                         kept_lines.push(line.to_string());
                     }
-                }
             }
             if passed_count > 0 && kept_lines.is_empty() {
                 kept_lines.push(format!("  ✔ {} tests passed (collapsed by SYNAPSE)", passed_count));
@@ -167,13 +164,12 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
                     }
                     in_error_frame = false;
                     kept_lines.push(line.to_string());
-                } else if in_error_frame {
-                    kept_lines.push(line.to_string());
-                } else if trimmed.contains("Error:") || trimmed.contains("warn ") {
-                    if level != CompressionLevel::StrictErrorsOnly || trimmed.contains("Error") {
+                } else if in_error_frame
+                    || ((trimmed.contains("Error:") || trimmed.contains("warn "))
+                        && (level != CompressionLevel::StrictErrorsOnly || trimmed.contains("Error")))
+                {
                         kept_lines.push(line.to_string());
                     }
-                }
             }
             if passed_count > 0 && kept_lines.is_empty() {
                 kept_lines.push(format!("  ✔ {} unit tests passed (collapsed by SYNAPSE)", passed_count));
@@ -260,6 +256,11 @@ impl SpoolManager {
         Self { spool_dir }
     }
 
+    /// Directory holding the raw logs.
+    pub fn dir(&self) -> &Path {
+        &self.spool_dir
+    }
+
     /// Resolve default spool directory inside ~/.synapse/spool or $AIBRAIN/spool
     pub fn default_dir() -> PathBuf {
         if let Ok(brain) = std::env::var("NEUROSURGEON_BRAIN") {
@@ -330,7 +331,7 @@ impl SpoolManager {
                 let id = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
                 let metadata = entry.metadata()?;
                 let raw_bytes = metadata.len() as usize;
-                let raw_tokens = (raw_bytes + 3) / 4;
+                let raw_tokens = raw_bytes.div_ceil(4);
                 let timestamp = metadata.modified()
                     .unwrap_or(SystemTime::UNIX_EPOCH)
                     .duration_since(UNIX_EPOCH)
@@ -350,7 +351,7 @@ impl SpoolManager {
                 });
             }
         }
-        entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        entries.sort_by_key(|e| std::cmp::Reverse(e.timestamp));
         Ok(entries)
     }
 

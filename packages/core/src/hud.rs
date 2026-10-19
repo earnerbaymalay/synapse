@@ -106,7 +106,7 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
     if !snap.stats.last_model.is_empty() {
         out.push_str(&format!("  Model:    {bold}{}{reset} ({dim}{}ms latency{reset})\n", snap.stats.last_model, snap.stats.last_latency_ms));
     }
-    out.push_str("\n");
+    out.push('\n');
 
     // Sensory Gating & Token Metrics
     out.push_str(&format!("{bold}⚡ SYNAPTIC SENSORY GATING & TOKEN METRICS{reset}\n"));
