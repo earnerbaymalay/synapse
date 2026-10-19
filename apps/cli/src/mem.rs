@@ -1,4 +1,4 @@
-//! `synapse mem` — Synaptic Memory commands (see `neurosurgeon_core::memory`).
+//! `synapse mem` — Synaptic Memory commands (see `synapse_core::memory`).
 //!
 //! Output intended for agents (search/timeline/get/context/hook) is plain text;
 //! human-facing confirmations use the chart helpers.
@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use neurosurgeon_core::memory::{
+use synapse_core::memory::{
     observation_from_tool, summarize_session, MemoryStore, NewObservation,
 };
 use serde_json::Value;
@@ -165,7 +165,7 @@ pub fn run(action: MemAction) -> ExitCode {
                         "## #{} · {} · {} · {}",
                         o.id,
                         o.kind,
-                        neurosurgeon_core::memory::format_ts(o.ts),
+                        synapse_core::memory::format_ts(o.ts),
                         o.project
                     );
                     println!("{}\n", o.title);

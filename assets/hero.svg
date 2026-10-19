@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Synapse – LLM NeuroSurgeon hero banner -->
+<!-- Synapse – Synapse hero banner -->
 <svg
     xmlns="http://www.w3.org/2000/svg"
     width="1200"
@@ -9,7 +9,7 @@
     role="img"
     aria-labelledby="title desc">
 
-  <title id="title">Synapse – LLM NeuroSurgeon Banner</title>
+  <title id="title">Synapse – Synapse Banner</title>
   <desc id="desc">
     A gradient background with abstract brain‑like synapse lines and the project title.
   </desc>
@@ -79,7 +79,7 @@
         font-size="48"
         font-weight="700"
         fill="#ffffff">
-      Synapse – LLM NeuroSurgeon
+      Synapse – Synapse
     </text>
   </g>
 

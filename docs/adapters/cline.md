@@ -1,5 +1,5 @@
 # Cline & Roo Code Adapter Specification
-### Synapse // LLM-NeuroSurgeon
+### Synapse
 
 [Docs Hub](../README.md) > [Adapters](README.md) > **Cline & Roo Code**
 

@@ -1,18 +1,18 @@
 # 🏛️ Architecture & Engine Internals
-### Synapse // LLM-NeuroSurgeon
+### Synapse
 
 [Docs Hub](README.md) > **Architecture**
 
-This document describes the architectural layout, core Rust engine components, 3-way merge algorithm, and IPC IPC communications of **Synapse (LLM-NeuroSurgeon)**.
+This document describes the architectural layout, core Rust engine components, 3-way merge algorithm, and IPC communications of **Synapse**.
 
 ---
 
 ## 🏗️ Monorepo Component Layout
 
 ```text
-llm-neuro-surgeon/
+Synapse/
 ├── apps/
-│   ├── cli/             # Rust CLI entry point (`synapse` / `neurosurgeon`)
+│   ├── cli/             # Rust CLI entry point (`synapse` / `synapse`)
 │   └── desktop/         # Tauri 2 + React TS Dark Precision GUI
 ├── packages/
 │   ├── core/            # Core engine: scanner, 13 adapters, projector, sync, doctor

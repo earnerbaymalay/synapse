@@ -1,6 +1,6 @@
 # RALPH_PROMPT.md — Inner Operation Loop
 
-RALPH is the autonomous inner loop for the LLM Neurosurgeon project. It operates in strict read-adapt-implement-deploy cycles, ensuring systematic progress through the project plan.
+RALPH is the autonomous inner loop for the Synapse project. It operates in strict read-adapt-implement-deploy cycles, ensuring systematic progress through the project plan.
 
 ## Core Algorithm (RALPH)
 

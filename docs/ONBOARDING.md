@@ -1,5 +1,5 @@
 # Onboarding Guide — SYNAPSE
-### llm-neuro-surgeon — Four-Phase Journey
+### Synapse — Four-Phase Journey
 
 Welcome to **SYNAPSE**. This guide walks you through the four phases of setting up and taking complete control of your AI tool configurations.
 

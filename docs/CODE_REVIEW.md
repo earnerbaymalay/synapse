@@ -31,7 +31,7 @@
 > (beyond 2.1)–§5 below were not re-audited this session and may also be
 > stale; treat them as of their original date, not current fact.
 
-# Code Review — LLM Neurosurgeon (as of Phase 2 / T2.1)
+# Code Review — Synapse (as of Phase 2 / T2.1)
 
 **Scope:** the code and scaffolding that shipped with the initial upload —
 `apps/desktop` (Tauri core), the project state files, and the brand mocks.

@@ -1,5 +1,5 @@
 # Security Audit & Threat Model — SYNAPSE
-### llm-neuro-surgeon — Local-First Security Architecture
+### Synapse — Local-First Security Architecture
 
 This document details the security posture, threat model, and defense mechanisms implemented across SYNAPSE (`packages/core`).
 
@@ -89,7 +89,7 @@ if entry.file_type().is_symlink() {
 All security mechanisms are verified by automated tests in `packages/core/tests/adapter_stress_tests.rs`:
 
 ```bash
-cargo test -p neurosurgeon-core --test adapter_stress_tests
+cargo test -p synapse-core --test adapter_stress_tests
 ```
 
 - `test_windsurf_adapter_path_traversal_and_missing`: **PASSED**

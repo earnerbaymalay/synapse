@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use neurosurgeon_core::updater::{
+use synapse_core::updater::{
     check_for_update, dry_run_report, verification_status, Channel, ReleaseManifest, SigningStatus,
     UpdateDecision,
 };

@@ -295,7 +295,7 @@ mod tests {
     #[cfg(feature = "os-keychain")]
     #[test]
     fn os_keychain_round_trips_a_real_secret() {
-        let mut store = OsKeychainStore::new("llm-neurosurgeon-test");
+        let mut store = OsKeychainStore::new("Synapse-test");
         let key = "mcp/self-test/PROBE";
 
         if let Err(e) = store.set(key, "probe-value") {

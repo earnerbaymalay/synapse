@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📚 Synapse // LLM-NeuroSurgeon Documentation Hub
+# 📚 Synapse Documentation Hub
 
 [🌐 Live Landing Page](index.html) • [⬅️ Return to Repository Root](../README.md)
 

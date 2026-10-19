@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use neurosurgeon_core::adapters::all_adapters;
-use neurosurgeon_core::doctor::{apply_fixes, diagnose, DoctorContext, Severity};
+use synapse_core::adapters::all_adapters;
+use synapse_core::doctor::{apply_fixes, diagnose, DoctorContext, Severity};
 
-/// LLM Neurosurgeon — scan, import, project, and sync AI tool configs
+/// Synapse — scan, import, project, and sync AI tool configs
 /// through one canonical Brain.
 #[derive(Debug, Parser)]
 #[command(name = "synapse", version, about, long_about = None)]
@@ -48,10 +48,10 @@ enum Command {
         /// Apply the suggested fix for every diagnosis instead of just reporting
         #[arg(long)]
         fix: bool,
-        /// Brain directory to examine (defaults to $NEUROSURGEON_BRAIN, else ~/AIBrain)
+        /// Brain directory to examine (defaults to $SYNAPSE_BRAIN, else ~/AIBrain)
         #[arg(long, value_name = "PATH")]
         brain: Option<PathBuf>,
-        /// Tool config root that projections are relative to (defaults to $NEUROSURGEON_TOOL_ROOT, else your home directory)
+        /// Tool config root that projections are relative to (defaults to $SYNAPSE_TOOL_ROOT, else your home directory)
         #[arg(long, value_name = "PATH")]
         tool_root: Option<PathBuf>,
     },
@@ -166,13 +166,13 @@ enum SpoolAction {
     },
 }
 
-use neurosurgeon_core::compression::{
+use synapse_core::compression::{
     execute_with_compression, CompressionLevel, SpoolManager,
 };
-use neurosurgeon_core::gateway::{GatewayConfig, GatewayServer, UpstreamKind};
-use neurosurgeon_core::hud::{format_hud, HudSnapshot};
-use neurosurgeon_core::snapshot::{rollback, snapshot};
-use neurosurgeon_core::sync::{
+use synapse_core::gateway::{GatewayConfig, GatewayServer, UpstreamKind};
+use synapse_core::hud::{format_hud, HudSnapshot};
+use synapse_core::snapshot::{rollback, snapshot};
+use synapse_core::sync::{
     perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
 };
 use std::io::Read;
@@ -807,15 +807,15 @@ fn report_import_dry_run(root: &Path) -> ExitCode {
 }
 
 /// Resolves the Brain directory for `doctor`. Precedence: an explicit
-/// `--brain` flag, then `$NEUROSURGEON_BRAIN`, then the documented default
+/// `--brain` flag, then `$SYNAPSE_BRAIN`, then the documented default
 /// `~/AIBrain` (see DECISIONS.md / model.rs). Errors only if none of these
 /// yield a path (no home directory on a headless account with no override).
 fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN_PATH")
-        .or_else(|| std::env::var_os("NEUROSURGEON_BRAIN"))
+    if let Some(env) = std::env::var_os("SYNAPSE_BRAIN_PATH")
+        .or_else(|| std::env::var_os("SYNAPSE_BRAIN"))
     {
         return Ok(PathBuf::from(env));
     }
@@ -825,13 +825,13 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 }
 
 /// Resolves the tool config root that projection paths are relative to.
-/// Precedence: `--tool-root`, then `$NEUROSURGEON_WORKSPACE_PATH` / `$NEUROSURGEON_TOOL_ROOT`, then home.
+/// Precedence: `--tool-root`, then `$SYNAPSE_WORKSPACE_PATH` / `$SYNAPSE_TOOL_ROOT`, then home.
 fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_WORKSPACE_PATH")
-        .or_else(|| std::env::var_os("NEUROSURGEON_TOOL_ROOT"))
+    if let Some(env) = std::env::var_os("SYNAPSE_WORKSPACE_PATH")
+        .or_else(|| std::env::var_os("SYNAPSE_TOOL_ROOT"))
     {
         return Ok(PathBuf::from(env));
     }
@@ -1050,7 +1050,7 @@ mod tests {
         // With no override, the default is <home>/AIBrain (when a home exists).
         if let Some(home) = dirs::home_dir() {
             // Only meaningful when the env override is unset in this process.
-            if std::env::var_os("NEUROSURGEON_BRAIN").is_none() {
+            if std::env::var_os("SYNAPSE_BRAIN").is_none() {
                 assert_eq!(resolve_brain_root(None).unwrap(), home.join("AIBrain"));
             }
         }
@@ -1086,8 +1086,8 @@ mod tests {
         // Seed a mapping whose canonical Brain source doesn't exist →
         // canonical-source-missing (Critical), which the CLI surfaces as a
         // FAILURE exit code so scripts/CI can gate on it.
-        use neurosurgeon_core::mappings::{Mapping, MappingsFile};
-        use neurosurgeon_core::projector::ProjectionPolicy;
+        use synapse_core::mappings::{Mapping, MappingsFile};
+        use synapse_core::projector::ProjectionPolicy;
 
         let brain = tempfile::tempdir().unwrap();
         let tool = tempfile::tempdir().unwrap();

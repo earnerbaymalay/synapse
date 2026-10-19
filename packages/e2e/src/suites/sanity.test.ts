@@ -14,8 +14,8 @@ describe('E2E Sanity Tests', () => {
     expect(fs.existsSync(sandbox.mockHome)).toBe(true);
 
     expect(sandbox.env.HOME).toBe(sandbox.mockHome);
-    expect(sandbox.env.NEUROSURGEON_BRAIN_PATH).toBe(sandbox.brainDir);
-    expect(sandbox.env.NEUROSURGEON_WORKSPACE_PATH).toBe(sandbox.workspaceDir);
+    expect(sandbox.env.SYNAPSE_BRAIN_PATH).toBe(sandbox.brainDir);
+    expect(sandbox.env.SYNAPSE_WORKSPACE_PATH).toBe(sandbox.workspaceDir);
 
     sandbox.cleanup();
     expect(fs.existsSync(sandbox.tmpDir)).toBe(false);

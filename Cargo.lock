@@ -675,9 +675,9 @@ dependencies = [
  "chrono",
  "directories",
  "log",
- "neurosurgeon-core",
  "serde",
  "serde_json",
+ "synapse-core",
  "tauri",
  "tauri-build",
  "tempfile",
@@ -2056,25 +2056,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "neurosurgeon-core"
-version = "1.0.0"
-dependencies = [
- "base64 0.22.1",
- "diffy",
- "hex",
- "keyring",
- "notify",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tiny_http",
- "toml 0.8.23",
- "ureq",
-]
-
-[[package]]
 name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3290,9 +3271,28 @@ version = "1.0.0"
 dependencies = [
  "clap",
  "dirs",
- "neurosurgeon-core",
  "serde_json",
+ "synapse-core",
  "tempfile",
+]
+
+[[package]]
+name = "synapse-core"
+version = "1.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "diffy",
+ "hex",
+ "keyring",
+ "notify",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tiny_http",
+ "toml 0.8.23",
+ "ureq",
 ]
 
 [[package]]

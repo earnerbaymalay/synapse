@@ -1,5 +1,5 @@
 # 🔌 Tool Adapters Overview
-### Synapse // LLM-NeuroSurgeon — 13 Verified Adapters
+### Synapse — 13 Verified Adapters
 
 [Docs Hub](../README.md) > **Adapters**
 

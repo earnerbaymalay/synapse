@@ -34,7 +34,7 @@ pub fn run() {
             let _config = config::load_config()?;
 
             log::info!(
-                "LLM Neurosurgeon Desktop v{} initialized",
+                "Synapse Desktop v{} initialized",
                 env!("CARGO_PKG_VERSION")
             );
             Ok(())

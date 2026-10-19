@@ -1,4 +1,4 @@
-//! The desktop's bridge to `neurosurgeon-core`.
+//! The desktop's bridge to `synapse-core`.
 //!
 //! Per IDENTITY.md: nothing is displayed that isn't measured. Every command
 //! here reads real state off disk through core and returns it verbatim — no
@@ -10,21 +10,21 @@
 
 use std::path::PathBuf;
 
-use neurosurgeon_core::adapters::all_adapters;
-use neurosurgeon_core::doctor::{diagnose, DoctorContext, Severity};
+use synapse_core::adapters::all_adapters;
+use synapse_core::doctor::{diagnose, DoctorContext, Severity};
 use serde::Serialize;
 
 // ── path resolution ─────────────────────────────────────────────────────
 
 /// Resolves the Brain directory, mirroring the CLI's precedence so both
 /// surfaces examine the same Brain: an explicit path, then
-/// `$NEUROSURGEON_BRAIN_PATH` / `$NEUROSURGEON_BRAIN`, then `~/AIBrain`.
+/// `$SYNAPSE_BRAIN_PATH` / `$SYNAPSE_BRAIN`, then `~/AIBrain`.
 fn resolve_brain_root(explicit: Option<String>) -> Result<PathBuf, String> {
     if let Some(p) = explicit.filter(|p| !p.is_empty()) {
         return Ok(PathBuf::from(p));
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_BRAIN_PATH")
-        .or_else(|| std::env::var_os("NEUROSURGEON_BRAIN"))
+    if let Some(env) = std::env::var_os("SYNAPSE_BRAIN_PATH")
+        .or_else(|| std::env::var_os("SYNAPSE_BRAIN"))
     {
         return Ok(PathBuf::from(env));
     }
@@ -34,14 +34,14 @@ fn resolve_brain_root(explicit: Option<String>) -> Result<PathBuf, String> {
 }
 
 /// Resolves the tool config root that projections are relative to, mirroring
-/// the CLI: an explicit path, then `$NEUROSURGEON_WORKSPACE_PATH` /
-/// `$NEUROSURGEON_TOOL_ROOT`, then the home directory.
+/// the CLI: an explicit path, then `$SYNAPSE_WORKSPACE_PATH` /
+/// `$SYNAPSE_TOOL_ROOT`, then the home directory.
 fn resolve_tool_root(explicit: Option<String>) -> Result<PathBuf, String> {
     if let Some(p) = explicit.filter(|p| !p.is_empty()) {
         return Ok(PathBuf::from(p));
     }
-    if let Some(env) = std::env::var_os("NEUROSURGEON_WORKSPACE_PATH")
-        .or_else(|| std::env::var_os("NEUROSURGEON_TOOL_ROOT"))
+    if let Some(env) = std::env::var_os("SYNAPSE_WORKSPACE_PATH")
+        .or_else(|| std::env::var_os("SYNAPSE_TOOL_ROOT"))
     {
         return Ok(PathBuf::from(env));
     }
@@ -216,9 +216,9 @@ pub fn get_version() -> String {
 pub fn check_for_update(
     manifest_json: String,
     channel: String,
-) -> Result<neurosurgeon_core::updater::DryRunResult, String> {
+) -> Result<synapse_core::updater::DryRunResult, String> {
     let current = env!("CARGO_PKG_VERSION");
-    neurosurgeon_core::updater::dry_run_from_json(current, &manifest_json, &channel)
+    synapse_core::updater::dry_run_from_json(current, &manifest_json, &channel)
         .map_err(|e| e.to_string())
 }
 
@@ -237,7 +237,7 @@ mod tests {
     // an "empty site" test would see zed as present and fail for reasons
     // that have nothing to do with the code under test.
     //
-    // `neurosurgeon-core` has an identical guard (`test_home`) for its own
+    // `synapse-core` has an identical guard (`test_home`) for its own
     // adapter tests, but it is `pub(crate)` there and this is a different
     // crate, so the ~15 lines are duplicated rather than shared.
     static HOME_LOCK: Mutex<()> = Mutex::new(());

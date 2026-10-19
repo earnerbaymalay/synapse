@@ -8,7 +8,7 @@ import type { ExamReport, IntakeReport, ScreenId } from './screens/types'
 /**
  * The desktop shell.
  *
- * Two screens, both backed by real `neurosurgeon-core` calls. The eight
+ * Two screens, both backed by real `synapse-core` calls. The eight
  * screens this replaced were transcriptions of an ASCII wireframe rendering
  * hardcoded sample data ("Project A (Active)"), which is what made the app
  * read as generated — see IDENTITY.md.
@@ -74,7 +74,7 @@ function App() {
             Synapse
           </p>
           <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-soft">
-            llm-neuro-surgeon
+            Synapse
           </p>
           <p className="mt-1 font-mono text-xs text-ink-soft">
             {/* Never invent a version: an unread build reports as unknown. */}
@@ -146,7 +146,7 @@ function Disconnected() {
       </p>
       <p className="mt-3 font-mono text-xs">
         <span className="text-ink-soft">Next </span>
-        <span className="text-drape">neurosurgeon scan</span>
+        <span className="text-drape">synapse scan</span>
       </p>
     </div>
   )

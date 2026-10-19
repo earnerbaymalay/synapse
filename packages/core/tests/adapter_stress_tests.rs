@@ -1,9 +1,9 @@
-use neurosurgeon_core::adapter::{Adapter, AdapterError};
-use neurosurgeon_core::adapters::{
+use synapse_core::adapter::{Adapter, AdapterError};
+use synapse_core::adapters::{
     cline::ClineAdapter, github_copilot::GitHubCopilotAdapter, opencode::OpenCodeAdapter,
     windsurf::WindsurfAdapter, zed::ZedAdapter,
 };
-use neurosurgeon_core::model::Skill;
+use synapse_core::model::Skill;
 use std::fs;
 use std::sync::Mutex;
 use tempfile::tempdir;
@@ -368,13 +368,13 @@ fn test_windsurf_adapter_writes_outside_root() {
     let home_dir = tempdir().unwrap();
     std::env::set_var("HOME", home_dir.path());
 
-    let server = neurosurgeon_core::model::McpServer {
+    let server = synapse_core::model::McpServer {
         id: "wind-mcp".to_string(),
         transport: "stdio".to_string(),
         command_or_url: "python main.py".to_string(),
         env_placeholders: vec![],
         targets: vec!["windsurf".to_string()],
-        health: neurosurgeon_core::model::HealthStatus::Unknown,
+        health: synapse_core::model::HealthStatus::Unknown,
     };
 
     let res = adapter.project(dir.path(), &[], &[], &[server]);

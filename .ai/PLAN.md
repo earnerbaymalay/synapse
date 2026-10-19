@@ -1,4 +1,4 @@
-# LLM Neurosurgeon — PLAN.md
+# Synapse — PLAN.md
 
 ## Phase 0 — Discovery & Design Elicitation → GATE 0 (human)
 - [x] T0.1  Initialize repo + state files + subagent roles :: verify: git log --oneline shows scaffold commit

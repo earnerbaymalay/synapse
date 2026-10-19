@@ -13,8 +13,8 @@ pub struct AppConfig {
     pub sync_enabled: bool,
 }
 
-impl AppConfig {
-    pub fn default() -> Self {
+impl Default for AppConfig {
+    fn default() -> Self {
         Self {
             project_root: "~/AIBrain".to_string(),
             adapter_paths: vec![
@@ -28,6 +28,9 @@ impl AppConfig {
             sync_enabled: false,
         }
     }
+}
+
+impl AppConfig {
 
     pub fn load(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
@@ -59,11 +62,11 @@ pub fn expand_tilde(path: &str) -> PathBuf {
 }
 
 /// Resolves the OS-appropriate config file path for the app, e.g.
-/// `~/.config/llm-neurosurgeon/settings.json` on Linux. This is distinct
+/// `~/.config/Synapse/settings.json` on Linux. This is distinct
 /// from the repo's own `.claude/` directory, which is Claude Code's config
 /// and must not be written to by this app (docs/CODE_REVIEW.md §2.1).
 pub fn config_file_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let project_dirs = ProjectDirs::from("dev", "llmneurosurgeon", "LLM Neurosurgeon")
+    let project_dirs = ProjectDirs::from("dev", "Synapse", "Synapse")
         .ok_or("could not determine an OS config directory for this platform")?;
     Ok(project_dirs.config_dir().join("settings.json"))
 }

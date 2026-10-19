@@ -1,4 +1,4 @@
-# LLM Neurosurgeon — Orchestrator Context
+# Synapse — Orchestrator Context
 
 Self-executing spec: MASTER_PROMPT.md.
 

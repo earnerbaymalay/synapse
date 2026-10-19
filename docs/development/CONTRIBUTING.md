@@ -1,9 +1,9 @@
 # 🤝 Contributing to Synapse
-### LLM-NeuroSurgeon
+### Synapse
 
 [Docs Hub](../README.md) > **Contributing**
 
-Thank you for contributing to **Synapse (LLM-NeuroSurgeon)**!
+Thank you for contributing to **Synapse**!
 
 ---
 
@@ -11,8 +11,8 @@ Thank you for contributing to **Synapse (LLM-NeuroSurgeon)**!
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/earnerbaymalay/llm-neuro-surgeon.git
-cd llm-neuro-surgeon
+git clone https://github.com/earnerbaymalay/synapse.git
+cd Synapse
 
 # 2. Run Rust unit and integration tests
 export PATH="$HOME/.cargo/bin:$PATH"

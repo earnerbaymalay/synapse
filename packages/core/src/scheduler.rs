@@ -32,7 +32,7 @@ pub enum SchedulerOs {
 /// (with `args`) every `interval`, kept alive across logins/reboots.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScheduledJob {
-    /// Reverse-DNS-style identifier, e.g. `"com.llmneurosurgeon.sync"`.
+    /// Reverse-DNS-style identifier, e.g. `"com.synapse.sync"`.
     /// Used as the launchd label, the systemd unit name, and the Windows
     /// task name.
     pub label: String,
@@ -236,8 +236,8 @@ mod tests {
 
     fn sample_job() -> ScheduledJob {
         ScheduledJob {
-            label: "com.llmneurosurgeon.sync".to_string(),
-            command: PathBuf::from("/usr/local/bin/neurosurgeon"),
+            label: "com.synapse.sync".to_string(),
+            command: PathBuf::from("/usr/local/bin/synapse"),
             args: vec!["sync".to_string(), "--once".to_string()],
             interval: Duration::from_secs(300),
         }
@@ -250,7 +250,7 @@ mod tests {
             other => panic!("expected Plist, got {other:?}"),
         };
         assert!(content.contains("<key>Label</key>"));
-        assert!(content.contains("com.llmneurosurgeon.sync"));
+        assert!(content.contains("com.synapse.sync"));
         assert!(content.contains("<integer>300</integer>"));
         assert!(content.contains("sync"));
         assert!(content.contains("--once"));
@@ -262,7 +262,7 @@ mod tests {
             RenderedJob::SystemdUnit { service, timer } => (service, timer),
             other => panic!("expected SystemdUnit, got {other:?}"),
         };
-        assert!(service.contains("ExecStart=/usr/local/bin/neurosurgeon sync --once"));
+        assert!(service.contains("ExecStart=/usr/local/bin/synapse sync --once"));
         assert!(timer.contains("OnUnitActiveSec=300s"));
         assert!(timer.contains("WantedBy=timers.target"));
     }
@@ -274,7 +274,7 @@ mod tests {
             other => panic!("expected SchTasksCommand, got {other:?}"),
         };
         assert!(command.starts_with("schtasks /create"));
-        assert!(command.contains("com.llmneurosurgeon.sync"));
+        assert!(command.contains("com.synapse.sync"));
         assert!(command.contains("/sc minute /mo 5"));
     }
 
@@ -298,7 +298,7 @@ mod tests {
         let written = write_job_files(&job, SchedulerOs::MacOs, home.path()).unwrap();
 
         assert_eq!(written.len(), 1);
-        assert!(written[0].ends_with("Library/LaunchAgents/com.llmneurosurgeon.sync.plist"));
+        assert!(written[0].ends_with("Library/LaunchAgents/com.synapse.sync.plist"));
         assert!(written[0].exists());
         let content = std::fs::read_to_string(&written[0]).unwrap();
         assert!(content.contains("<key>Label</key>"));

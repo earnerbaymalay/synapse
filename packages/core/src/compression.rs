@@ -263,7 +263,7 @@ impl SpoolManager {
 
     /// Resolve default spool directory inside ~/.synapse/spool or $AIBRAIN/spool
     pub fn default_dir() -> PathBuf {
-        if let Ok(brain) = std::env::var("NEUROSURGEON_BRAIN") {
+        if let Ok(brain) = std::env::var("SYNAPSE_BRAIN") {
             PathBuf::from(brain).join("spool")
         } else if let Ok(home) = std::env::var("HOME") {
             PathBuf::from(home).join(".synapse").join("spool")

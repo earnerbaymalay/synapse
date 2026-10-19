@@ -1,16 +1,16 @@
 <div align="center">
 
-<img src="./assets/hero.svg" width="100%" alt="SYNAPSE // LLM-NeuroSurgeon Hero Banner">
+<img src="./assets/hero.svg" width="100%" alt="SYNAPSE Hero Banner">
 
 # SYNAPSE
-### Your Local, Privacy-First "LLM Neuro-Surgeon"
+### Your Local, Privacy-First "Synapse"
 **One Brain. All Models. Permanent Lockstep.** — 100% local execution, zero telemetry, fully open-source (MIT), every line auditable.
 
 [![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-00f0ff?style=flat-square&logo=github)](https://earnerbaymalay.github.io/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)
 [![E2E Vitest](https://img.shields.io/badge/E2E_Tests-142%2F142_Passed-success?style=flat-square&logo=vitest)](packages/e2e/)
 [![Rust Tests](https://img.shields.io/badge/Rust_Tests-236%2F236_Passed-success?style=flat-square&logo=rust)](packages/core/)
-[![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/llm-neuro-surgeon?style=flat-square)](https://github.com/earnerbaymalay/llm-neuro-surgeon/releases)
+[![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/synapse?style=flat-square)](https://github.com/earnerbaymalay/synapse/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Open Source](https://img.shields.io/badge/source-100%25_open-1d9bf0?style=flat-square&logo=opensourceinitiative)](https://github.com/earnerbaymalay/synapse)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-10B981?style=flat-square)](docs/security.md)
@@ -50,7 +50,7 @@
 
 ## 💡 What is SYNAPSE?
 
-**SYNAPSE (LLM-NeuroSurgeon)** is the local-first configuration engine, runtime proxy, and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
+**SYNAPSE** is the local-first configuration engine, runtime proxy, and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, and 8+ other AI coding companions in permanent lockstep.
 
 AI coding tools each invent their own idiosyncratic configuration locations and formats (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.gemini/settings.json`, `.continue/rules/`). When you refine a skill or update an MCP server in one assistant, your other tools fall out of sync. **SYNAPSE eliminates prompt drift by establishing a single canonical Git-backed Brain (`~/AIBrain`), losslessly translating your rules to all 13 tools, and providing an ultra-low-RAM local runtime proxy and live HUD.**
 
@@ -308,7 +308,7 @@ In addition to the high-speed CLI, SYNAPSE includes a cross-platform desktop das
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE // Privacy-First LLM Neuro-Surgeon                    v1.0.0 │
+│  SYNAPSE // Privacy-First Synapse                    v1.0.0 │
 ├───────────────┬────────────────────────────────────────────────────────┤
 │ [Dashboard]   │  SYNAPSE DASHBOARD — One Brain. All Models.             │
 │ [Config]      │  ┌──────────────────┐ ┌────────────────┐ ┌────────────┐ │
@@ -407,7 +407,7 @@ SYNAPSE enforces a 100% test pass requirement across all CI tiers:
 ┌────────────────────────────────────────────────────────────────────────┐
 │  TEST SUITE EXECUTION SUMMARY                                          │
 ├───────────────────────────────────────────────────┬────────────────────┤
-│  Rust Workspace Unit & Stress Tests (Cargo)       │  251/251 PASSED    │
+│  Rust Workspace Unit & Stress Tests (Cargo)       │  237/237 PASSED    │
 │  Sanity Vitest Suite                              │    4/4   PASSED    │
 │  Tier 1: Happy-Path Feature Coverage Vitest Suite │   60/60  PASSED    │
 │  Tier 2: Boundary & Corner Cases Vitest Suite     │   60/60  PASSED    │
@@ -415,7 +415,7 @@ SYNAPSE enforces a 100% test pass requirement across all CI tiers:
 │  Tier 4: Real-World Workloads & E2E Scenarios     │    6/6   PASSED    │
 │  Desktop React Component Tests                    │   10/10  PASSED    │
 ├───────────────────────────────────────────────────┼────────────────────┤
-│  TOTAL COMBINED PASS RATE                         │  403/403 (100%)    │
+│  TOTAL COMBINED PASS RATE                         │  389/389 (100%)    │
 │  Clippy Warnings & Lints                          │  0 Warnings        │
 └───────────────────────────────────────────────────┴────────────────────┘
 ```

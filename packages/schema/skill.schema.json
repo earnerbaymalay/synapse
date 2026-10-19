@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://llm-neurosurgeon.dev/schema/skill.schema.json",
+  "$id": "https://synapse.dev/schema/skill.schema.json",
   "title": "Skill",
   "description": "AIBrain/skills/<slug>/skill.yaml — see MASTER_PROMPT.md canonical Brain layout",
   "type": "object",

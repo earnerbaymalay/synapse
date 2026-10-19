@@ -62,11 +62,11 @@ pub fn ensure_repo(brain_root: &Path) -> Result<(), SnapshotError> {
         run_git(brain_root, &["init", "-q"])?;
         run_git(
             brain_root,
-            &["config", "user.email", "brain@llm-neurosurgeon.local"],
+            &["config", "user.email", "brain@Synapse.local"],
         )?;
         run_git(
             brain_root,
-            &["config", "user.name", "LLM Neurosurgeon Brain"],
+            &["config", "user.name", "Synapse Brain"],
         )?;
     }
     Ok(())

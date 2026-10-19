@@ -2,7 +2,7 @@
 
 [Docs Hub](README.md) > **Quickstart**
 
-Get up and running with **Synapse (LLM-NeuroSurgeon)** in under 60 seconds.
+Get up and running with **Synapse** in under 60 seconds.
 
 ---
 
