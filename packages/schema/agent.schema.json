@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://llm-neurosurgeon.dev/schema/agent.schema.json",
+  "$id": "https://synapse.dev/schema/agent.schema.json",
   "title": "Agent",
   "description": "AIBrain/agents/<slug>.md frontmatter — see MASTER_PROMPT.md canonical Brain layout",
   "type": "object",

@@ -113,7 +113,7 @@ pub fn search_official_registry(
 ) -> Result<Vec<RegistryServer>, RegistryError> {
     let url = format!("{REGISTRY_BASE}/servers?search={query}&limit={limit}");
     let raw = ureq::get(&url)
-        .set("User-Agent", "llm-neurosurgeon")
+        .set("User-Agent", "Synapse")
         .timeout(Duration::from_secs(15))
         .call()
         .map_err(|e| RegistryError::Http(format!("GET {url}: {e}")))?
@@ -282,7 +282,7 @@ fn initialize_request() -> String {
         "params": {
             "protocolVersion": MCP_PROTOCOL_VERSION,
             "capabilities": {},
-            "clientInfo": { "name": "llm-neurosurgeon", "version": env!("CARGO_PKG_VERSION") }
+            "clientInfo": { "name": "Synapse", "version": env!("CARGO_PKG_VERSION") }
         }
     })
     .to_string()
@@ -386,7 +386,7 @@ fn health_check_stdio(command_or_url: &str, timeout: Duration) -> HealthStatus {
 /// which refuses disabled servers.
 fn health_check_remote(url: &str, timeout: Duration) -> HealthStatus {
     let response = ureq::post(url)
-        .set("User-Agent", "llm-neurosurgeon")
+        .set("User-Agent", "Synapse")
         .set("Content-Type", "application/json")
         .set("Accept", "application/json, text/event-stream")
         .timeout(timeout)

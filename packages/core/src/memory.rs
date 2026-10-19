@@ -378,7 +378,7 @@ pub fn observation_from_tool(
         "Bash" => {
             let cmd = s("command");
             // Never memorise our own memory queries (feedback loop).
-            if cmd.contains("synapse mem") || cmd.contains("neurosurgeon mem") {
+            if cmd.contains("synapse mem") || cmd.contains("synapse mem") {
                 return None;
             }
             let (digest, ..) = compress_text(&out_text, CompressionLevel::Aggressive);

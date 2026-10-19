@@ -13,7 +13,7 @@ the real, fully-specified brand system in `brands/synapse/`.
 
 ## The idea
 
-The tool is named Neurosurgeon; the product is SYNAPSE. Take the metaphor
+The tool is named Synapse; the product is SYNAPSE. Take the metaphor
 seriously. A developer's AI tooling is not a "dashboard" — it is a patient.
 One organ (the Brain at `~/AIBrain`), thirteen grafts onto it (the tool
 adapters), a surgeon accountable for what they cut. `doctor` diagnoses.
@@ -54,8 +54,8 @@ current:
   `apps/desktop/src/assets/fonts/` rather than fetched from a CDN — the
   brand's own claim is "local-first, zero telemetry," so a font fetch on
   every launch would contradict the product it's branding.
-- CLI binary renamed `neurosurgeon` → `synapse` (the internal
-  `neurosurgeon-core` library crate and `NEUROSURGEON_*` env vars are
+- CLI binary renamed `synapse` → `synapse` (the internal
+  `synapse-core` library crate and `SYNAPSE_*` env vars are
   unchanged — that's implementation detail, not brand surface).
 
 ## What this still rules out

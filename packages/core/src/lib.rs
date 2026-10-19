@@ -1,4 +1,4 @@
-//! Canonical engine for LLM Neurosurgeon: scanner, Brain model, adapter
+//! Canonical engine for Synapse: scanner, Brain model, adapter
 //! trait, projection policy, and sync outcomes. Consumed by `apps/cli`
 //! directly and by `apps/desktop` via Tauri commands.
 //!

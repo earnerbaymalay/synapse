@@ -83,7 +83,7 @@ struct ContentsFile {
 
 fn get_json<T: serde::de::DeserializeOwned>(url: &str) -> Result<T, MarketplaceError> {
     ureq::get(url)
-        .set("User-Agent", "llm-neurosurgeon")
+        .set("User-Agent", "Synapse")
         .timeout(Duration::from_secs(15))
         .call()
         .map_err(|e| MarketplaceError::Http(format!("GET {url}: {e}")))?

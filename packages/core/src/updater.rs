@@ -149,7 +149,7 @@ pub const UPDATE_PUBLIC_KEY: &str = "";
 /// the `tauri-plugin-updater` wiring consumes this same endpoint + the
 /// public key above once both are real.
 pub const UPDATE_ENDPOINT_TEMPLATE: &str =
-    "https://releases.llmneurosurgeon.dev/{channel}/latest.json";
+    "https://releases.synapse.dev/{channel}/latest.json";
 
 /// The concrete manifest URL for a channel. Read-only config resolution; the
 /// dry-run never actually fetches it in this build.
@@ -556,11 +556,11 @@ mod tests {
     fn endpoint_resolves_per_channel() {
         assert_eq!(
             endpoint_for(Channel::Stable),
-            "https://releases.llmneurosurgeon.dev/stable/latest.json"
+            "https://releases.synapse.dev/stable/latest.json"
         );
         assert_eq!(
             endpoint_for(Channel::Beta),
-            "https://releases.llmneurosurgeon.dev/beta/latest.json"
+            "https://releases.synapse.dev/beta/latest.json"
         );
         // No unfilled placeholder leaks through.
         assert!(!endpoint_for(Channel::Stable).contains("{channel}"));

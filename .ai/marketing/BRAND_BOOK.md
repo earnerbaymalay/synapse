@@ -4,7 +4,7 @@ Companion reference to `brands/synapse/SYNAPSE_Brand_System.dc.html` (the visual
 
 ## Identity
 
-- **Name:** SYNAPSE — always paired with the subtitle **llm-neuro-surgeon** at first mention on any surface.
+- **Name:** SYNAPSE — always paired with the subtitle **Synapse** at first mention on any surface.
 - **Tagline:** "One Brain. All Models."
 - **Tone anchor:** "Surgical precision. Zero friction."
 - **Concept:** structure meets organism. A hairline technical grid (blueprint corner marks, terminal chrome) wraps around living motifs (neurons, pulses, a stitched incision line). Precision on the outside, a brain at work inside.
@@ -27,7 +27,7 @@ Companion reference to `brands/synapse/SYNAPSE_Brand_System.dc.html` (the visual
 
 ## Logo
 
-Wordmark "SYNAPSE" in Rubik Mono One + "llm-neuro-surgeon" in JetBrains Mono beneath. Neural-mark icon (hub-and-spoke SVG) for app icon/favicon/avatar contexts where the full wordmark doesn't fit. Clear space: one cap-height on all sides. Never rotate, outline, or drop-shadow the wordmark.
+Wordmark "SYNAPSE" in Rubik Mono One + "Synapse" in JetBrains Mono beneath. Neural-mark icon (hub-and-spoke SVG) for app icon/favicon/avatar contexts where the full wordmark doesn't fit. Clear space: one cap-height on all sides. Never rotate, outline, or drop-shadow the wordmark.
 
 ## Structural system
 

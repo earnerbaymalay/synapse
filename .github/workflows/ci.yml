@@ -72,7 +72,7 @@ jobs:
       - name: Desktop tests
         run: pnpm --filter desktop-app test
       - name: Schema tests
-        run: pnpm --filter @llm-neurosurgeon/schema test
+        run: pnpm --filter @Synapse/schema test
       - name: Desktop production build
         run: pnpm --filter desktop-app build
 
@@ -94,7 +94,7 @@ jobs:
       - name: Build CLI for E2E
         run: cargo build --package synapse
       - name: End-to-end tests
-        run: pnpm --filter @llm-neurosurgeon/e2e test
+        run: pnpm --filter @Synapse/e2e test
 
   shell:
     name: Shell lint

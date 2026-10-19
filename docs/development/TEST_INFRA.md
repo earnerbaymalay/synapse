@@ -1,6 +1,6 @@
-# Proposed LLM Neurosurgeon E2E Testing Infrastructure
+# Proposed Synapse E2E Testing Infrastructure
 
-This document outlines the testing infrastructure, directory layout, environment configuration, and test suites for the LLM Neurosurgeon End-to-End (E2E) testing suite.
+This document outlines the testing infrastructure, directory layout, environment configuration, and test suites for the Synapse End-to-End (E2E) testing suite.
 
 ---
 
@@ -35,13 +35,13 @@ packages/e2e/
 To run all E2E tests, build the CLI first and execute Vitest:
 ```bash
 # Run all tests
-pnpm --filter @llm-neurosurgeon/e2e test
+pnpm --filter @Synapse/e2e test
 
 # Run tests in watch mode
-pnpm --filter @llm-neurosurgeon/e2e test --watch
+pnpm --filter @Synapse/e2e test --watch
 
 # Run a specific tier's tests
-pnpm --filter @llm-neurosurgeon/e2e test src/suites/tier1_feature.test.ts
+pnpm --filter @Synapse/e2e test src/suites/tier1_feature.test.ts
 ```
 
 ### Environment Isolation
@@ -49,9 +49,9 @@ pnpm --filter @llm-neurosurgeon/e2e test src/suites/tier1_feature.test.ts
 To ensure that E2E tests do not mutate the developer's actual home directory or project directory, the test runner isolates execution using the following environment variables passed to the child process:
 
 - `HOME`: Set to a temporary mock directory (isolates global configs like `~/.claude/settings.json`).
-- `NEUROSURGEON_BRAIN_PATH`: Pointed to the sandboxed `AIBrain/` directory.
-- `NEUROSURGEON_WORKSPACE_PATH`: Pointed to the sandboxed `workspace/` directory containing simulated tool configs.
-- `NEUROSURGEON_LOG_DIR`: Pointed to the temporary directory's log folder.
+- `SYNAPSE_BRAIN_PATH`: Pointed to the sandboxed `AIBrain/` directory.
+- `SYNAPSE_WORKSPACE_PATH`: Pointed to the sandboxed `workspace/` directory containing simulated tool configs.
+- `SYNAPSE_LOG_DIR`: Pointed to the temporary directory's log folder.
 
 ---
 
@@ -100,26 +100,26 @@ Verifies standard operation of the core CLI verbs in isolation.
 
 1. **`scan` Happy Path**
    - **Setup:** Populate `workspace/` with a valid `.cursorrules` and `.cursor/rules/repo-conventions.mdc` fixture.
-   - **Action:** Execute `neurosurgeon scan --json`.
+   - **Action:** Execute `synapse scan --json`.
    - **Assert:** Exit code is 0. Standard output is a JSON array containing a record for `"cursor"` with correct path properties.
 2. **`import` Happy Path**
    - **Setup:** Same as scan.
-   - **Action:** Execute `neurosurgeon import` (without `--dry-run`).
+   - **Action:** Execute `synapse import` (without `--dry-run`).
    - **Assert:** Canonical `AIBrain/skills/repo-conventions/skill.yaml` and `AIBrain/skills/repo-conventions/SKILL.md` are created. Files match structural schemas.
 3. **`project` Happy Path**
    - **Setup:** Populate `AIBrain/` with canonical skill and agent files.
-   - **Action:** Execute `neurosurgeon project`.
+   - **Action:** Execute `synapse project`.
    - **Assert:** The matching files are written or symlinked into the corresponding paths in `workspace/` (e.g. `.cursor/rules/repo-conventions.mdc` recreated).
 4. **`sync` Happy Path**
    - **Setup:** A valid hybrid workspace.
-   - **Action:** Execute `neurosurgeon sync --once`.
+   - **Action:** Execute `synapse sync --once`.
    - **Assert:** Both scanning, importing, and projecting occur, resolving dependencies and ensuring state is unified.
 5. **`doctor` Happy Path**
    - **Setup:** A target file in `workspace/` is modified directly (creating drift between workspace and Brain).
-   - **Action:** Run `neurosurgeon doctor`. Verify it reports the drift. Run `neurosurgeon doctor --fix` and verify it restores alignment.
+   - **Action:** Run `synapse doctor`. Verify it reports the drift. Run `synapse doctor --fix` and verify it restores alignment.
 6. **`snapshot` & `rollback` Happy Path**
    - **Setup:** A clean Brain.
-   - **Action:** Run `neurosurgeon snapshot "initial state"`. Modify brain contents. Run `neurosurgeon rollback <ref>`.
+   - **Action:** Run `synapse snapshot "initial state"`. Modify brain contents. Run `synapse rollback <ref>`.
    - **Assert:** Files are restored to the exact initial byte structure.
 
 ---
@@ -130,27 +130,27 @@ Verifies how the system responds to environment variance, errors, and potential 
 
 1. **Path Traversal & Symlink Escapes (Security Gate)**
    - **Setup:** Inject a custom skill with `source` targeting `../../../../etc/passwd` or a symlink escape in `workspace/`.
-   - **Action:** Run `neurosurgeon import`.
+   - **Action:** Run `synapse import`.
    - **Assert:** The CLI rejects the path traversal, exits with a non-zero code, and writes no files outside the sandboxed `AIBrain` or `workspace`.
 2. **Circular Symlink Loops**
    - **Setup:** In `workspace/`, create a directory structure where `.cursor/rules/loop` is a symlink pointing to `.cursor/rules`.
-   - **Action:** Run `neurosurgeon scan`.
+   - **Action:** Run `synapse scan`.
    - **Assert:** The scanner terminates successfully (does not hang or overflow the stack) and reports valid configurations without looping.
 3. **Malformed Input Files**
    - **Setup:** Create a `workspace/` config with broken YAML syntax (e.g. invalid indentations, duplicate keys) or corrupted Markdown frontmatter.
-   - **Action:** Run `neurosurgeon import`.
+   - **Action:** Run `synapse import`.
    - **Assert:** CLI exits with status code 1. Output error message contains `malformed config: <filename>` and wraps the parser error cleanly (no panic/unhandled error).
 4. **Schema Violation Prevention**
    - **Setup:** Inject a skill file into `AIBrain/` with missing required keys (e.g., missing `sha256` or `version`) or containing unknown properties.
-   - **Action:** Run `neurosurgeon project`.
+   - **Action:** Run `synapse project`.
    - **Assert:** CLI detects the schema violation, reports it, and exits with a non-zero status code without modifying workspace files.
 5. **Write-Protected Filesystem**
    - **Setup:** Mark `workspace/` as read-only (chmod 400/500).
-   - **Action:** Run `neurosurgeon project`.
+   - **Action:** Run `synapse project`.
    - **Assert:** Exits with standard `AdapterError::Io` error message. No half-written or corrupted configuration remnants.
 6. **No-Symlink Platform Simulation**
    - **Setup:** Run tests simulating a Windows environment where symlink privileges are unavailable.
-   - **Action:** Run `neurosurgeon project` (under the `Decide` rule).
+   - **Action:** Run `synapse project` (under the `Decide` rule).
    - **Assert:** Projector falls back automatically to `Generate` policy, copying the file with the appropriate provenance stamp.
 
 ---
@@ -161,7 +161,7 @@ Verifies coordination of multiple adapters and concurrent operations.
 
 1. **Multi-Tool Workspace Integration**
    - **Setup:** A workspace containing configurations for four tools simultaneously (Cursor, Cline, Zed, and Claude Code).
-   - **Action:** Run `neurosurgeon scan` and `neurosurgeon import`.
+   - **Action:** Run `synapse scan` and `synapse import`.
    - **Assert:** All four configurations are detected and combined into the canonical Brain model, sharing skills when IDs align.
 2. **Idempotency & Convergence**
    - **Setup:** A dirty workspace.
@@ -171,11 +171,11 @@ Verifies coordination of multiple adapters and concurrent operations.
    - **Setup:**
      - User edits a rule in `AIBrain/skills/lint/skill.yaml`.
      - Simultaneously, user edits the corresponding target rule file directly in `.cursor/rules/lint.mdc`.
-   - **Action:** Run `neurosurgeon sync`.
+   - **Action:** Run `synapse sync`.
    - **Assert:** Sync returns `ConflictQueued`. The conflict is registered in the review file (e.g., `AIBrain/conflicts.json`), and the actual rules files are left untouched.
 4. **Concurrency Locking**
    - **Setup:** Set up a slow import process (or simulate a large database operation).
-   - **Action:** Spawn two `neurosurgeon sync` processes simultaneously in the same sandbox.
+   - **Action:** Spawn two `synapse sync` processes simultaneously in the same sandbox.
    - **Assert:** The second process fails immediately with a descriptive lock-error code, ensuring that concurrent operations do not corrupt state.
 5. **Debouncing Watcher Events**
    - **Setup:** Mock the filesystem watcher. Trigger 50 rapid write events on rule files within a 50ms window.
@@ -194,7 +194,7 @@ Verifies long-term viability and performance under production loads.
    - **Assert:** Modular rule files are correctly created in `.cursor/rules/*.mdc`, extracting rules into structured YAML/Markdown skills in the Brain.
 2. **High Volume Scaling**
    - **Setup:** A mock `AIBrain/` populated with 150 skills, 50 agents, and 30 MCP servers.
-   - **Action:** Run `neurosurgeon project` and measure execution metrics.
+   - **Action:** Run `synapse project` and measure execution metrics.
    - **Assert:** Total execution time is under 150ms. Memory consumption is under 50MB. All files are projected correctly.
 3. **Cross-Platform Compatibility (Path/LF Normalization)**
    - **Setup:** Import paths created on Windows using backslashes and CRLF line endings.

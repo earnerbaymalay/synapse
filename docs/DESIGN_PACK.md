@@ -153,7 +153,7 @@ Total: 8 screens for ASCII wireframes
 │                                                         │
 │  ╭───────────────────────────────────────────────────╮ │
 │  │ error: Adapter mismatch                          │ │
-│  │ at /workspace/llm-neurosurgeon/adapter-smith/...    │ │
+│  │ at /workspace/synapse/adapter-smith/...    │ │
 │  │ Time: 2026-07-07 14:23:12                       │ │
 │  │ Stack: ...                                        │ │
 │  │                                                   │ │
@@ -175,7 +175,7 @@ Total: 8 screens for ASCII wireframes
 │                    Onboarding Wizard                   │
 │                                                         │
 │  ┌─────────────────────────────────────────────────┐    │
-│  │ 🎯 Welcome to LLM Neurosurgeon                    │    │
+│  │ 🎯 Welcome to Synapse                    │    │
 │  │                                                 │    │
 │  │  Step 1/3: Select Dev Environment               │    │
 │  │  ┌─────────────────────────────────────────┐    │

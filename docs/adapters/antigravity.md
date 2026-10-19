@@ -1,5 +1,5 @@
 # Antigravity CLI Adapter Specification
-### Synapse // LLM-NeuroSurgeon
+### Synapse
 
 [Docs Hub](../README.md) > [Adapters](README.md) > **Antigravity CLI**
 

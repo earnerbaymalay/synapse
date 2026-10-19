@@ -59,10 +59,10 @@ jobs:
           pnpm --filter desktop-app build
 
       - name: cargo build --release (CLI, keychain on)
-        run: cargo build --release -p synapse --features neurosurgeon-core/os-keychain
+        run: cargo build --release -p synapse --features synapse-core/os-keychain
 
       - name: cargo build --release (desktop, keychain on)
-        run: cargo build --release -p desktop-app --features neurosurgeon-core/os-keychain
+        run: cargo build --release -p desktop-app --features synapse-core/os-keychain
 
       - name: Upload binaries
         uses: actions/upload-artifact@v7

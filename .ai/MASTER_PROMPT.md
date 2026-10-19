@@ -1,4 +1,4 @@
-# LLM Neurosurgeon — Master Build Prompt
+# Synapse — Master Build Prompt
 
 **How to use:** Copy everything between `<<<PROMPT START>>>` and `<<<PROMPT END>>>` and paste it as your first message into **Claude Opus 4.8 inside Claude Code** (recommendation justified in §A after the prompt). It is self-executing: it will interview you once (branding + 3 stack/config choices), then build autonomously with only 5 human checkpoints. To run it on a different model, use the porting protocol in §B.
 
@@ -6,7 +6,7 @@
 
 <<<PROMPT START>>>
 
-# MISSION: Build "LLM NEUROSURGEON" — the cross-platform AI-config unifier
+# MISSION: Build "Synapse" — the cross-platform AI-config unifier
 
 You are the **Chief Surgeon**: lead architect and orchestrator of an autonomous engineering effort. You will design, plan, and build a complete, shippable product with minimal human interruption. You have permission to make all technical decisions not explicitly reserved for the human at the gates defined below. Do not ask questions outside gates; log them to `QUESTIONS.md` and proceed with the most defensible default.
 
@@ -28,7 +28,7 @@ If your environment supports subagents, skills, hooks, and headless invocation (
 4. **Auto-Sync Daemon** — filesystem watcher + scheduled sweeps (launchd/systemd/Task Scheduler). Bidirectional: source-edited → re-import; Brain-edited → re-project. Both changed → three-way merge against last git snapshot; disjoint markdown merges auto-resolve, real conflicts enter a review queue in the GUI. Every sync = a git commit (the "Time Machine": browse, diff, roll back).
 5. **Marketplace Import** — one-click import of skills/agents from: the official `anthropics/skills` GitHub repo, awesome-claude-code / awesome-ai-skills lists, Gemini CLI extensions & official docs examples, and any git URL or local folder. Show provenance, license, and a diff preview before install.
 6. **MCP Hub** — browse/search plug-and-play MCP servers from the official MCP registry, Smithery, PulseMCP, mcp.so, and the Docker MCP catalog; install once, project the server config to every tool's MCP file; health-check (spawn + handshake) each server; secrets stored in the OS keychain and written to tool configs as env placeholders only.
-7. **Vitals & Doctor** — dashboard showing the coverage matrix (tool × capability), drift/broken-link detection, and a "Doctor" diagnostic that explains and fixes issues ("Cursor lost 3 rules — reattach?"). This is the neurosurgeon persona: precise, calm, a little clinical.
+7. **Vitals & Doctor** — dashboard showing the coverage matrix (tool × capability), drift/broken-link detection, and a "Doctor" diagnostic that explains and fixes issues ("Cursor lost 3 rules — reattach?"). This is the synapse persona: precise, calm, a little clinical.
 8. **Safety by design** — dry-run is the default for the first merge; a full backup snapshot precedes any destructive op; import never follows symlinks outside scanned roots; imported skills are flagged as untrusted prompt/code (show source + checksum, require explicit enable); no telemetry; fully offline except explicit marketplace fetches.
 
 **Non-goals (v1):** running models, editing chat histories, cloud sync, mobile.
@@ -123,7 +123,7 @@ Steps: (0.1) Initialize repo + state files. (0.2) Dispatch `recon` ×12 in paral
 - **A. Cortex** — "Your models. One mind." Palette *Deep Synapse*: bg `#0B0E1A`, violet `#6C5CE7`, cyan accent `#00D4FF`, text `#E8E9F0`. Type: Space Grotesk / Inter / JetBrains Mono. Dark, neural, premium.
 - **B. Synapse** — "Wire every AI to one brain." Palette *Surgical Steel*: bg `#F7F9FB`, teal `#16A085`, slate `#2C3E50`, alert coral `#FF6B6B`. Type: Inter / IBM Plex Mono. Light, clinical, trustworthy.
 - **C. Cerebra** — "Equal skills for every model." Palette *Warm Clinic*: cream `#FAF6F0`, coral `#E17055`, charcoal `#2D3436`, sky `#74B9FF`. Type: Sora / Inter. Friendly, approachable.
-- In all cases, "LLM Neurosurgeon" remains the Doctor-mode persona and marketing hook.
+- In all cases, "Synapse" remains the Doctor-mode persona and marketing hook.
 
 **Wireframes (8 screens; refine these, don't replace them):** 1 Onboarding wizard (Scan → Review found configs → Create Brain → Link tools), 2 Dashboard/Vitals (coverage matrix, sync status, alerts), 3 Library (skills/agents/rules browser + editor + target toggles), 4 Marketplace (source tabs, diff preview, provenance), 5 MCP Hub (installed / registry / health / secrets), 6 Sync Center (timeline, conflict queue, schedules), 7 Doctor (diagnostics + one-click fixes), 8 Settings.
 

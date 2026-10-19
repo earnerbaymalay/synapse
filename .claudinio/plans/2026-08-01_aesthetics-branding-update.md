@@ -1,4 +1,4 @@
-# LLM Neurosurgeon — Aesthetics & Branding Overhaul
+# Synapse — Aesthetics & Branding Overhaul
 
 ## Context
 The user wants to update the repository's aesthetics, design, documentation, and onboarding flow, and generate a comprehensive marketing/branding pack. 
@@ -102,5 +102,5 @@ The vitest test runner was broken by a jsdom version mismatch: jsdom@29 requires
 Everything is prepared for the user to install on a real machine. The CLI binary (1.1 MB) is built and functional. The desktop frontend dist is built. Packaging docs cover all 4 platform installers (.dmg, .msi, .deb, .AppImage), Homebrew formula, and shell installer scripts. The reproducible-builds doc specifies deterministic toolchains and SHA-256 manifests.
 
 **Task journal:**
-- T8.3 Gate 4 — Prepare for human install & onboarding: CLI binary: 1.1 MB release binary at target/release/neurosurgeon; Desktop frontend: dist/ built (0.40 KB HTML + 11.29 KB CSS + 181.56 KB JS); CLI scan: detects claude-code in this repo; CLI import --dry-run: reports 7 skills, 6 agents, 0 MCP servers — nothing written; CLI doctor --fix: initializes git repo + mappings.json in ~/AIBrain; Packaging docs: docs/packaging/RELEASE_PACKAGING.md with .dmg/.msi/.deb/.AppImage configs, Homebrew formula, install.sh/install.ps1; Reproducible builds: docs/REPRODUCIBLE_BUILDS.md with deterministic toolchain, dependency locking, SHA-256 manifests; All Rust tests pass, all desktop tests pass (4/4), frontend builds clean
+- T8.3 Gate 4 — Prepare for human install & onboarding: CLI binary: 1.1 MB release binary at target/release/synapse; Desktop frontend: dist/ built (0.40 KB HTML + 11.29 KB CSS + 181.56 KB JS); CLI scan: detects claude-code in this repo; CLI import --dry-run: reports 7 skills, 6 agents, 0 MCP servers — nothing written; CLI doctor --fix: initializes git repo + mappings.json in ~/AIBrain; Packaging docs: docs/packaging/RELEASE_PACKAGING.md with .dmg/.msi/.deb/.AppImage configs, Homebrew formula, install.sh/install.ps1; Reproducible builds: docs/REPRODUCIBLE_BUILDS.md with deterministic toolchain, dependency locking, SHA-256 manifests; All Rust tests pass, all desktop tests pass (4/4), frontend builds clean
 - Phase 5 GUI — Fix tests & verify all 8 screens: jsdom downgraded from ^29.1.1 to ^24.1.0 (Node 18 compatibility); All 4 OnboardingWizard e2e tests pass: full 3-step flow, empty state, graceful degradation, back navigation; All 8 screens build successfully (tsc + vite build); Frontend dist: 0.40 KB HTML + 11.29 KB CSS + 181.56 KB JS

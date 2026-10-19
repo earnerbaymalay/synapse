@@ -1,4 +1,4 @@
-# Orchestrator Context — LLM Neurosurgeon
+# Orchestrator Context — Synapse
 
 ## Current Status
 Phase 0 completed. Gate 0 decisions made:
@@ -38,4 +38,4 @@ Next action: implement T1.2 (RALPH_PROMPT.md + task breakdown).
 - Final goal: human approval via Gates 4.
 
 ## Memory
-This context is the source of truth for the ongoing LLM Neurosurgeon project. Keep it in sync.
+This context is the source of truth for the ongoing Synapse project. Keep it in sync.

@@ -62,7 +62,7 @@ What: `cline`, `opencode`, `github-copilot`, `windsurf` adapters implemented
 (detect/import/project, SHA256 provenance, JSONC parsing) per PROJECT.md's
 4-milestone breakdown of T3.1. Also scaffolded `packages/e2e` (Vitest) per
 TEST_INFRA.md for later cross-tool E2E coverage.
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 21 lib tests +
+Evidence: `cargo test -p synapse-core -p synapse` — 21 lib tests +
 16 stress tests (1 ignored, platform-dependent) + 5 CLI tests, all green.
 Commit 9041ee8.
 Next: Milestone 2 — `gemini-cli`, `zed`, `aider`, `roo-code` (hybrid
@@ -77,7 +77,7 @@ What: `gemini-cli` (GEMINI.md + .gemini/settings.json mcpServers),
 does NOT claim `.clinerules` since that file is Cline's — avoids double-import
 across the two adapters). All JSON/settings merges preserve pre-existing
 unrelated keys (matches Milestone 1's cline/windsurf merge pattern).
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 59 tests green
+Evidence: `cargo test -p synapse-core -p synapse` — 59 tests green
 (1 ignored, platform-dependent), `cargo fmt --check` clean. Commit d162d6f.
 Next: Milestone 3 — `cursor`, `continue`, `claude-code`, `openai-codex`
 (advanced multi-file/settings tools). 8/12 adapters done.
@@ -101,7 +101,7 @@ T3.1's PLAN.md verify condition (12/12 round-trip green) is now met — ticked
 the checkbox. PROJECT.md's Milestone 4 line is marked done at the unit-test
 level; the cross-tool `packages/e2e` suite (tier1-4) is separate follow-on
 work, not required by T3.1's own verify text.
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 77 tests green
+Evidence: `cargo test -p synapse-core -p synapse` — 77 tests green
 (1 ignored, platform-dependent), `cargo fmt --check` clean.
 Next: T3.2 (projection engine: symlink-vs-generate policy table,
 mappings.json, drift detector) or T3.3 (red-team pass) — both unblocked now
@@ -129,9 +129,9 @@ content checks). Wired both into `lib.rs`. Scope was `packages/core` only —
 adapters' `project()` methods do not yet call the policy table or write
 mappings.json; that wiring is follow-on work, not required by T3.2's own
 verify text ("policy table present and tested").
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 72 lib tests
+Evidence: `cargo test -p synapse-core -p synapse` — 72 lib tests
 (was 59) + 16 stress tests (1 ignored, platform-dependent) + 5 CLI tests,
-all green; `cargo fmt --check -p neurosurgeon-core` clean. Ticked T3.2's
+all green; `cargo fmt --check -p synapse-core` clean. Ticked T3.2's
 checkbox in PLAN.md.
 Next: T3.3 (red-team pass: symlink escape, path traversal, circular links,
 malformed configs — report in docs/security.md) is next and unblocked.
@@ -169,10 +169,10 @@ bug — it's a fixed literal path, not attacker-influenced or root-relative.
 Malformed-config handling was reviewed and found already adequately
 covered by T3.1's existing stress tests; no new findings there. Full
 report: docs/security.md.
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 106 tests
+Evidence: `cargo test -p synapse-core -p synapse` — 106 tests
 green (84 lib + 17 stress + 5 CLI), 0 ignored (was 1 ignored pre-fix — the
 symlink-loop hang test now runs and passes); `cargo fmt --check
--p neurosurgeon-core` clean. Ticked T3.3's checkbox in PLAN.md.
+-p synapse-core` clean. Ticked T3.3's checkbox in PLAN.md.
 Next: T3.4 is Gate 2 — a human runs `cli scan && cli import --dry-run` on
 their real machine and approves the printed migration report before
 anything is written. This halts the RALPH loop; do not attempt to pass
@@ -189,7 +189,7 @@ and approve the printed report, but `apps/cli` had no code path to
 own scope was only `--help` completeness, not real behavior). This isn't a
 PLAN.md line item itself, but it's a hard prerequisite for T3.4 to be
 attemptable at all, so closed it now rather than leaving the gate
-unreachable. Added `neurosurgeon-core` + `serde_json` as `apps/cli`
+unreachable. Added `synapse-core` + `serde_json` as `apps/cli`
 dependencies. `cli scan [--json]` now calls every registered adapter's
 `detect()` against the current directory and reports which tools were
 found. `cli import --dry-run` calls `detect()` + `import()` per adapter and
@@ -200,13 +200,13 @@ and points at PLAN.md T4.x, since no Brain-write path exists in
 scope, not part of T3.2/T3.3). `project`/`sync`/`doctor`/`snapshot`/
 `rollback` remain stubs — unaffected, out of scope for reaching Gate 2.
 Manually ran the built binary against this repo as a smoke test:
-`cargo run -p neurosurgeon -- scan` correctly detected `claude-code` (this
+`cargo run -p synapse -- scan` correctly detected `claude-code` (this
 repo's own CLAUDE.md + .claude/agents/*.md), and `import --dry-run`
 printed a real report (7 skills, 6 agents, 0 mcp servers) without touching
 the filesystem — confirmed by a test that diffs `read_dir` before/after.
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 110 tests
+Evidence: `cargo test -p synapse-core -p synapse` — 110 tests
 green (9 CLI + 84 core lib + 17 core stress + 0 doctests), 0 ignored;
-`cargo fmt --check -p neurosurgeon-core -p neurosurgeon` clean.
+`cargo fmt --check -p synapse-core -p synapse` clean.
 Next: T3.4 (Gate 2) is now genuinely reachable — a human can run
 `cli scan && cli import --dry-run` against their real machine today and
 get a real, honest report. This halts the RALPH loop; a human must run it
@@ -214,9 +214,9 @@ and approve before any further Phase 3/4 work touches real filesystem
 writes. Do not attempt to simulate or bypass this gate.
 
 ## T3.4 — Gate 2 — APPROVED — 2026-07-12
-What: Ran `cargo run -p neurosurgeon -- scan` then
-`cargo run -p neurosurgeon -- import --dry-run` against this repo
-(`/home/vers/Desktop/llm-neurosurgeon`) as the human-run smoke test T3.4
+What: Ran `cargo run -p synapse -- scan` then
+`cargo run -p synapse -- import --dry-run` against this repo
+(`/home/vers/Desktop/synapse`) as the human-run smoke test T3.4
 requires. `scan` detected 1 tool (`claude-code`). `import --dry-run`
 reported 7 skills, 6 agents, 0 MCP servers and wrote nothing. Before
 asking for approval, cross-checked every claim in the printed report
@@ -273,10 +273,10 @@ could leak into another's assertions — reproduced the flake, then fixed it
 with a shared `Mutex<()>` (`HOME_ENV_LOCK`) all three now hold for their
 full duration. Confirmed fixed by rerunning the stress suite 5x in a row,
 green every time (was intermittently red before).
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 119 tests
+Evidence: `cargo test -p synapse-core -p synapse` — 119 tests
 green (9 CLI + 93 core lib + 17 core stress + 0 doctests), 0 ignored,
 stable across 3 consecutive full runs; `cargo fmt --check
--p neurosurgeon-core -p neurosurgeon` clean; no new build warnings.
+-p synapse-core -p synapse` clean; no new build warnings.
 Next: T4.2 (conflict queue API + three-way merge) or T4.3 (git
 snapshot/rollback + crash-safe lock) — both unblocked. Neither depends on
 the other, but T4.3's snapshot-before-destroy machinery is the safer one
@@ -315,12 +315,12 @@ snapshots again, rolls back to the first snapshot, and asserts a full
 sha256 hash of every file in the tree is identical to a hash taken right
 after the first snapshot — plus asserts `git log` shows 3 commits, not 1,
 proving history wasn't rewritten.
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 126 tests
+Evidence: `cargo test -p synapse-core -p synapse` — 126 tests
 green (9 CLI + 100 core lib + 17 core stress + 0 doctests), 0 ignored,
 stable across 3 consecutive runs of the new snapshot tests specifically
 (git-subprocess-based tests are exactly the kind that can flake, so
 verified repeatedly rather than trusting one green run); `cargo fmt
---check -p neurosurgeon-core -p neurosurgeon` clean; no new build
+--check -p synapse-core -p synapse` clean; no new build
 warnings.
 Next: T4.2 (conflict queue API + three-way merge) is the last item in
 Phase 4, now with T4.3's snapshot/rollback available as its safety net.
@@ -366,10 +366,10 @@ diffy) and the same ambiguity `git merge` exhibits on short files.
 Fixed the test to use a realistic fixture with unchanged lines around each
 edit rather than masking it, and documented why in a comment so a future
 reader doesn't mistake it for a real bug.
-Evidence: `cargo test -p neurosurgeon-core -p neurosurgeon` — 137 tests
+Evidence: `cargo test -p synapse-core -p synapse` — 137 tests
 green (9 CLI + 111 core lib + 17 core stress + 0 doctests), 0 ignored,
-stable across 3 consecutive runs; `cargo fmt --check -p neurosurgeon-core
--p neurosurgeon` clean; no new build warnings. Ticked T4.2's checkbox —
+stable across 3 consecutive runs; `cargo fmt --check -p synapse-core
+-p synapse` clean; no new build warnings. Ticked T4.2's checkbox —
 **Phase 4 is now fully complete (T4.1, T4.2, T4.3 all green).**
 Next: Phase 5 begins with T5.1 (`ui-builder` implements 8 screens from
 DESIGN_PACK.md) and ends at **GATE 3** (human review of the GUI + demo) —
@@ -530,7 +530,7 @@ What: Added a real Tauri command,
 `detect()` + `import()` calls against every `packages/core` adapter, same
 nothing-is-written guarantee — just returning structured
 `DryRunReport`/`DetectedTool` JSON instead of printing text. Added
-`neurosurgeon-core` as an `apps/desktop/src-tauri` dependency to make this
+`synapse-core` as an `apps/desktop/src-tauri` dependency to make this
 possible (mirrors what T3.4's CLI-wiring work already did for `apps/cli`).
 Rewrote `OnboardingWizard.tsx` from its T5.1 single-step mock into a real
 3-step flow: Step 1 (environment select, unchanged) → Step 2 (calls
@@ -718,12 +718,12 @@ missing to actually close T7.2: (1) the CLI `doctor` command was a
 `not_yet_implemented` stub, and (2) there was no single "corrupted fixture
 Brain" self-verify — only per-rule unit tests. Both are now done.
 
-CLI (`apps/cli/src/main.rs`): `neurosurgeon doctor [--fix]` is wired to
+CLI (`apps/cli/src/main.rs`): `synapse doctor [--fix]` is wired to
 `diagnose`/`apply_fixes` with a clinical report (severity-tagged lines,
 "(fixable — rerun with --fix)" hints). Added `--brain <PATH>` and
 `--tool-root <PATH>` overrides; default resolution is
-`$NEUROSURGEON_BRAIN` else `~/AIBrain` for the Brain (the documented
-default), and `$NEUROSURGEON_TOOL_ROOT` else `$HOME` for the tool root.
+`$SYNAPSE_BRAIN` else `~/AIBrain` for the Brain (the documented
+default), and `$SYNAPSE_TOOL_ROOT` else `$HOME` for the tool root.
 Exit code is FAILURE when any Critical diagnosis remains (script/CI
 gating), SUCCESS otherwise. Added `dirs = "6"` (already in the lock tree)
 for cross-platform home resolution.
@@ -889,7 +889,7 @@ What: Authored `docs/packaging/RELEASE_PACKAGING.md` detailing installer scripts
 - **Windows Authenticode (.msi)**: Documented WiX Toolset integration and Azure Key Vault / `signtool.exe` Authenticode signing commands.
 - **Linux Packages (.deb & .AppImage)**: Outlined package layouts, maintainer scripts (`postinst`/`postrm`), and desktop file database updates.
 - **Installer Scripts**: Authored production-ready `install.sh` (POSIX shell script for Linux/macOS with platform detection and SHA-256 integrity check) and `install.ps1` (PowerShell script for Windows with PATH management).
-- **Homebrew Formula**: Authored complete draft formula `llm-neurosurgeon.rb` supporting `brew install llm-neurosurgeon`, bottles for Apple Silicon/Intel/Linux, build from source via Cargo, and automated test assertions.
+- **Homebrew Formula**: Authored complete draft formula `synapse.rb` supporting `brew install synapse`, bottles for Apple Silicon/Intel/Linux, build from source via Cargo, and automated test assertions.
 
 Evidence: `docs/packaging/RELEASE_PACKAGING.md` created with verified configurations, installer scripts, and formula code blocks. Ticked T8.1 in PLAN.md.
 
@@ -912,7 +912,7 @@ Next: T8.3 (Gate 4: human installs on real machine and runs onboarding).
 - **State assessment:** Local `main` ahead of `origin/main` by 2 commits. 187 tests green (13 CLI + 154 core lib + 17 stress + 3 updater), 0 ignored. Phases 0–7 complete. Only T8.3 (Gate 4) remains in PLAN.md.
 - **Clippy fixes cherry-picked:** Extracted the code improvements from `chore/clippy-fixes-v0.7.4` (af9da8e) — `strip_prefix` over manual slicing, `enumerate().skip(1)` over index loops, `match` tuple over nested `if let`, `incremental=false`/`panic=abort` in workspace release profile, deduplicated desktop release profile (was causing cargo warning). Skipped the CI workflow regressions (build.yml/ci.yml were reverting to Tauri 1.x deps). Committed as d2b5063.
 - **Stale worktree cleaned:** Removed `.claude/worktrees/clippy-fixes` worktree, deleted local branch. Remote `origin/chore/clippy-fixes-v0.7.4` still exists.
-- **Test suite verified:** `cargo test -p neurosurgeon-core -p neurosurgeon` — 187/187 green, 0 ignored, `cargo fmt --check` clean.
+- **Test suite verified:** `cargo test -p synapse-core -p synapse` — 187/187 green, 0 ignored, `cargo fmt --check` clean.
 
 **Current state:**
 | Dimension | Status |
@@ -934,7 +934,7 @@ Next: T8.3 (Gate 4: human installs on real machine and runs onboarding).
 
 **What was done:**
 - **Antigravity CLI Adapter:** Added `AgyCliAdapter` (`agy-cli`) supporting `AGENTS.md`, `.agy/skills/`, and `.gemini/settings.json`. Total adapters elevated to 13.
-- **CLI Write Commands:** Implemented non-dry-run write execution for `neurosurgeon import`, `project`, `sync` (`--once`, `--daemon`, `--poll-interval`), `snapshot`, and `rollback`.
+- **CLI Write Commands:** Implemented non-dry-run write execution for `synapse import`, `project`, `sync` (`--once`, `--daemon`, `--poll-interval`), `snapshot`, and `rollback`.
 - **E2E Hardening to 100%:** Resolved all failing test groups across Sanity, Tier 1, Tier 2, Tier 3, and Tier 4. Full 142/142 tests passing in `packages/e2e`.
 - **Rust Core Hardening:** Resolved adapter stress tests, path traversal security checks, and malformed config handling across 13 adapters. Full 179/179 Rust tests passing with clean `cargo clippy` and `cargo fmt`.
 - **Documentation Set:** Updated `README.md`, `docs/USER_GUIDE.md`, `docs/ADAPTER_AUTHORING_GUIDE.md`, and `CHANGELOG.md` to reflect `v1.0.0` status, 13 adapters, complete CLI commands, and test verification metrics.
@@ -942,13 +942,13 @@ Next: T8.3 (Gate 4: human installs on real machine and runs onboarding).
 
 ## 2026-08-19 — SYNAPSE Rebrand Identity & Repository Documentation Overhaul
 
-**Context:** Full overhaul of repository documentation to integrate the fresh SYNAPSE brand identity (`SYNAPSE / llm-neuro-surgeon: One Brain. All Models.`), design tokens, React desktop GUI overhaul, 4-phase onboarding journey, CLI binary alias references (`synapse` / `neurosurgeon`), and verified 100% test pass rates.
+**Context:** Full overhaul of repository documentation to integrate the fresh SYNAPSE brand identity (`SYNAPSE / Synapse: One Brain. All Models.`), design tokens, React desktop GUI overhaul, 4-phase onboarding journey, CLI binary alias references (`synapse` / `synapse`), and verified 100% test pass rates.
 
 **What was done:**
 - **SYNAPSE Brand Package Integration:** Aligned repository documentation with `brands/synapse/marketing-pack/BRAND_BOOK.md` tokens: Synapse Blue accent `#1d9bf0`, dark ink interface `#06080b`, Inter and JetBrains Mono typography, and "Surgical precision. Zero friction." tone anchor.
-- **Root README.md Overhaul:** Updated main title header, feature badges (Version 1.0.0, 142/142 E2E, 179/179 Rust, Tauri 2/Rust/React stack, MIT license), 13 adapters list (including `agy-cli`), architecture diagram with binary aliases (`synapse` / `neurosurgeon`), 4-phase quickstart journey, and relative clickable documentation links (`docs/ONBOARDING.md`, `docs/USER_GUIDE.md`, `brands/synapse/`).
+- **Root README.md Overhaul:** Updated main title header, feature badges (Version 1.0.0, 142/142 E2E, 179/179 Rust, Tauri 2/Rust/React stack, MIT license), 13 adapters list (including `agy-cli`), architecture diagram with binary aliases (`synapse` / `synapse`), 4-phase quickstart journey, and relative clickable documentation links (`docs/ONBOARDING.md`, `docs/USER_GUIDE.md`, `brands/synapse/`).
 - **User Guide Overhaul (`docs/USER_GUIDE.md`):** Updated title, subtitles, introductory material, 13 adapters matrix, CLI command examples (`synapse scan/import/project/sync/doctor/snapshot/rollback`), and 8-screen React desktop GUI overhaul descriptions.
-- **Adapter Authoring & Security Guides:** Updated `docs/ADAPTER_AUTHORING_GUIDE.md` and `docs/security.md` for consistent SYNAPSE branding, `agy-cli` adapter inclusion, provenance header format (`<!-- GENERATED BY SYNAPSE / LLM NEUROSURGEON — edit in the Brain -->`), and path traversal / symlink security defenses.
+- **Adapter Authoring & Security Guides:** Updated `docs/ADAPTER_AUTHORING_GUIDE.md` and `docs/security.md` for consistent SYNAPSE branding, `agy-cli` adapter inclusion, provenance header format (`<!-- GENERATED BY SYNAPSE / Synapse — edit in the Brain -->`), and path traversal / symlink security defenses.
 - **4-Phase Onboarding Journey:** Verified `docs/ONBOARDING.md` coverage linking the scan → import → project flow and long-term capabilities (Time Machine, Auto-Sync Daemon, Doctor, MCP Hub, Marketplace).
 - **Test Metrics & Quality:** Re-confirmed verified 100% test pass rates across 142/142 E2E Vitest suite and 179/179 Rust Core and CLI tests with clean `cargo clippy` and `cargo fmt`.
 

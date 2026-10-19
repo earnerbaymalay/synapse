@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://llm-neurosurgeon.dev/schema/mcp-server.schema.json",
+  "$id": "https://synapse.dev/schema/mcp-server.schema.json",
   "title": "McpServer",
   "description": "AIBrain/mcp/servers/<id>.yaml — see MASTER_PROMPT.md canonical Brain layout",
   "type": "object",

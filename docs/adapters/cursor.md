@@ -1,5 +1,5 @@
 # Cursor MDC Adapter Specification
-### Synapse // LLM-NeuroSurgeon
+### Synapse
 
 [Docs Hub](../README.md) > [Adapters](README.md) > **Cursor**
 

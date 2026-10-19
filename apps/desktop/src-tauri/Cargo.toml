@@ -2,7 +2,7 @@
 name = "desktop-app"
 version = "1.0.0"
 edition = "2021"
-description = "LLM Neurosurgeon desktop application (Tauri core)"
+description = "Synapse desktop application (Tauri core)"
 
 
 [[bin]]
@@ -23,7 +23,7 @@ serde_json = "1.0"
 chrono = "0.4"
 log = { version = "0.4", features = ["std"] }
 directories = "5"
-neurosurgeon-core = { path = "../../../packages/core" }
+synapse-core = { path = "../../../packages/core" }
 
 [dev-dependencies]
 tempfile = "3"

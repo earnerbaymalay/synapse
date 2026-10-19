@@ -1,6 +1,6 @@
-# LLM Neurosurgeon — Reproducible Builds & Deterministic Artifact Specification
+# Synapse — Reproducible Builds & Deterministic Artifact Specification
 
-This document details the reproducibility guidelines, compiler configuration, dependency locking, binary stripping, verification workflows, and checksum generation processes for **LLM Neurosurgeon**.
+This document details the reproducibility guidelines, compiler configuration, dependency locking, binary stripping, verification workflows, and checksum generation processes for **Synapse**.
 
 ---
 
@@ -37,9 +37,9 @@ Host-specific directory structures (e.g. `/home/user/...` or `C:\Users\...`) mus
 ```toml
 [build]
 rustflags = [
-    "-C", "remap-path-prefix=/home/earn/llm-neuro-surgeon=/neurosurgeon-src",
-    "-C", "remap-path-prefix=/home/runner/work/llm-neuro-surgeon/llm-neuro-surgeon=/neurosurgeon-src",
-    "-C", "remap-path-prefix=C:/a/llm-neuro-surgeon/llm-neuro-surgeon=/neurosurgeon-src",
+    "-C", "remap-path-prefix=/home/earn/synapse=/synapse-src",
+    "-C", "remap-path-prefix=/home/runner/work/synapse/synapse=/synapse-src",
+    "-C", "remap-path-prefix=C:/a/synapse/synapse=/synapse-src",
     "-C", "symbol-mangling-version=v0"
 ]
 
@@ -90,10 +90,10 @@ Release pipelines verify that debug symbols have been fully stripped:
 
 ```bash
 # Verify no debug symbols remain in the compiled CLI binary
-file target/release/neurosurgeon | grep "stripped"
+file target/release/synapse | grep "stripped"
 
 # Alternatively verify using llvm-strip or nm
-nm -a target/release/neurosurgeon 2>&1 | grep "no symbols"
+nm -a target/release/synapse 2>&1 | grep "no symbols"
 ```
 
 ---
@@ -106,13 +106,13 @@ Every release pipeline generates a canonical, PGP/minisign-verifiable `SHA256SUM
 `SHA256SUMS` uses the standard two-space GNU format:
 
 ```
-a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0  neurosurgeon-x86_64-unknown-linux-gnu.tar.gz
-b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01  neurosurgeon-x86_64-apple-darwin.tar.gz
-c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef012  neurosurgeon-aarch64-apple-darwin.tar.gz
-d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0123  LLM_Neurosurgeon_0.7.4_amd64.deb
-e5f67890123456789abcdef0123456789abcdef0123456789abcdef01234  LLM_Neurosurgeon_0.7.4_amd64.AppImage
-f67890123456789abcdef0123456789abcdef0123456789abcdef012345  LLM_Neurosurgeon_0.7.4_x64.dmg
-7890123456789abcdef0123456789abcdef0123456789abcdef01234567  LLM_Neurosurgeon_0.7.4_x64_en-US.msi
+a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0  synapse-x86_64-unknown-linux-gnu.tar.gz
+b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01  synapse-x86_64-apple-darwin.tar.gz
+c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef012  synapse-aarch64-apple-darwin.tar.gz
+d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0123  Synapse_0.7.4_amd64.deb
+e5f67890123456789abcdef0123456789abcdef0123456789abcdef01234  Synapse_0.7.4_amd64.AppImage
+f67890123456789abcdef0123456789abcdef0123456789abcdef012345  Synapse_0.7.4_x64.dmg
+7890123456789abcdef0123456789abcdef0123456789abcdef01234567  Synapse_0.7.4_x64_en-US.msi
 ```
 
 ### 5.2 Verification Commands
@@ -125,7 +125,7 @@ sha256sum -c SHA256SUMS
 shasum -a 256 -c SHA256SUMS
 
 # Verification on Windows PowerShell
-Get-FileHash -Algorithm SHA256 neurosurgeon.exe
+Get-FileHash -Algorithm SHA256 synapse.exe
 ```
 
 ---
@@ -157,7 +157,7 @@ jobs:
       - name: Build CLI Release Binary (Runner A)
         run: |
           cargo build --workspace --release --locked
-          sha256sum target/release/neurosurgeon > runner_a.sha256
+          sha256sum target/release/synapse > runner_a.sha256
       - name: Upload Runner A Hash
         uses: actions/upload-artifact@v4
         with:
@@ -176,7 +176,7 @@ jobs:
       - name: Build CLI Release Binary (Runner B)
         run: |
           cargo build --workspace --release --locked
-          sha256sum target/release/neurosurgeon > runner_b.sha256
+          sha256sum target/release/synapse > runner_b.sha256
       - name: Upload Runner B Hash
         uses: actions/upload-artifact@v4
         with:
@@ -214,6 +214,6 @@ jobs:
 ## 7. Determinism Audit & Drift Resolution
 
 If build artifacts drift between independent environments:
-1. **Inspect embedded strings**: Use `strings target/release/neurosurgeon | grep -E "home|runner|work"` to identify leaked build paths.
+1. **Inspect embedded strings**: Use `strings target/release/synapse | grep -E "home|runner|work"` to identify leaked build paths.
 2. **Compare ELF/Mach-O/PE Headers**: Use `diffoscope` (`diffoscope binary_a binary_b`) to locate non-deterministic header sections or timestamps.
 3. **Audit Transitive Dependencies**: Ensure `Cargo.lock` has no platform-conditional crate features causing non-deterministic code generation across runners.

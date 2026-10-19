@@ -1,8 +1,8 @@
-use neurosurgeon_core::gateway::{
+use synapse_core::gateway::{
     sanitize_tool_calling_response, GatewayConfig, GatewayServer, UpstreamKind,
 };
-use neurosurgeon_core::hud::{format_hud, HudSnapshot};
-use neurosurgeon_core::compression::CompressionLevel;
+use synapse_core::hud::{format_hud, HudSnapshot};
+use synapse_core::compression::CompressionLevel;
 use serde_json::json;
 
 #[test]
@@ -122,7 +122,7 @@ fn test_hud_formatting() {
         gateway_active: true,
         gateway_bind: "127.0.0.1:8088".to_string(),
         upstream_url: "http://127.0.0.1:11434 (Ollama)".to_string(),
-        stats: neurosurgeon_core::gateway::GatewayStats {
+        stats: synapse_core::gateway::GatewayStats {
             total_requests: 42,
             prompt_tokens_raw: 100000,
             prompt_tokens_gated: 5000,

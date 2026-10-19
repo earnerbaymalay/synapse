@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **SYNAPSE / llm-neuro-surgeon** will be documented in this file.
+All notable changes to **SYNAPSE / Synapse** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -19,16 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **SYNAPSE Rebrand Package & Visual Identity**:
-  - Integrated complete SYNAPSE brand identity (`SYNAPSE / llm-neuro-surgeon: One Brain. All Models.`).
+  - Integrated complete SYNAPSE brand identity (`SYNAPSE / Synapse: One Brain. All Models.`).
   - Applied design tokens: Synapse Blue accent (`#1d9bf0`), dark ink interface (`#06080b`), Inter, JetBrains Mono, and Rubik Mono One typography, and "Surgical precision. Zero friction." tone anchor.
 - **Clinical Record React Desktop UI (`chart.tsx`, `Intake.tsx`, `Examination.tsx`)**:
-  - Implemented the clinical operating theatre record identity per `IDENTITY.md` backed by live `neurosurgeon-core` calls with zero fabricated sample data.
+  - Implemented the clinical operating theatre record identity per `IDENTITY.md` backed by live `synapse-core` calls with zero fabricated sample data.
 - **4-Phase Onboarding Journey Guide (`docs/ONBOARDING.md`)**:
   - Authored structured 4-phase journey covering Phase 1 (The Hook), Phase 2 (The Solution - The Brain), Phase 3 (Immediate Value - `synapse scan` / `import` / `project`), and Phase 4 (Long-Term Power - Time Machine, Auto-Sync Daemon, Doctor, MCP Hub, Marketplace).
 - **Interactive Cyber-Dark GitHub Pages Landing Site (`docs/index.html`)**:
   - Standalone interactive terminal simulator with tabbed verbs (`scan`, `import`, `project`, `sync`, `doctor`), live ECG vitals pulse, and 13 tool adapter specifications.
 - **CLI Binary Alias Integration**:
-  - Exposed binary aliases `synapse` and `neurosurgeon` across CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
+  - Exposed binary aliases `synapse` and `synapse` across CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
 - **Antigravity CLI Adapter (`agy-cli`)**:
   - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agy/skills/`), and settings configurations (`.gemini/settings.json`).
 - **Full CLI Non-Dry-Run Write Paths**:
@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Authored standard **Changelog** (`CHANGELOG.md`) documenting all development milestones from Phase 0 to Phase 7.
   - Updated root `README.md` to reflect completed Phase 7 status, architecture overview, Quickstart instructions, and documentation links.
 - **Doctor Engine & CLI Wiring (T7.2)**:
-  - Implemented `neurosurgeon doctor [--fix]` CLI subcommand wired to `packages/core/src/doctor.rs`.
+  - Implemented `synapse doctor [--fix]` CLI subcommand wired to `packages/core/src/doctor.rs`.
   - Added 13 diagnostic rules covering un-initialized Git repositories, missing projections, detached symlinks, retargeted symlinks, and content checksum drift.
   - Implemented self-verifying corrupted-brain fixture test (`doctor_fixes_every_seeded_fault_in_a_corrupted_brain`).
 - **Update Channel Dry-Run Engine (T7.3)**:

@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-LLM Neurosurgeon is currently pre-release software. Security fixes are applied to the latest commit on the `main` branch. Published releases will receive an explicit support table once the first release candidate is available.
+Synapse is currently pre-release software. Security fixes are applied to the latest commit on the `main` branch. Published releases will receive an explicit support table once the first release candidate is available.
 
 ## Reporting a vulnerability
 
@@ -10,7 +10,7 @@ Please do not open a public GitHub issue for a suspected vulnerability.
 
 Use GitHub's private vulnerability reporting for this repository:
 
-https://github.com/earnerbaymalay/llm-neuro-surgeon/security/advisories/new
+https://github.com/earnerbaymalay/synapse/security/advisories/new
 
 Include:
 
