@@ -223,7 +223,7 @@ mod tests {
         .unwrap();
 
         let imported = adapter.import(dir.path()).unwrap();
-        assert!(imported.skills.len() >= 1);
+        assert!(!imported.skills.is_empty());
         assert_eq!(imported.skills[0].id.to_lowercase(), "conventions");
         assert_eq!(imported.skills[0].source, "Use snake_case for Python.");
 

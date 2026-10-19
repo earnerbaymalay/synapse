@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 use tiny_http::{Header, Response, Server, StatusCode};
 use sha2::Digest;
 
-use crate::compression::{compress_text, estimate_tokens, CompressionLevel};
+use crate::compression::{compress_text, estimate_tokens, CompressionLevel, SpoolManager};
 
 /// Upstream provider backend type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,6 +58,10 @@ pub struct GatewayConfig {
     pub default_model: Option<String>,
     pub gate_level: CompressionLevel,
     pub api_key: Option<String>,
+    /// When `Some(n)`, fold large tool results older than the newest `n`
+    /// messages into restorable stubs (see [`crate::fold`]). `None` = off.
+    #[serde(default)]
+    pub fold_keep_recent: Option<usize>,
 }
 
 impl Default for GatewayConfig {
@@ -69,6 +73,7 @@ impl Default for GatewayConfig {
             default_model: Some("qwen2.5-coder:7b".to_string()),
             gate_level: CompressionLevel::Balanced,
             api_key: None,
+            fold_keep_recent: None,
         }
     }
 }
@@ -305,6 +310,12 @@ pub fn process_chat_request(
     let mut raw_prompt_tokens = 0;
     let mut gated_prompt_tokens = 0;
 
+    // 0. Reversible folding of stale tool results (opt-in)
+    if let (Some(keep), Some(messages)) = (config.fold_keep_recent, payload["messages"].as_array_mut()) {
+        let spool = SpoolManager::new(SpoolManager::default_dir());
+        raw_prompt_tokens += crate::fold::fold_messages(messages, keep, &spool).saved();
+    }
+
     // 1. Sensory Gating on incoming messages
     if let Some(messages) = payload["messages"].as_array_mut() {
         for msg in messages.iter_mut() {
@@ -443,7 +454,7 @@ pub fn sanitize_tool_calling_response(mut res: Value) -> Value {
                 // Check if message content contains an embedded JSON tool call
                 if let Some(content) = message["content"].as_str() {
                     if let Some(parsed_tool) = extract_json_tool_call(content) {
-                        let tool_id = format!("call_{}", &hex::encode(&sha2::Sha256::digest(content.as_bytes())[..4]));
+                        let tool_id = format!("call_{}", hex::encode(&sha2::Sha256::digest(content.as_bytes())[..4]));
                         message["tool_calls"] = json!([
                             {
                                 "id": tool_id,

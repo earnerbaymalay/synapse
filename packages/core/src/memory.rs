@@ -1,0 +1,795 @@
+//! Synaptic Memory — persistent cross-session memory for AI coding agents.
+//!
+//! Inspired by claude-mem (thedotmack/claude-mem), re-built to match Synapse's
+//! local-first, zero-telemetry stance:
+//!
+//! * **Capture** — tool calls, prompts and session ends become *observations*
+//!   (via `synapse mem hook <event>` wired to agent lifecycle hooks).
+//! * **Compression** — no remote LLM. Tool output is distilled with the
+//!   Sensory Gating engine ([`crate::compression`]) and truncated.
+//! * **Privacy** — `<private>…</private>` spans are dropped before storage and
+//!   obvious credentials are redacted.
+//! * **Storage** — an append-only JSONL file; no database, no network.
+//! * **Progressive disclosure** — `search` returns a cheap index, `timeline`
+//!   adds surrounding context, `get` fetches full detail for chosen ids.
+//! * **Injection** — [`MemoryStore::context`] renders a compact index of recent
+//!   work for SessionStart.
+
+use std::collections::{HashMap, HashSet};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::compression::{compress_text, estimate_tokens, CompressionLevel};
+
+const NARRATIVE_MAX_CHARS: usize = 700;
+const TITLE_MAX_CHARS: usize = 90;
+
+/// One remembered event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Observation {
+    pub id: u64,
+    pub ts: u64,
+    pub session: String,
+    pub project: String,
+    /// prompt | command | change | discovery | research | tool | summary | note
+    pub kind: String,
+    pub title: String,
+    pub narrative: String,
+    #[serde(default)]
+    pub files: Vec<String>,
+}
+
+impl Observation {
+    /// Approximate token cost of the full record (what `get` will spend).
+    pub fn full_tokens(&self) -> usize {
+        estimate_tokens(&format!(
+            "{} {} {}",
+            self.title,
+            self.narrative,
+            self.files.join(" ")
+        ))
+    }
+
+    /// One-line index entry (what `search`/`context` spend).
+    pub fn index_line(&self) -> String {
+        format!(
+            "#{:<5} {} {:<9} {}  (~{}t)",
+            self.id,
+            format_ts(self.ts),
+            self.kind,
+            self.title,
+            self.full_tokens()
+        )
+    }
+}
+
+/// Input for [`MemoryStore::add`]; id and timestamp are assigned by the store.
+#[derive(Debug, Clone, Default)]
+pub struct NewObservation {
+    pub session: String,
+    pub project: String,
+    pub kind: String,
+    pub title: String,
+    pub narrative: String,
+    pub files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MemoryStats {
+    pub observations: usize,
+    pub sessions: usize,
+    pub projects: usize,
+    pub stored_tokens: usize,
+    pub bytes: u64,
+}
+
+pub struct MemoryStore {
+    dir: PathBuf,
+}
+
+impl MemoryStore {
+    pub fn new(dir: PathBuf) -> Self {
+        Self { dir }
+    }
+
+    /// `$SYNAPSE_MEMORY_DIR`, else `~/.synapse/memory`.
+    pub fn default_dir() -> PathBuf {
+        if let Ok(p) = std::env::var("SYNAPSE_MEMORY_DIR") {
+            if !p.is_empty() {
+                return PathBuf::from(p);
+            }
+        }
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_else(|_| ".".into());
+        PathBuf::from(home).join(".synapse").join("memory")
+    }
+
+    fn log_path(&self) -> PathBuf {
+        self.dir.join("observations.jsonl")
+    }
+
+    /// Sanitises (privacy + redaction), assigns an id, and appends.
+    /// Returns `None` when nothing is left to store after sanitising.
+    pub fn add(&self, new: NewObservation) -> std::io::Result<Option<Observation>> {
+        let title = clip(&sanitize(&new.title), TITLE_MAX_CHARS);
+        let narrative = clip(&sanitize(&new.narrative), NARRATIVE_MAX_CHARS);
+        if title.trim().is_empty() && narrative.trim().is_empty() {
+            return Ok(None);
+        }
+        fs::create_dir_all(&self.dir)?;
+        let existing = self.all()?;
+        // Collapse immediate duplicates (e.g. repeated identical reads).
+        if let Some(last) = existing.iter().rev().find(|o| o.session == new.session) {
+            if last.kind == new.kind && last.title == title && last.narrative == narrative {
+                return Ok(None);
+            }
+        }
+        let id = existing.iter().map(|o| o.id).max().unwrap_or(0) + 1;
+        let obs = Observation {
+            id,
+            ts: now_secs(),
+            session: new.session,
+            project: new.project,
+            kind: if new.kind.is_empty() {
+                "note".into()
+            } else {
+                new.kind
+            },
+            title,
+            narrative,
+            files: new.files,
+        };
+        let mut line = serde_json::to_string(&obs).map_err(std::io::Error::other)?;
+        line.push('\n');
+        let mut f = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.log_path())?;
+        f.write_all(line.as_bytes())?;
+        Ok(Some(obs))
+    }
+
+    /// All observations in id order. Corrupt lines are skipped, not fatal.
+    pub fn all(&self) -> std::io::Result<Vec<Observation>> {
+        let raw = match fs::read_to_string(self.log_path()) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+            Err(e) => return Err(e),
+        };
+        Ok(raw
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Observation>(l).ok())
+            .collect())
+    }
+
+    /// Layer 1: ranked keyword search. Terms are scored title ×3, files ×2,
+    /// narrative ×1, weighted by rarity, with a small recency tiebreak.
+    pub fn search(
+        &self,
+        query: &str,
+        project: Option<&str>,
+        limit: usize,
+    ) -> std::io::Result<Vec<Observation>> {
+        let all = self.all()?;
+        let pool: Vec<&Observation> = all
+            .iter()
+            .filter(|o| project.is_none_or(|p| o.project == p))
+            .collect();
+        let terms = tokenize(query);
+        if terms.is_empty() {
+            return Ok(pool.into_iter().rev().take(limit).cloned().collect());
+        }
+        let n = pool.len().max(1) as f64;
+        let docs: Vec<(HashMap<String, f64>, &Observation)> = pool
+            .iter()
+            .map(|o| {
+                let mut tf: HashMap<String, f64> = HashMap::new();
+                for t in tokenize(&o.title) {
+                    *tf.entry(t).or_default() += 3.0;
+                }
+                for t in o.files.iter().flat_map(|f| tokenize(f)) {
+                    *tf.entry(t).or_default() += 2.0;
+                }
+                for t in tokenize(&o.narrative) {
+                    *tf.entry(t).or_default() += 1.0;
+                }
+                (tf, *o)
+            })
+            .collect();
+        let mut scored: Vec<(f64, &Observation)> = docs
+            .iter()
+            .filter_map(|(tf, o)| {
+                let mut score = 0.0;
+                for t in &terms {
+                    if let Some(w) = tf.get(t) {
+                        let df = docs.iter().filter(|(d, _)| d.contains_key(t)).count() as f64;
+                        score += w * (1.0 + (n / df).ln());
+                    }
+                }
+                (score > 0.0).then_some((score + o.id as f64 * 1e-6, *o))
+            })
+            .collect();
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        Ok(scored
+            .into_iter()
+            .take(limit)
+            .map(|(_, o)| o.clone())
+            .collect())
+    }
+
+    /// Layer 2: chronological neighbours of `id` within the same project.
+    pub fn timeline(
+        &self,
+        id: u64,
+        before: usize,
+        after: usize,
+    ) -> std::io::Result<Vec<Observation>> {
+        let all = self.all()?;
+        let Some(pos) = all.iter().position(|o| o.id == id) else {
+            return Ok(vec![]);
+        };
+        let project = all[pos].project.clone();
+        let same: Vec<&Observation> = all.iter().filter(|o| o.project == project).collect();
+        let p = same.iter().position(|o| o.id == id).unwrap_or(0);
+        let lo = p.saturating_sub(before);
+        let hi = (p + after + 1).min(same.len());
+        Ok(same[lo..hi].iter().map(|o| (*o).clone()).collect())
+    }
+
+    /// Layer 3: full records for specific ids (in the order requested).
+    pub fn get(&self, ids: &[u64]) -> std::io::Result<Vec<Observation>> {
+        let all = self.all()?;
+        Ok(ids
+            .iter()
+            .filter_map(|id| all.iter().find(|o| o.id == *id).cloned())
+            .collect())
+    }
+
+    /// Delete observations by id. Returns how many were removed.
+    pub fn forget(&self, ids: &[u64]) -> std::io::Result<usize> {
+        let all = self.all()?;
+        let keep: Vec<&Observation> = all.iter().filter(|o| !ids.contains(&o.id)).collect();
+        let removed = all.len() - keep.len();
+        if removed > 0 {
+            let mut out = String::new();
+            for o in keep {
+                out.push_str(&serde_json::to_string(o).map_err(std::io::Error::other)?);
+                out.push('\n');
+            }
+            fs::write(self.log_path(), out)?;
+        }
+        Ok(removed)
+    }
+
+    pub fn stats(&self) -> std::io::Result<MemoryStats> {
+        let all = self.all()?;
+        Ok(MemoryStats {
+            observations: all.len(),
+            sessions: all
+                .iter()
+                .map(|o| o.session.as_str())
+                .collect::<HashSet<_>>()
+                .len(),
+            projects: all
+                .iter()
+                .map(|o| o.project.as_str())
+                .collect::<HashSet<_>>()
+                .len(),
+            stored_tokens: all.iter().map(Observation::full_tokens).sum(),
+            bytes: fs::metadata(self.log_path()).map(|m| m.len()).unwrap_or(0),
+        })
+    }
+
+    /// SessionStart payload: session summaries first, then the most recent
+    /// observations, as a compact index the agent can drill into.
+    pub fn context(&self, project: &str, limit: usize) -> std::io::Result<String> {
+        let all = self.all()?;
+        let mine: Vec<&Observation> = all.iter().filter(|o| o.project == project).collect();
+        if mine.is_empty() {
+            return Ok(String::new());
+        }
+        let summaries: Vec<&&Observation> = mine
+            .iter()
+            .rev()
+            .filter(|o| o.kind == "summary")
+            .take(3)
+            .collect();
+        let recent: Vec<&&Observation> = mine
+            .iter()
+            .rev()
+            .filter(|o| o.kind != "summary" && o.kind != "prompt")
+            .take(limit)
+            .collect();
+        let index_tokens: usize = summaries
+            .iter()
+            .chain(recent.iter())
+            .map(|o| estimate_tokens(&o.index_line()))
+            .sum();
+        let hidden: usize = summaries
+            .iter()
+            .chain(recent.iter())
+            .map(|o| o.full_tokens())
+            .sum();
+
+        let mut out = format!(
+            "# Synapse memory — {}\n_{} remembered events; index below costs ~{} tokens, full detail ~{}._\n",
+            project,
+            mine.len(),
+            index_tokens,
+            hidden
+        );
+        if !summaries.is_empty() {
+            out.push_str("\n## Previous sessions\n");
+            for o in &summaries {
+                out.push_str(&format!(
+                    "- #{} {} — {}\n",
+                    o.id,
+                    format_ts(o.ts),
+                    o.narrative
+                ));
+            }
+        }
+        if !recent.is_empty() {
+            out.push_str("\n## Recent activity (newest first)\n");
+            for o in &recent {
+                out.push_str(&format!("{}\n", o.index_line()));
+            }
+        }
+        out.push_str(
+            "\nDrill down on demand: `synapse mem search <query>` → `synapse mem timeline <id>` → `synapse mem get <id>…`. \
+             Wrap anything sensitive in <private>…</private> to keep it out of memory.\n",
+        );
+        Ok(out)
+    }
+}
+
+/// Distils a Claude-Code-style tool call into an observation. Returns `None`
+/// for tools that carry no durable signal.
+pub fn observation_from_tool(
+    session: &str,
+    project: &str,
+    tool: &str,
+    input: &Value,
+    response: &Value,
+) -> Option<NewObservation> {
+    if tool.is_empty()
+        || matches!(
+            tool,
+            "TodoWrite" | "TaskCreate" | "TaskUpdate" | "TaskList" | "ToolSearch"
+        )
+    {
+        return None;
+    }
+    let s = |k: &str| input.get(k).and_then(Value::as_str).unwrap_or("");
+    let file = ["file_path", "path", "notebook_path"]
+        .iter()
+        .map(|k| s(k))
+        .find(|v| !v.is_empty());
+    let files: Vec<String> = file.map(|f| vec![f.to_string()]).unwrap_or_default();
+    let out_text = response_text(response);
+
+    let (kind, title, narrative) = match tool {
+        "Bash" => {
+            let cmd = s("command");
+            // Never memorise our own memory queries (feedback loop).
+            if cmd.contains("synapse mem") || cmd.contains("neurosurgeon mem") {
+                return None;
+            }
+            let (digest, ..) = compress_text(&out_text, CompressionLevel::Aggressive);
+            (
+                "command",
+                format!("Ran: {}", first_line(cmd)),
+                format!("$ {}\n{}", cmd, digest),
+            )
+        }
+        "Edit" | "MultiEdit" | "Write" | "NotebookEdit" => {
+            let verb = if tool == "Write" { "Wrote" } else { "Edited" };
+            let f = file.unwrap_or("(unknown file)");
+            (
+                "change",
+                format!("{} {}", verb, f),
+                format!("{} {}", verb.to_lowercase(), f),
+            )
+        }
+        "Read" | "Grep" | "Glob" => {
+            let target = file.unwrap_or_else(|| {
+                [s("pattern"), s("query")]
+                    .into_iter()
+                    .find(|v| !v.is_empty())
+                    .unwrap_or("")
+            });
+            (
+                "discovery",
+                format!("{} {}", tool, target),
+                format!("{} {}", tool.to_lowercase(), target),
+            )
+        }
+        "WebFetch" | "WebSearch" => {
+            let target = [s("url"), s("query")]
+                .into_iter()
+                .find(|v| !v.is_empty())
+                .unwrap_or("");
+            (
+                "research",
+                format!("{} {}", tool, target),
+                clip(&out_text, 400),
+            )
+        }
+        _ => (
+            "tool",
+            format!("{}: {}", tool, first_line(&out_text)),
+            clip(&out_text, 300),
+        ),
+    };
+    Some(NewObservation {
+        session: session.into(),
+        project: project.into(),
+        kind: kind.into(),
+        title,
+        narrative,
+        files,
+    })
+}
+
+/// Builds the end-of-session rollup from what was recorded.
+pub fn summarize_session(
+    store: &MemoryStore,
+    session: &str,
+    project: &str,
+) -> std::io::Result<Option<NewObservation>> {
+    let obs: Vec<Observation> = store
+        .all()?
+        .into_iter()
+        .filter(|o| o.session == session && o.kind != "summary")
+        .collect();
+    if obs.is_empty() {
+        return Ok(None);
+    }
+    let prompts: Vec<&str> = obs
+        .iter()
+        .filter(|o| o.kind == "prompt")
+        .map(|o| o.title.as_str())
+        .collect();
+    let mut files: Vec<String> = obs
+        .iter()
+        .filter(|o| o.kind == "change")
+        .flat_map(|o| o.files.clone())
+        .collect();
+    files.sort();
+    files.dedup();
+    let cmds = obs.iter().filter(|o| o.kind == "command").count();
+    let goal = prompts.first().copied().unwrap_or("(no prompt captured)");
+    let mut narrative = format!("Goal: {}.", goal);
+    if prompts.len() > 1 {
+        narrative.push_str(&format!(" Latest ask: {}.", prompts.last().unwrap()));
+    }
+    narrative.push_str(&format!(
+        " {} commands run, {} files changed",
+        cmds,
+        files.len()
+    ));
+    if !files.is_empty() {
+        narrative.push_str(&format!(
+            ": {}",
+            files.iter().take(6).cloned().collect::<Vec<_>>().join(", ")
+        ));
+    }
+    narrative.push('.');
+    Ok(Some(NewObservation {
+        session: session.into(),
+        project: project.into(),
+        kind: "summary".into(),
+        title: format!("Session: {}", clip(goal, 60)),
+        narrative,
+        files,
+    }))
+}
+
+/// Drops `<private>…</private>` spans (an unclosed tag drops to end of text)
+/// and redacts credential-looking tokens.
+pub fn sanitize(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    loop {
+        let lower = rest.to_ascii_lowercase();
+        match lower.find("<private>") {
+            None => {
+                out.push_str(rest);
+                break;
+            }
+            Some(start) => {
+                out.push_str(&rest[..start]);
+                match lower[start..].find("</private>") {
+                    Some(end) => rest = &rest[start + end + "</private>".len()..],
+                    None => break,
+                }
+            }
+        }
+    }
+    redact_secrets(&out)
+}
+
+fn redact_secrets(text: &str) -> String {
+    const PREFIXES: [&str; 8] = [
+        "sk-",
+        "ghp_",
+        "gho_",
+        "github_pat_",
+        "AKIA",
+        "xoxb-",
+        "xoxp-",
+        "AIza",
+    ];
+    text.split_inclusive(char::is_whitespace)
+        .map(|chunk| {
+            let word = chunk.trim_end();
+            let tail = &chunk[word.len()..];
+            let core = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_');
+            if core.len() >= 20 && PREFIXES.iter().any(|p| core.starts_with(p)) {
+                format!("[REDACTED]{}", tail)
+            } else {
+                chunk.to_string()
+            }
+        })
+        .collect()
+}
+
+fn response_text(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Null => String::new(),
+        Value::Object(m) => ["stdout", "output", "content", "text", "stderr"]
+            .iter()
+            .filter_map(|k| m.get(*k))
+            .map(response_text)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        Value::Array(a) => a.iter().map(response_text).collect::<Vec<_>>().join("\n"),
+        other => other.to_string(),
+    }
+}
+
+fn tokenize(s: &str) -> Vec<String> {
+    s.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| t.len() >= 2)
+        .map(String::from)
+        .collect()
+}
+
+fn first_line(s: &str) -> String {
+    clip(s.lines().next().unwrap_or("").trim(), TITLE_MAX_CHARS)
+}
+
+fn clip(s: &str, max: usize) -> String {
+    let s = s.trim();
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let mut t: String = s.chars().take(max.saturating_sub(1)).collect();
+    t.push('…');
+    t
+}
+
+fn now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// `YYYY-MM-DD HH:MM` in UTC (civil-from-days; avoids a chrono dependency).
+pub fn format_ts(ts: u64) -> String {
+    let days = (ts / 86_400) as i64;
+    let secs = ts % 86_400;
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}",
+        y,
+        m,
+        d,
+        secs / 3600,
+        (secs % 3600) / 60
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn store() -> (tempfile::TempDir, MemoryStore) {
+        let d = tempfile::tempdir().unwrap();
+        let s = MemoryStore::new(d.path().to_path_buf());
+        (d, s)
+    }
+
+    fn note(
+        session: &str,
+        project: &str,
+        kind: &str,
+        title: &str,
+        narrative: &str,
+    ) -> NewObservation {
+        NewObservation {
+            session: session.into(),
+            project: project.into(),
+            kind: kind.into(),
+            title: title.into(),
+            narrative: narrative.into(),
+            files: vec![],
+        }
+    }
+
+    #[test]
+    fn private_spans_and_secrets_never_reach_disk() {
+        let (d, s) = store();
+        s.add(note(
+            "s",
+            "p",
+            "note",
+            "deploy",
+            "key sk-abcdefghijklmnopqrstuvwx <private>hunter2</private> ok",
+        ))
+        .unwrap();
+        let raw = fs::read_to_string(d.path().join("observations.jsonl")).unwrap();
+        assert!(!raw.contains("hunter2") && !raw.contains("sk-abcdef"));
+        assert!(raw.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn unclosed_private_tag_drops_the_rest() {
+        assert_eq!(sanitize("keep <PRIVATE>secret forever"), "keep ");
+    }
+
+    #[test]
+    fn fully_private_observation_is_not_stored() {
+        let (_d, s) = store();
+        assert!(s
+            .add(note(
+                "s",
+                "p",
+                "note",
+                "<private>x</private>",
+                "<private>y</private>"
+            ))
+            .unwrap()
+            .is_none());
+        assert_eq!(s.stats().unwrap().observations, 0);
+    }
+
+    #[test]
+    fn search_ranks_title_hits_and_scopes_by_project() {
+        let (_d, s) = store();
+        s.add(note(
+            "s",
+            "p",
+            "note",
+            "Fixed auth token refresh",
+            "oauth flow",
+        ))
+        .unwrap();
+        s.add(note(
+            "s",
+            "p",
+            "note",
+            "Tweaked css",
+            "mentions auth once in passing",
+        ))
+        .unwrap();
+        s.add(note("s", "other", "note", "auth in other project", ""))
+            .unwrap();
+        let hits = s.search("auth", Some("p"), 10).unwrap();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].title, "Fixed auth token refresh");
+    }
+
+    #[test]
+    fn timeline_and_get_progressive_disclosure() {
+        let (_d, s) = store();
+        for i in 1..=5 {
+            s.add(note("s", "p", "note", &format!("step {i}"), ""))
+                .unwrap();
+        }
+        let t = s.timeline(3, 1, 1).unwrap();
+        assert_eq!(t.iter().map(|o| o.id).collect::<Vec<_>>(), vec![2, 3, 4]);
+        assert_eq!(
+            s.get(&[5, 1])
+                .unwrap()
+                .iter()
+                .map(|o| o.id)
+                .collect::<Vec<_>>(),
+            vec![5, 1]
+        );
+    }
+
+    #[test]
+    fn consecutive_duplicates_collapse() {
+        let (_d, s) = store();
+        assert!(s
+            .add(note("s", "p", "discovery", "Read a.rs", "read a.rs"))
+            .unwrap()
+            .is_some());
+        assert!(s
+            .add(note("s", "p", "discovery", "Read a.rs", "read a.rs"))
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn forget_removes_only_requested_ids() {
+        let (_d, s) = store();
+        s.add(note("s", "p", "note", "one", "")).unwrap();
+        s.add(note("s", "p", "note", "two", "")).unwrap();
+        assert_eq!(s.forget(&[1]).unwrap(), 1);
+        assert_eq!(s.all().unwrap()[0].title, "two");
+    }
+
+    #[test]
+    fn tool_calls_become_observations_and_memory_queries_are_ignored() {
+        let o = observation_from_tool(
+            "s",
+            "p",
+            "Edit",
+            &json!({"file_path": "src/a.rs"}),
+            &Value::Null,
+        )
+        .unwrap();
+        assert_eq!(o.kind, "change");
+        assert_eq!(o.files, vec!["src/a.rs"]);
+        assert!(observation_from_tool(
+            "s",
+            "p",
+            "Bash",
+            &json!({"command": "synapse mem search x"}),
+            &Value::Null
+        )
+        .is_none());
+        assert!(observation_from_tool("s", "p", "", &Value::Null, &Value::Null).is_none());
+        assert!(observation_from_tool("s", "p", "TodoWrite", &json!({}), &Value::Null).is_none());
+    }
+
+    #[test]
+    fn session_summary_rolls_up_prompts_and_changed_files() {
+        let (_d, s) = store();
+        s.add(note("s", "p", "prompt", "add dark mode", ""))
+            .unwrap();
+        let mut c = note("s", "p", "change", "Edited a.rs", "edited a.rs");
+        c.files = vec!["a.rs".into()];
+        s.add(c).unwrap();
+        let sum = summarize_session(&s, "s", "p").unwrap().unwrap();
+        assert!(sum.narrative.contains("add dark mode") && sum.narrative.contains("a.rs"));
+    }
+
+    #[test]
+    fn context_lists_summaries_then_recent_and_is_empty_for_unknown_project() {
+        let (_d, s) = store();
+        s.add(note("s", "p", "summary", "Session: x", "did x"))
+            .unwrap();
+        s.add(note("s", "p", "change", "Edited a.rs", "")).unwrap();
+        let ctx = s.context("p", 10).unwrap();
+        assert!(ctx.contains("Previous sessions") && ctx.contains("Edited a.rs"));
+        assert_eq!(s.context("nope", 10).unwrap(), "");
+    }
+
+    #[test]
+    fn format_ts_epoch_and_known_date() {
+        assert_eq!(format_ts(0), "1970-01-01 00:00");
+        assert_eq!(format_ts(1_760_227_200), "2025-10-12 00:00");
+    }
+}

@@ -1,4 +1,5 @@
 mod chart;
+mod mem;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -110,6 +111,15 @@ enum Command {
         /// Optional upstream API key (or set via environment/keychain)
         #[arg(long)]
         api_key: Option<String>,
+        /// Fold tool results older than the newest N messages into stubs restorable
+        /// via `synapse spool show <id>` (off unless set; try 8)
+        #[arg(long, value_name = "N")]
+        fold_keep: Option<usize>,
+    },
+    /// Persistent cross-session memory for AI agents (search, timeline, get, hooks)
+    Mem {
+        #[command(subcommand)]
+        action: mem::MemAction,
     },
     /// Open the live Vital Signs HUD & Terminal Cockpit
     Hud {
@@ -457,7 +467,7 @@ fn main() -> ExitCode {
             }
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::from_str)
+                .and_then(CompressionLevel::parse)
                 .unwrap_or_default();
 
             let bin = &command[0];
@@ -481,7 +491,7 @@ fn main() -> ExitCode {
         Command::Filter { level, spool_dir } => {
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::from_str)
+                .and_then(CompressionLevel::parse)
                 .unwrap_or_default();
 
             let mut input = String::new();
@@ -559,8 +569,9 @@ fn main() -> ExitCode {
             model,
             gate_level,
             api_key,
+            fold_keep,
         } => {
-            let comp_level = CompressionLevel::from_str(&gate_level).unwrap_or(CompressionLevel::Balanced);
+            let comp_level = CompressionLevel::parse(&gate_level).unwrap_or(CompressionLevel::Balanced);
             let upstream_kind = UpstreamKind::from_url_or_name(&upstream);
             let bind_addr = format!("{}:{}", host, port);
 
@@ -571,6 +582,7 @@ fn main() -> ExitCode {
                 default_model: model.clone(),
                 gate_level: comp_level,
                 api_key,
+                fold_keep_recent: fold_keep,
             };
 
             chart::open("gateway", "runtime server starting");
@@ -579,6 +591,9 @@ fn main() -> ExitCode {
             chart::field("Sensory Gate", &format!("{:?}", comp_level));
             if let Some(ref m) = model {
                 chart::field("Model", m);
+            }
+            if let Some(n) = fold_keep {
+                chart::field("Context Fold", &format!("tool results older than last {n} messages"));
             }
             println!();
             chart::row(chart::Mark::Present, "openai", &format!("http://{}/v1/chat/completions", bind_addr));
@@ -598,6 +613,7 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Command::Mem { action } => mem::run(action),
         Command::Hud {
             gateway,
             no_color,
