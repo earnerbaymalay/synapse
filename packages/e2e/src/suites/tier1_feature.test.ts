@@ -1065,4 +1065,180 @@ describe('Tier 1: Happy-path Feature Coverage', () => {
       }
     });
   });
+
+  // ==========================================
+  // KIRO
+  // ==========================================
+  describe('kiro adapter', () => {
+    it('should detect the tool configuration via scan', async () => {
+      const sandbox = createSandbox('kiro-detect');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/steering/product.md', '---\ninclusion: always\n---\nPrefer zero-copy parsing.\n');
+
+        const result = await runCLI(['scan', '--json'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('kiro');
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should import the tool rules/skills into the canonical brain', async () => {
+      const sandbox = createSandbox('kiro-import');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/steering/product.md', '---\ninclusion: fileMatch\nfileMatchPattern: "src/**/*.rs"\n---\nPrefer zero-copy parsing.\n');
+
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+
+        const skillYamlPath = path.join(sandbox.brainDir, 'skills/kiro-steering-product/skill.yaml');
+        expect(fs.existsSync(skillYamlPath)).toBe(true);
+        expect(validateFile(skillYamlPath, 'skill').valid).toBe(true);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should project the canonical brain skills to the tool layout', async () => {
+      const sandbox = createSandbox('kiro-project');
+      try {
+        const skillData = {
+          id: 'kiro-steering-product',
+          version: '1.0.0',
+          triggers: ['src/**/*.rs'],
+          targets: ['kiro'],
+          source: 'Prefer zero-copy parsing.',
+          sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
+        };
+        writeFile(sandbox.brainDir, 'skills/kiro-steering-product/skill.yaml', JSON.stringify(skillData));
+
+        const result = await runCLI(['project'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+
+        const rulePath = path.join(sandbox.workspaceDir, '.kiro/steering/product.md');
+        expect(fs.existsSync(rulePath)).toBe(true);
+        expect(fs.readFileSync(rulePath, 'utf8')).toContain('Prefer zero-copy parsing.');
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should sync rules and configs for the tool', async () => {
+      const sandbox = createSandbox('kiro-sync');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/steering/product.md', '---\ninclusion: always\n---\nPrefer zero-copy parsing.\n');
+
+        const result = await runCLI(['sync', '--once'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should detect and fix drift for the tool via doctor', async () => {
+      const sandbox = createSandbox('kiro-doctor');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/steering/product.md', '---\ninclusion: always\n---\nPrefer zero-copy parsing.\n');
+        await runCLI(['import'], { sandbox, reject: false });
+
+        writeFile(sandbox.workspaceDir, '.kiro/steering/product.md', '---\ninclusion: always\n---\nModified rule.\n');
+
+        const result = await runCLI(['doctor'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+
+        const fixRes = await runCLI(['doctor', '--fix'], { sandbox, reject: false });
+        expect(fixRes.exitCode).toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+  });
+
+  // ==========================================
+  // TRAE
+  // ==========================================
+  describe('trae adapter', () => {
+    it('should detect the tool configuration via scan', async () => {
+      const sandbox = createSandbox('trae-detect');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/rules/project_rules.md', '---\nglobs: ["*.ts"]\nalwaysApply: false\n---\nUse strict TypeScript.\n');
+
+        const result = await runCLI(['scan', '--json'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('trae');
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should import the tool rules/skills into the canonical brain', async () => {
+      const sandbox = createSandbox('trae-import');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/rules/project_rules.md', '---\nglobs: ["*.ts"]\nalwaysApply: false\n---\nUse strict TypeScript.\n');
+
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+
+        const skillYamlPath = path.join(sandbox.brainDir, 'skills/trae-rule-project_rules/skill.yaml');
+        expect(fs.existsSync(skillYamlPath)).toBe(true);
+        expect(validateFile(skillYamlPath, 'skill').valid).toBe(true);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should project the canonical brain skills to the tool layout', async () => {
+      const sandbox = createSandbox('trae-project');
+      try {
+        const skillData = {
+          id: 'trae-rule-project_rules',
+          version: '1.0.0',
+          triggers: ['*.ts'],
+          targets: ['trae'],
+          source: 'Use strict TypeScript.',
+          sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
+        };
+        writeFile(sandbox.brainDir, 'skills/trae-rule-project_rules/skill.yaml', JSON.stringify(skillData));
+
+        const result = await runCLI(['project'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+
+        const rulePath = path.join(sandbox.workspaceDir, '.trae/rules/project_rules.md');
+        expect(fs.existsSync(rulePath)).toBe(true);
+        expect(fs.readFileSync(rulePath, 'utf8')).toContain('Use strict TypeScript.');
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should sync rules and configs for the tool', async () => {
+      const sandbox = createSandbox('trae-sync');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/rules/project_rules.md', '---\nglobs: ["*.ts"]\nalwaysApply: false\n---\nUse strict TypeScript.\n');
+
+        const result = await runCLI(['sync', '--once'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should detect and fix drift for the tool via doctor', async () => {
+      const sandbox = createSandbox('trae-doctor');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/rules/project_rules.md', '---\nglobs: ["*.ts"]\nalwaysApply: false\n---\nUse strict TypeScript.\n');
+        await runCLI(['import'], { sandbox, reject: false });
+
+        writeFile(sandbox.workspaceDir, '.trae/rules/project_rules.md', '---\nglobs: ["*.ts"]\nalwaysApply: false\n---\nModified rule.\n');
+
+        const result = await runCLI(['doctor'], { sandbox, reject: false });
+        expect(result.exitCode).toBe(0);
+
+        const fixRes = await runCLI(['doctor', '--fix'], { sandbox, reject: false });
+        expect(fixRes.exitCode).toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+  });
 });

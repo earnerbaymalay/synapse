@@ -6,9 +6,9 @@
 //! implemented here for the same reason it isn't in `apps/cli`: no
 //! Brain-write path exists in `packages/core` yet (Phase 4+ scope).
 
-use synapse_core::adapters::all_adapters;
 use serde::{Deserialize, Serialize};
 use std::env;
+use synapse_core::adapters::all_adapters;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DetectedTool {

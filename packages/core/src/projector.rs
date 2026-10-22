@@ -83,9 +83,13 @@ const POLICY_TABLE: &[(&str, Artifact, bool)] = &[
     ("github-copilot", Artifact::Rules, true),
     ("github-copilot", Artifact::Skill, true),
     ("github-copilot", Artifact::MergedConfig, false),
+    ("kiro", Artifact::Skill, true),
+    ("kiro", Artifact::MergedConfig, false),
     ("openai-codex", Artifact::MergedConfig, false),
     ("opencode", Artifact::Rules, true),
     ("roo-code", Artifact::Agent, true),
+    ("trae", Artifact::Skill, true),
+    ("trae", Artifact::MergedConfig, false),
     ("windsurf", Artifact::Rules, true),
     ("windsurf", Artifact::MergedConfig, false),
     ("zed", Artifact::Rules, true),
@@ -122,7 +126,7 @@ pub fn policy_for(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::all_adapters;
+    use crate::adapters::{all_adapters, next_gen_adapters};
 
     #[test]
     fn falls_back_to_generate_without_symlink_privilege() {
@@ -140,7 +144,7 @@ mod tests {
     /// install without Developer Mode/admin looks like).
     #[test]
     fn every_registered_adapter_has_a_policy_row() {
-        for adapter in all_adapters() {
+        for adapter in all_adapters().into_iter().chain(next_gen_adapters()) {
             let id = adapter.id();
             let has_row = POLICY_TABLE.iter().any(|(tool_id, _, _)| *tool_id == id);
             assert!(has_row, "adapter '{id}' has no POLICY_TABLE row");

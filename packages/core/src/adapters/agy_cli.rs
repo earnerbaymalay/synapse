@@ -1,6 +1,8 @@
-use super::{compute_sha256, safe_join, strip_provenance};
+use super::{
+    compute_sha256, parse_and_validate_mcp_server, safe_join, strip_provenance, write_if_changed,
+};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
-use crate::model::{Agent, HealthStatus, McpServer, Skill};
+use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -64,7 +66,11 @@ impl Adapter for AgyCliAdapter {
         let paths = self.resolve_paths(root);
 
         // 1. Memory rules (if applicable)
-        if let Some(path) = paths.memory_file.as_ref().filter(|p| p.exists()) {
+        if let Some(path) = paths.memory_file.as_ref().filter(|p| {
+            fs::symlink_metadata(p)
+                .map(|m| m.file_type().is_file())
+                .unwrap_or(false)
+        }) {
             let raw = fs::read_to_string(path)
                 .map_err(|e| AdapterError::Io(format!("Failed to read memory file: {}", e)))?;
             let content = strip_provenance(&raw);
@@ -79,54 +85,56 @@ impl Adapter for AgyCliAdapter {
             });
         }
 
-        // 2. Custom skills
+        // 2. Custom skills (do not follow symlinked directories or symlinked SKILL.md)
         if paths.skills_dir.is_dir() {
-            let entries = fs::read_dir(&paths.skills_dir).map_err(|e| {
-                AdapterError::Io(format!("Failed to read skills directory: {}", e))
-            })?;
+            let entries = fs::read_dir(&paths.skills_dir)
+                .map_err(|e| AdapterError::Io(format!("Failed to read skills directory: {}", e)))?;
 
             for entry in entries {
                 let entry = entry.map_err(|e| {
                     AdapterError::Io(format!("Failed to read skill directory entry: {}", e))
                 })?;
+                if !entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                    continue;
+                }
                 let path = entry.path();
-                if path.is_dir() {
-                    let skill_md = path.join("SKILL.md");
-                    if skill_md.exists() {
-                        let raw = fs::read_to_string(&skill_md).map_err(|e| {
-                            AdapterError::Io(format!(
-                                "Failed to read {}: {}",
-                                skill_md.display(),
-                                e
-                            ))
-                        })?;
-                        let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
-                        let sha256 = compute_sha256(&raw);
-                        skills.push(Skill {
-                            id: format!("agy-skill-{}", dir_name),
-                            version: "1.0.0".to_string(),
-                            triggers: vec![format!("skill:{}", dir_name)],
-                            targets: vec!["agy-cli".to_string()],
-                            source: raw,
-                            sha256,
-                        });
-                    }
+                let skill_md = path.join("SKILL.md");
+                if fs::symlink_metadata(&skill_md)
+                    .map(|m| m.file_type().is_file())
+                    .unwrap_or(false)
+                {
+                    let raw = fs::read_to_string(&skill_md).map_err(|e| {
+                        AdapterError::Io(format!("Failed to read {}: {}", skill_md.display(), e))
+                    })?;
+                    let content = strip_provenance(&raw);
+                    let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
+                    let sha256 = compute_sha256(&content);
+                    skills.push(Skill {
+                        id: format!("agy-skill-{}", dir_name),
+                        version: "1.0.0".to_string(),
+                        triggers: vec![format!("skill:{}", dir_name)],
+                        targets: vec!["agy-cli".to_string()],
+                        source: content,
+                        sha256,
+                    });
                 }
             }
         }
 
-        // 3. Custom agents
+        // 3. Custom agents (do not follow symlinked agent files)
         if paths.agents_dir.is_dir() {
-            let entries = fs::read_dir(&paths.agents_dir).map_err(|e| {
-                AdapterError::Io(format!("Failed to read agents directory: {}", e))
-            })?;
+            let entries = fs::read_dir(&paths.agents_dir)
+                .map_err(|e| AdapterError::Io(format!("Failed to read agents directory: {}", e)))?;
 
             for entry in entries {
                 let entry = entry.map_err(|e| {
                     AdapterError::Io(format!("Failed to read agent directory entry: {}", e))
                 })?;
+                if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
+                    continue;
+                }
                 let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
+                if path.extension().is_some_and(|ext| ext == "md") {
                     let slug = path.file_stem().unwrap().to_string_lossy().to_string();
                     agents.push(Agent {
                         slug,
@@ -140,52 +148,15 @@ impl Adapter for AgyCliAdapter {
 
         // 4. MCP Servers
         if paths.mcp_config.exists() {
-            let raw_json = fs::read_to_string(&paths.mcp_config).map_err(|e| {
-                AdapterError::Io(format!("Failed to read mcp_config.json: {}", e))
-            })?;
+            let raw_json = fs::read_to_string(&paths.mcp_config)
+                .map_err(|e| AdapterError::Io(format!("Failed to read mcp_config.json: {}", e)))?;
             let parsed: Value = serde_json::from_str(&raw_json).map_err(|e| {
                 AdapterError::Malformed(format!("Invalid JSON in mcp_config.json: {}", e))
             })?;
 
             if let Some(mcp_servers_val) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
                 for (id, val) in mcp_servers_val {
-                    let command = val
-                        .get("command")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let args: Vec<String> = val
-                        .get("args")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .map(|item| item.as_str().unwrap_or("").to_string())
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    let command_or_url = if args.is_empty() {
-                        command
-                    } else {
-                        format!("{} {}", command, args.join(" "))
-                    };
-
-                    let mut env_placeholders = Vec::new();
-                    if let Some(env_obj) = val.get("env").and_then(|v| v.as_object()) {
-                        for key in env_obj.keys() {
-                            env_placeholders.push(key.clone());
-                        }
-                    }
-                    env_placeholders.sort();
-
-                    mcp_servers.push(McpServer {
-                        id: id.clone(),
-                        transport: "stdio".to_string(),
-                        command_or_url,
-                        env_placeholders,
-                        targets: vec!["agy-cli".to_string()],
-                        health: HealthStatus::Unknown,
-                    });
+                    parse_and_validate_mcp_server(id, val, "agy-cli", &mut mcp_servers)?;
                 }
             }
         }
@@ -220,10 +191,15 @@ impl Adapter for AgyCliAdapter {
                         "<!-- GENERATED BY Synapse — edit in the Brain -->\n{}",
                         memory.source
                     );
-                    fs::write(mem_path, output)
-                        .map_err(|e| AdapterError::Io(format!("Failed to write memory file: {}", e)))?;
-                    
-                    let rel_path = mem_path.strip_prefix(root).unwrap_or(mem_path).to_string_lossy().to_string();
+                    write_if_changed(mem_path, output).map_err(|e| {
+                        AdapterError::Io(format!("Failed to write memory file: {}", e))
+                    })?;
+
+                    let rel_path = mem_path
+                        .strip_prefix(root)
+                        .unwrap_or(mem_path)
+                        .to_string_lossy()
+                        .to_string();
                     written.push(rel_path);
                 }
             }
@@ -238,15 +214,27 @@ impl Adapter for AgyCliAdapter {
 
             let skill_dir = safe_join(&paths.skills_dir, slug)?;
             fs::create_dir_all(&skill_dir).map_err(|e| {
-                AdapterError::Io(format!("Failed to create skill directory {}: {}", skill_dir.display(), e))
+                AdapterError::Io(format!(
+                    "Failed to create skill directory {}: {}",
+                    skill_dir.display(),
+                    e
+                ))
             })?;
 
-            let skill_file = skill_dir.join("SKILL.md");
-            fs::write(&skill_file, &skill.source).map_err(|e| {
-                AdapterError::Io(format!("Failed to write skill file {}: {}", skill_file.display(), e))
+            let skill_file = safe_join(&skill_dir, "SKILL.md")?;
+            write_if_changed(&skill_file, &skill.source).map_err(|e| {
+                AdapterError::Io(format!(
+                    "Failed to write skill file {}: {}",
+                    skill_file.display(),
+                    e
+                ))
             })?;
-            
-            let rel_path = skill_file.strip_prefix(root).unwrap_or(&skill_file).to_string_lossy().to_string();
+
+            let rel_path = skill_file
+                .strip_prefix(root)
+                .unwrap_or(&skill_file)
+                .to_string_lossy()
+                .to_string();
             written.push(rel_path);
         }
 
@@ -257,8 +245,9 @@ impl Adapter for AgyCliAdapter {
             .collect();
 
         if !agy_agents.is_empty() {
-            fs::create_dir_all(&paths.agents_dir)
-                .map_err(|e| AdapterError::Io(format!("Failed to create agents directory: {}", e)))?;
+            fs::create_dir_all(&paths.agents_dir).map_err(|e| {
+                AdapterError::Io(format!("Failed to create agents directory: {}", e))
+            })?;
 
             for agent in agy_agents {
                 let agent_filename = format!("{}.md", agent.slug);
@@ -268,10 +257,14 @@ impl Adapter for AgyCliAdapter {
                     agent.slug,
                     agent.model_hints.first().map_or("auto", |s| s.as_str())
                 );
-                fs::write(&agent_file, content)
+                write_if_changed(&agent_file, content)
                     .map_err(|e| AdapterError::Io(format!("Failed to write agent file: {}", e)))?;
-                
-                let rel_path = agent_file.strip_prefix(root).unwrap_or(&agent_file).to_string_lossy().to_string();
+
+                let rel_path = agent_file
+                    .strip_prefix(root)
+                    .unwrap_or(&agent_file)
+                    .to_string_lossy()
+                    .to_string();
                 written.push(rel_path);
             }
         }
@@ -339,11 +332,15 @@ impl Adapter for AgyCliAdapter {
 
             let pretty = serde_json::to_string_pretty(&current_json)
                 .map_err(|e| AdapterError::Malformed(format!("Failed to serialize JSON: {}", e)))?;
-            fs::write(&paths.mcp_config, pretty).map_err(|e| {
-                AdapterError::Io(format!("Failed to write mcp_config.json: {}", e))
-            })?;
-            
-            let rel_path = paths.mcp_config.strip_prefix(root).unwrap_or(&paths.mcp_config).to_string_lossy().to_string();
+            write_if_changed(&paths.mcp_config, pretty)
+                .map_err(|e| AdapterError::Io(format!("Failed to write mcp_config.json: {}", e)))?;
+
+            let rel_path = paths
+                .mcp_config
+                .strip_prefix(root)
+                .unwrap_or(&paths.mcp_config)
+                .to_string_lossy()
+                .to_string();
             written.push(rel_path);
         }
 
@@ -371,7 +368,7 @@ mod tests {
         let dir2 = tempdir().unwrap();
         fs::create_dir_all(dir2.path().join(".agents")).unwrap();
         assert!(adapter.detect(dir2.path()));
-        
+
         let dir3 = tempdir().unwrap();
         let global_path = dir3.path().join(".gemini/config");
         fs::create_dir_all(&global_path).unwrap();
@@ -404,5 +401,59 @@ mod tests {
             .path()
             .join(".agents/skills/my-skill/SKILL.md")
             .exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_agy_cli_import_blocks_symlinked_skills_and_agents() {
+        let dir = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        fs::write(outside.path().join("SKILL.md"), "outside secret skill").unwrap();
+        fs::write(outside.path().join("evil-agent.md"), "outside secret agent").unwrap();
+
+        let skills_dir = dir.path().join(".agents/skills");
+        let agents_dir = dir.path().join(".agents/agents");
+        fs::create_dir_all(&skills_dir).unwrap();
+        fs::create_dir_all(&agents_dir).unwrap();
+
+        // Plant symlinked skill dir and symlinked SKILL.md inside a real dir
+        std::os::unix::fs::symlink(outside.path(), skills_dir.join("linked-dir")).unwrap();
+        let real_skill_dir = skills_dir.join("real-dir");
+        fs::create_dir_all(&real_skill_dir).unwrap();
+        std::os::unix::fs::symlink(
+            outside.path().join("SKILL.md"),
+            real_skill_dir.join("SKILL.md"),
+        )
+        .unwrap();
+
+        // Plant symlinked agent file
+        std::os::unix::fs::symlink(
+            outside.path().join("evil-agent.md"),
+            agents_dir.join("planted.md"),
+        )
+        .unwrap();
+
+        let adapter = AgyCliAdapter;
+        let imported = adapter.import(dir.path()).unwrap();
+        assert!(imported.skills.is_empty());
+        assert!(imported.agents.is_empty());
+    }
+
+    #[test]
+    fn test_agy_cli_rejects_mcp_path_traversal() {
+        let dir = tempdir().unwrap();
+        let agents_dir = dir.path().join(".agents");
+        fs::create_dir_all(&agents_dir).unwrap();
+        fs::write(
+            agents_dir.join("mcp_config.json"),
+            r#"{"mcpServers": {"evil": {"command": "../../../bin/sh"}}}"#,
+        )
+        .unwrap();
+
+        let adapter = AgyCliAdapter;
+        assert!(matches!(
+            adapter.import(dir.path()),
+            Err(AdapterError::Malformed(_))
+        ));
     }
 }

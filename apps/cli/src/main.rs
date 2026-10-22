@@ -1,5 +1,6 @@
 mod chart;
 mod mem;
+mod onboard;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -142,6 +143,27 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         tool_root: Option<PathBuf>,
     },
+    /// Interactive onboarding interview to configure your master prompt (SYNAPSE.md)
+    Onboard {
+        /// Tech stack (e.g. "Rust + React", "Python", "Go")
+        #[arg(long)]
+        stack: Option<String>,
+        /// Architectural pattern (e.g. "Clean Architecture", "Modular", "Monolith")
+        #[arg(long)]
+        arch: Option<String>,
+        /// Testing rigor (e.g. "Strict TDD", "Assertion-heavy", "Pragmatic")
+        #[arg(long)]
+        testing: Option<String>,
+        /// Agent communication style (e.g. "Terse/Clinical", "Pair Programmer", "Auditor")
+        #[arg(long)]
+        demeanor: Option<String>,
+        /// Brain directory (defaults to $SYNAPSE_BRAIN, else ~/AIBrain)
+        #[arg(long, value_name = "PATH")]
+        brain: Option<PathBuf>,
+        /// Tool config root
+        #[arg(long, value_name = "PATH")]
+        tool_root: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -166,16 +188,12 @@ enum SpoolAction {
     },
 }
 
-use synapse_core::compression::{
-    execute_with_compression, CompressionLevel, SpoolManager,
-};
+use std::io::Read;
+use synapse_core::compression::{execute_with_compression, CompressionLevel, SpoolManager};
 use synapse_core::gateway::{GatewayConfig, GatewayServer, UpstreamKind};
 use synapse_core::hud::{format_hud, HudSnapshot};
 use synapse_core::snapshot::{rollback, snapshot};
-use synapse_core::sync::{
-    perform_import, perform_project, perform_sync, SyncLock, SyncOutcome,
-};
-use std::io::Read;
+use synapse_core::sync::{perform_import, perform_project, perform_sync, SyncLock, SyncOutcome};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -571,7 +589,8 @@ fn main() -> ExitCode {
             api_key,
             fold_keep,
         } => {
-            let comp_level = CompressionLevel::parse(&gate_level).unwrap_or(CompressionLevel::Balanced);
+            let comp_level =
+                CompressionLevel::parse(&gate_level).unwrap_or(CompressionLevel::Balanced);
             let upstream_kind = UpstreamKind::from_url_or_name(&upstream);
             let bind_addr = format!("{}:{}", host, port);
 
@@ -593,12 +612,27 @@ fn main() -> ExitCode {
                 chart::field("Model", m);
             }
             if let Some(n) = fold_keep {
-                chart::field("Context Fold", &format!("tool results older than last {n} messages"));
+                chart::field(
+                    "Context Fold",
+                    &format!("tool results older than last {n} messages"),
+                );
             }
             println!();
-            chart::row(chart::Mark::Present, "openai", &format!("http://{}/v1/chat/completions", bind_addr));
-            chart::row(chart::Mark::Present, "anthropic", &format!("http://{}/v1/messages", bind_addr));
-            chart::row(chart::Mark::Present, "health", &format!("http://{}/health", bind_addr));
+            chart::row(
+                chart::Mark::Present,
+                "openai",
+                &format!("http://{}/v1/chat/completions", bind_addr),
+            );
+            chart::row(
+                chart::Mark::Present,
+                "anthropic",
+                &format!("http://{}/v1/messages", bind_addr),
+            );
+            chart::row(
+                chart::Mark::Present,
+                "health",
+                &format!("http://{}/health", bind_addr),
+            );
             println!();
             chart::close("Point Claude Code, AGY CLI, or Cursor to this proxy endpoint. Press Ctrl+C to stop.", None);
 
@@ -648,6 +682,39 @@ fn main() -> ExitCode {
                     std::thread::sleep(std::time::Duration::from_secs(interval));
                 }
             }
+        }
+        Command::Onboard {
+            stack,
+            arch,
+            testing,
+            demeanor,
+            brain,
+            tool_root,
+        } => {
+            let brain_root = match resolve_brain_root(brain) {
+                Ok(b) => b,
+                Err(e) => {
+                    chart::fault("onboard", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+            };
+            let tool_root = match resolve_tool_root(tool_root) {
+                Ok(t) => t,
+                Err(e) => {
+                    chart::fault("onboard", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+            };
+            onboard::run_onboard(
+                &brain_root,
+                &tool_root,
+                onboard::OnboardArgs {
+                    stack,
+                    arch,
+                    testing,
+                    demeanor,
+                },
+            )
         }
     }
 }
@@ -807,21 +874,25 @@ fn report_import_dry_run(root: &Path) -> ExitCode {
 }
 
 /// Resolves the Brain directory for `doctor`. Precedence: an explicit
-/// `--brain` flag, then `$SYNAPSE_BRAIN`, then the documented default
-/// `~/AIBrain` (see DECISIONS.md / model.rs). Errors only if none of these
-/// yield a path (no home directory on a headless account with no override).
+/// `--brain` flag, then `$SYNAPSE_BRAIN_PATH` / `$SYNAPSE_BRAIN`, then
+/// `~/Desktop/AI BRAIN` if present on disk, else the default `~/AIBrain`.
 fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("SYNAPSE_BRAIN_PATH")
-        .or_else(|| std::env::var_os("SYNAPSE_BRAIN"))
+    if let Some(env) =
+        std::env::var_os("SYNAPSE_BRAIN_PATH").or_else(|| std::env::var_os("SYNAPSE_BRAIN"))
     {
         return Ok(PathBuf::from(env));
     }
-    dirs::home_dir()
-        .map(|h| h.join("AIBrain"))
-        .ok_or_else(|| "cannot locate a home directory; pass --brain <PATH>".to_string())
+    if let Some(home) = dirs::home_dir() {
+        let desktop_brain = home.join("Desktop/AI BRAIN");
+        if desktop_brain.is_dir() && !home.join("AIBrain").exists() {
+            return Ok(desktop_brain);
+        }
+        return Ok(home.join("AIBrain"));
+    }
+    Err("cannot locate a home directory; pass --brain <PATH>".to_string())
 }
 
 /// Resolves the tool config root that projection paths are relative to.
@@ -830,8 +901,8 @@ fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         return Ok(p);
     }
-    if let Some(env) = std::env::var_os("SYNAPSE_WORKSPACE_PATH")
-        .or_else(|| std::env::var_os("SYNAPSE_TOOL_ROOT"))
+    if let Some(env) =
+        std::env::var_os("SYNAPSE_WORKSPACE_PATH").or_else(|| std::env::var_os("SYNAPSE_TOOL_ROOT"))
     {
         return Ok(PathBuf::from(env));
     }
@@ -966,7 +1037,8 @@ mod tests {
     fn help_lists_every_verb() {
         let help = Cli::command().render_long_help().to_string();
         for verb in [
-            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec", "filter", "spool", "serve", "hud",
+            "scan", "import", "project", "sync", "doctor", "snapshot", "rollback", "exec",
+            "filter", "spool", "serve", "hud",
         ] {
             assert!(help.contains(verb), "--help is missing verb: {verb}");
         }
@@ -1047,11 +1119,18 @@ mod tests {
             resolve_brain_root(Some(explicit.clone())).unwrap(),
             explicit
         );
-        // With no override, the default is <home>/AIBrain (when a home exists).
+        // With no override, the default is <home>/Desktop/AI BRAIN (if present) or <home>/AIBrain.
         if let Some(home) = dirs::home_dir() {
-            // Only meaningful when the env override is unset in this process.
-            if std::env::var_os("SYNAPSE_BRAIN").is_none() {
-                assert_eq!(resolve_brain_root(None).unwrap(), home.join("AIBrain"));
+            if std::env::var_os("SYNAPSE_BRAIN").is_none()
+                && std::env::var_os("SYNAPSE_BRAIN_PATH").is_none()
+            {
+                let expected =
+                    if home.join("Desktop/AI BRAIN").is_dir() && !home.join("AIBrain").exists() {
+                        home.join("Desktop/AI BRAIN")
+                    } else {
+                        home.join("AIBrain")
+                    };
+                assert_eq!(resolve_brain_root(None).unwrap(), expected);
             }
         }
     }

@@ -1,9 +1,9 @@
+use serde_json::json;
+use synapse_core::compression::CompressionLevel;
 use synapse_core::gateway::{
     sanitize_tool_calling_response, GatewayConfig, GatewayServer, UpstreamKind,
 };
 use synapse_core::hud::{format_hud, HudSnapshot};
-use synapse_core::compression::CompressionLevel;
-use serde_json::json;
 
 #[test]
 fn test_upstream_kind_detection() {
@@ -46,7 +46,10 @@ fn test_tool_call_sanitizer_from_markdown_fenced_json() {
     let tool_calls = message["tool_calls"].as_array().unwrap();
     assert_eq!(tool_calls.len(), 1);
     assert_eq!(tool_calls[0]["function"]["name"], "read_file");
-    assert!(tool_calls[0]["function"]["arguments"].as_str().unwrap().contains("src/main.rs"));
+    assert!(tool_calls[0]["function"]["arguments"]
+        .as_str()
+        .unwrap()
+        .contains("src/main.rs"));
 }
 
 #[test]
@@ -132,8 +135,8 @@ fn test_hud_formatting() {
             last_model: "qwen2.5-coder:7b".to_string(),
             last_latency_ms: 120,
         },
-        brain_path: "~/AIBrain".to_string(),
-        total_adapters: 13,
+        brain_path: "~/Desktop/AI BRAIN".to_string(),
+        total_adapters: 15,
         doctor_healthy: true,
         doctor_criticals: 0,
         doctor_warnings: 0,
@@ -143,6 +146,6 @@ fn test_hud_formatting() {
     assert!(formatted.contains("SYNAPSE VITAL SIGNS HUD"));
     assert!(formatted.contains("ONLINE"));
     assert!(formatted.contains("95% reduction"));
-    assert!(formatted.contains("13 verified tools"));
+    assert!(formatted.contains("15 verified tools"));
     assert!(formatted.contains("LOCKSTEP SYNCED"));
 }

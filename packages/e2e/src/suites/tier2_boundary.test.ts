@@ -950,4 +950,132 @@ describe('Tier 2: Boundary and Corner Cases', () => {
       }
     });
   });
+
+  // ==========================================
+  // KIRO
+  // ==========================================
+  describe('kiro boundary cases', () => {
+    it('should handle malformed config gracefully', async () => {
+      const sandbox = createSandbox('kiro-malformed');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/settings/mcp.json', '{invalid}');
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should prevent path traversal attacks', async () => {
+      const sandbox = createSandbox('kiro-traversal');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/settings/mcp.json', '{"mcpServers": {"test": {"command": "../../../../sh"}}}');
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should handle missing fields in configuration', async () => {
+      const sandbox = createSandbox('kiro-missing');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/settings/mcp.json', '{"mcpServers": {"sqlite": {}}}');
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should fail gracefully on write protection', async () => {
+      const sandbox = createSandbox('kiro-write-protected');
+      try {
+        writeFile(sandbox.workspaceDir, '.kiro/steering/product.md', '');
+        fs.chmodSync(path.join(sandbox.workspaceDir, '.kiro/steering/product.md'), 0o400);
+
+        const skillData = {
+          id: 'kiro-steering-product',
+          version: '1.0.0',
+          triggers: ['*'],
+          targets: ['kiro'],
+          source: '# Rules\nUpdate.\n',
+          sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
+        };
+        writeFile(sandbox.brainDir, 'skills/kiro-steering-product/skill.yaml', JSON.stringify(skillData));
+
+        const result = await runCLI(['project'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        try {
+          fs.chmodSync(path.join(sandbox.workspaceDir, '.kiro/steering/product.md'), 0o600);
+        } catch {}
+        sandbox.cleanup();
+      }
+    });
+  });
+
+  // ==========================================
+  // TRAE
+  // ==========================================
+  describe('trae boundary cases', () => {
+    it('should handle malformed config gracefully', async () => {
+      const sandbox = createSandbox('trae-malformed');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/mcp.json', '{invalid}');
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should prevent path traversal attacks', async () => {
+      const sandbox = createSandbox('trae-traversal');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/mcp.json', '{"mcpServers": {"test": {"command": "../../../../sh"}}}');
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should handle missing fields in configuration', async () => {
+      const sandbox = createSandbox('trae-missing');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/mcp.json', '{"mcpServers": {"sqlite": {}}}');
+        const result = await runCLI(['import'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        sandbox.cleanup();
+      }
+    });
+
+    it('should fail gracefully on write protection', async () => {
+      const sandbox = createSandbox('trae-write-protected');
+      try {
+        writeFile(sandbox.workspaceDir, '.trae/rules/project_rules.md', '');
+        fs.chmodSync(path.join(sandbox.workspaceDir, '.trae/rules/project_rules.md'), 0o400);
+
+        const skillData = {
+          id: 'trae-rule-project_rules',
+          version: '1.0.0',
+          triggers: ['*'],
+          targets: ['trae'],
+          source: '# Rules\nUpdate.\n',
+          sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
+        };
+        writeFile(sandbox.brainDir, 'skills/trae-rule-project_rules/skill.yaml', JSON.stringify(skillData));
+
+        const result = await runCLI(['project'], { sandbox, reject: false });
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        try {
+          fs.chmodSync(path.join(sandbox.workspaceDir, '.trae/rules/project_rules.md'), 0o600);
+        } catch {}
+        sandbox.cleanup();
+      }
+    });
+  });
 });

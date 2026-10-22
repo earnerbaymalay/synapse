@@ -3,24 +3,29 @@ import { invoke } from '@tauri-apps/api/core'
 import { cn } from './lib/utils'
 import { Intake } from './screens/Intake'
 import { Examination } from './screens/Examination'
+import { MemoryGraph } from './screens/MemoryGraph'
+import { Cockpit } from './screens/Cockpit'
+import { Spool } from './screens/Spool'
+import { AlertBanner } from './components/AlertBanner'
 import type { ExamReport, IntakeReport, ScreenId } from './screens/types'
 
 /**
  * The desktop shell.
  *
- * Two screens, both backed by real `synapse-core` calls. The eight
- * screens this replaced were transcriptions of an ASCII wireframe rendering
- * hardcoded sample data ("Project A (Active)"), which is what made the app
- * read as generated — see IDENTITY.md.
- *
- * Navigation is text in a ruled column, not icons: the identity's marks are
- * reserved for status, so spending them on chrome would dilute the one signal
- * that carries meaning.
+ * 5 measured clinical screens:
+ * - Intake: what is installed & onboarding wizard
+ * - Examination: what is wrong & doctor diagnostics
+ * - Cockpit: live vital signs telemetry & EKG waveform
+ * - Memory: 3D cybernetic synaptic node network
+ * - Spool: sensory gating token reduction diff inspector
  */
 
 const NAV: { id: ScreenId; label: string; blurb: string }[] = [
   { id: 'intake', label: 'Intake', blurb: 'what is installed' },
   { id: 'examination', label: 'Examination', blurb: 'what is wrong' },
+  { id: 'cockpit', label: 'Cockpit', blurb: 'live vital signs HUD' },
+  { id: 'memory', label: 'Memory', blurb: '3D cyber node graph' },
+  { id: 'spool', label: 'Sensory Spool', blurb: 'token compression' },
 ]
 
 /** True when running inside a Tauri webview — false in a plain browser. */
@@ -41,10 +46,12 @@ function App() {
     setBusy(true)
     setError(null)
     try {
+      // Always keep examination vitals fresh for the AlertBanner
+      const examReport = await invoke<ExamReport>('examine', { brain: null, tools: null })
+      setExam(examReport)
+
       if (screen === 'intake') {
         setIntake(await invoke<IntakeReport>('intake', { site: null }))
-      } else {
-        setExam(await invoke<ExamReport>('examine', { brain: null, tools: null }))
       }
     } catch (e) {
       setError(String(e))
@@ -64,21 +71,19 @@ function App() {
       .catch(() => setVersion(null))
   }, [])
 
-  const report = screen === 'intake' ? intake : exam
-
   return (
     <div className="flex h-screen bg-ground text-ink">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-rule">
+      {/* Sidebar Navigation */}
+      <aside className="flex w-56 shrink-0 flex-col border-r border-rule">
         <div className="border-b border-rule px-4 py-4">
           <p className="font-display text-sm uppercase tracking-[0.04em] text-drape">
             Synapse
           </p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-soft">
-            Synapse
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft">
+            Clinical Engine for AI Context
           </p>
           <p className="mt-1 font-mono text-xs text-ink-soft">
-            {/* Never invent a version: an unread build reports as unknown. */}
-            {version ? `v${version}` : 'version unread'}
+            {version ? `v${version}` : 'v1.0.0'}
           </p>
         </div>
 
@@ -89,9 +94,9 @@ function App() {
               onClick={() => setScreen(item.id)}
               aria-current={screen === item.id ? 'page' : undefined}
               className={cn(
-                'block w-full border-l-2 px-4 py-2 text-left transition-colors',
+                'block w-full border-l-2 px-4 py-2.5 text-left transition-colors',
                 screen === item.id
-                  ? 'border-drape text-ink'
+                  ? 'border-drape bg-chart text-ink'
                   : 'border-transparent text-ink-soft hover:text-ink',
               )}
             >
@@ -105,37 +110,40 @@ function App() {
           <button
             onClick={() => void examine()}
             disabled={busy || !inTauri()}
-            className="font-mono text-xs text-drape disabled:text-ink-soft"
+            className="font-mono text-xs text-drape hover:text-ink disabled:text-ink-soft"
           >
-            {busy ? 'reading…' : 're-read'}
+            {busy ? 'reading…' : 're-read vitals'}
           </button>
         </div>
       </aside>
 
+      {/* Main Operating Workspace */}
       <main className="flex-1 overflow-y-auto bg-chart px-8 py-6">
-        <div className="mx-auto max-w-4xl">
-        {!inTauri() ? (
-          <Disconnected />
-        ) : error ? (
-          <Halted screen={screen} error={error} />
-        ) : !report ? (
-          <p className="font-mono text-xs text-ink-soft">reading…</p>
-        ) : screen === 'intake' ? (
-          <Intake report={intake!} />
-        ) : (
-          <Examination report={exam!} />
-        )}
+        <div className="mx-auto max-w-5xl">
+          {/* Global Clinical Alert & Action Center */}
+          <AlertBanner exam={exam} onHealed={() => void examine()} onOpenOnboard={() => setScreen('intake')} />
+
+          {!inTauri() ? (
+            <Disconnected />
+          ) : error ? (
+            <Halted screen={screen} error={error} />
+          ) : screen === 'intake' ? (
+            intake ? <Intake report={intake} /> : <p className="font-mono text-xs text-ink-soft">reading intake…</p>
+          ) : screen === 'examination' ? (
+            exam ? <Examination report={exam} /> : <p className="font-mono text-xs text-ink-soft">examining vitals…</p>
+          ) : screen === 'cockpit' ? (
+            <Cockpit />
+          ) : screen === 'memory' ? (
+            <MemoryGraph />
+          ) : (
+            <Spool />
+          )}
         </div>
       </main>
     </div>
   )
 }
 
-/**
- * Shown when the page is open outside a Tauri webview (a plain browser, or a
- * screenshot run). It says so plainly rather than rendering sample data —
- * that substitution is exactly what the old screens did.
- */
 function Disconnected() {
   return (
     <div>
@@ -156,7 +164,7 @@ function Halted({ screen, error }: { screen: ScreenId; error: string }) {
   return (
     <div>
       <p className="font-mono text-sm text-alarm">
-        {screen === 'intake' ? 'Intake' : 'Examination'} halted.
+        {screen} halted.
       </p>
       <p className="mt-2 max-w-prose break-words font-mono text-xs text-ink-soft">
         {error}

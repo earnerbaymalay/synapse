@@ -1,5 +1,5 @@
 # Onboarding Guide — SYNAPSE
-### Synapse — Four-Phase Journey
+### The Clinical Engine for AI Context — Four-Phase Journey
 
 Welcome to **SYNAPSE**. This guide walks you through the four phases of setting up and taking complete control of your AI tool configurations.
 
@@ -19,7 +19,7 @@ You have more than one AI coding tool installed. Each tool keeps its own rules f
 That's the problem SYNAPSE exists to remove.
 
 > [!WARNING]
-> Maintaining separate `CLAUDE.md`, `.cursorrules`, `GEMINI.md`, and `.windsurfrules` files leads to configuration drift, stale skills, and fragmented model knowledge across your workspace.
+> Maintaining separate `CLAUDE.md`, `.cursorrules`, `GEMINI.md`, `.windsurfrules`, and `.kiro/` files leads to configuration drift, stale skills, and fragmented model knowledge across your workspace.
 
 ---
 
@@ -69,11 +69,12 @@ Once your Brain is initialized, unlock long-term features:
 
 | Feature | Command | Benefits |
 |---|---|---|
-| ⏳ **Time Machine** | `synapse snapshot "msg"` | Every sync is a Git commit. Revert anytime with `synapse rollback <hash>`. |
-| 🔄 **Auto-Sync Daemon** | `synapse sync --daemon` | Watches the Brain and all tools; resolves drift with a 3-way merge in real time. |
-| 🩺 **Doctor Auto-Repair** | `synapse doctor --fix` | Diagnoses broken symlinks and config drift, repairing them automatically. |
-| 🔌 **MCP Key Protection** | `synapse mcp harvest` | Browse MCP servers; API keys stay securely in the OS Keychain via `${VAR}` placeholders. |
-| 🛒 **Marketplace** | `synapse marketplace` | Pull skills and agents from any Git repo (`anthropics/skills`), with SHA-256 provenance cards. |
+| **Time Machine** | `synapse snapshot "msg"` | Every sync is a Git commit. Revert anytime with `synapse rollback <hash>`. |
+| **Auto-Sync Daemon** | `synapse sync --daemon` | Watches the Brain and all tools; resolves drift with a 3-way merge in real time. |
+| **Doctor Auto-Repair** | `synapse doctor --fix` | Diagnoses broken symlinks and config drift, repairing them automatically. |
+| **Runtime Gateway** | `synapse serve` | Local reverse proxy normalizing tool-calls and executing 95% sensory gating compression. |
+| **Context Retrieval** | `synapse mem <query>` | 3-layer semantic retrieval (Layer 1 search, Layer 2 timeline, Layer 3 topic get). |
+| **Vital Signs HUD** | `synapse hud` | Zero-RAM live terminal cockpit displaying token burn, latency, and Brain lockstep. |
 
 ---
 

@@ -376,6 +376,8 @@ mod tests {
 
     #[test]
     fn test_zed_import_export_roundtrip() {
+        let home = tempdir().unwrap();
+        let _home = HomeGuard::set(home.path());
         let dir = tempdir().unwrap();
         let adapter = ZedAdapter;
 

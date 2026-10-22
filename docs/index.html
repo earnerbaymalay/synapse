@@ -135,9 +135,9 @@
       </div>
 
       <div class="flex items-center gap-6 text-[11px] text-slate-400">
-        <div><span class="text-slate-500">ADAPTERS:</span> <strong class="text-white">13/13 ONLINE</strong></div>
-        <div><span class="text-slate-500">E2E TESTS:</span> <strong class="text-synapse-cyan">142/142 PASSING</strong></div>
-        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">236/236 PASSING</strong></div>
+        <div><span class="text-slate-500">ADAPTERS:</span> <strong class="text-white">15/15 ONLINE</strong></div>
+        <div><span class="text-slate-500">E2E TESTS:</span> <strong class="text-synapse-cyan">160/160 PASSING</strong></div>
+        <div><span class="text-slate-500">RUST TESTS:</span> <strong class="text-synapse-emerald">257/257 PASSING</strong></div>
         <div class="hidden sm:block"><span class="text-slate-500">STORAGE:</span> <strong class="text-synapse-accentLight">~/AIBrain</strong></div>
       </div>
     </div>
@@ -153,13 +153,19 @@
         ONE BRAIN. ALL MODELS. SURGICAL PRECISION.
       </div>
 
+      
+      <!-- Hero Banner Image -->
+      <div class="max-w-4xl mx-auto mb-10 corner-mark">
+        <img src="../assets/hero.png" alt="SYNAPSE Clinical Engine Banner" class="w-full h-auto rounded-xl border border-synapse-border shadow-2xl" />
+      </div>
+
       <!-- Hero Title -->
       <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white mb-6 uppercase">
         One Brain. <span class="text-transparent bg-clip-text bg-gradient-to-r from-synapse-cyan via-synapse-accentLight to-synapse-emerald">All Models.</span>
       </h1>
 
       <p class="max-w-3xl mx-auto text-base sm:text-xl text-slate-400 mb-10 leading-relaxed font-normal">
-        The universal local-first synchronizer that unifies configuration for <span class="text-white font-medium">Claude Code</span>, <span class="text-white font-medium">Cursor</span>, <span class="text-white font-medium">Gemini CLI</span>, <span class="text-white font-medium">Windsurf</span>, <span class="text-white font-medium">Zed</span>, and 8+ tools into one Git-backed Brain.
+        The universal local-first synchronizer that unifies configuration for <span class="text-white font-medium">Claude Code</span>, <span class="text-white font-medium">Cursor</span>, <span class="text-white font-medium">Gemini CLI</span>, <span class="text-white font-medium">Windsurf</span>, <span class="text-white font-medium">Zed</span>, and 10+ tools into one Git-backed Brain.
       </p>
 
       <!-- Primary Action Buttons -->
@@ -189,7 +195,8 @@
 
           <!-- Interactive Action Buttons -->
           <div class="flex items-center gap-1 text-[10px] flex-wrap">
-            <button onclick="setTab('scan')" id="tab-scan" class="tab-btn px-2.5 py-1 bg-synapse-cyan text-synapse-ink font-semibold">1. scan</button>
+            <button onclick="setTab('onboard')" id="tab-onboard" class="tab-btn px-2.5 py-1 bg-synapse-gold text-synapse-ink font-semibold">0. onboard</button>
+            <button onclick="setTab('scan')" id="tab-scan" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">1. scan</button>
             <button onclick="setTab('import')" id="tab-import" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">2. import</button>
             <button onclick="setTab('project')" id="tab-project" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">3. project</button>
             <button onclick="setTab('sync')" id="tab-sync" class="tab-btn px-2.5 py-1 bg-synapse-card text-slate-400 hover:text-white">4. sync</button>
@@ -204,7 +211,7 @@
         <div id="terminal-content" class="min-h-[160px] space-y-2 text-slate-300">
           <p class="text-slate-500"># Discovers all 13 AI coding tools across your workstation</p>
           <p><span class="text-synapse-cyan">$</span> synapse scan</p>
-          <p class="text-synapse-accentLight">🔍 Discovered 13 active AI tools on workstation:</p>
+          <p class="text-synapse-accentLight">🔍 Discovered 15 active AI tools on workstation:</p>
           <p class="text-slate-400 pl-3">• Claude Code (.claude/skills/, CLAUDE.md) [FOUND]</p>
           <p class="text-slate-400 pl-3">• Cursor (.cursor/rules/*.mdc) [FOUND]</p>
           <p class="text-slate-400 pl-3">• Gemini CLI (GEMINI.md, .gemini/settings.json) [FOUND]</p>
@@ -241,7 +248,7 @@
     <section id="adapters" class="max-w-7xl mx-auto px-6 py-20">
       <div class="text-center mb-14">
         <div class="font-mono text-xs text-synapse-cyan uppercase tracking-widest mb-2">// ECOSYSTEM MATRIX</div>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">13 Verified Tool Adapters</h2>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">15 Verified Tool Adapters</h2>
         <p class="text-slate-400 mt-2 max-w-2xl mx-auto text-sm">Every dialect parsed losslessly. Click any adapter to inspect its native file locations and sync policy.</p>
       </div>
 
@@ -403,6 +410,33 @@
           <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
         </a>
 
+        
+        <!-- Adapter 14: AWS Kiro -->
+        <a href="adapters/kiro.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-gold border border-synapse-gold/30 px-2 py-0.5 bg-synapse-gold/10">Kr</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-gold transition-colors text-sm">AWS Kiro IDE</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.kiro/steering/*.md • mcp.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-gold">Read Spec →</div>
+        </a>
+
+        <!-- Adapter 15: Trae IDE -->
+        <a href="adapters/trae.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono font-bold text-xs text-synapse-cyan border border-synapse-cyan/30 px-2 py-0.5 bg-synapse-cyan/10">Tr</span>
+              <span class="h-2 w-2 rounded-full bg-synapse-emerald"></span>
+            </div>
+            <h3 class="font-bold text-white group-hover:text-synapse-cyan transition-colors text-sm">Trae IDE</h3>
+            <p class="font-mono text-[11px] text-slate-500 mt-1">.trae/rules/*.md • trae/mcp.json</p>
+          </div>
+          <div class="mt-4 font-mono text-[10px] text-synapse-cyan">Read Spec →</div>
+        </a>
+
         <!-- Adapter 13: OpenCode -->
         <a href="adapters/opencode.md" class="glow-card corner-mark p-5 bg-synapse-surface border border-synapse-border flex flex-col justify-between group">
           <div>
@@ -420,6 +454,60 @@
     </section>
 
     <!-- Synaptic Sensory Gating: Auto-Compression Feature Section -->
+    
+    <!-- Dual-Zone Master Governance Section -->
+    <section id="governance" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
+      <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-12">
+          <div class="font-mono text-xs text-synapse-gold uppercase tracking-widest mb-2">// MASTER PROMPT ARCHITECTURE</div>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">Dual-Zone Master Governance (SYNAPSE.md)</h2>
+          <p class="text-slate-400 mt-2 text-sm max-w-2xl mx-auto">Eliminates chaotic prompt drift. Separates non-negotiable safety and clinical invariants from user engineering customizations with cryptographic tamper protection.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+          <!-- Zone 1 -->
+          <div class="p-6 bg-synapse-surface border border-synapse-gold/50 corner-mark relative glow-card">
+            <div class="flex items-center justify-between pb-3 border-b border-synapse-gold/30 mb-3">
+              <span class="text-synapse-gold font-bold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-synapse-gold animate-ping"></span> ZONE 1: CLINICAL CORE
+              </span>
+              <span class="text-synapse-gold/80 text-[10px] font-mono border border-synapse-gold/30 px-1.5 py-0.5">SHA-256 SEALED</span>
+            </div>
+            <p class="text-slate-400 font-sans text-xs mb-3">Tamper-evident, universally projected agent invariants enforced across all 15 tools.</p>
+            <div class="bg-[#020408] p-3 border border-synapse-border text-slate-300 text-[11px] space-y-1">
+              <p class="text-[#f59e0b]">&lt;!-- SYNAPSE-CORE-HASH: d84fe6b2... --&gt;</p>
+              <p class="text-slate-400">1. Universal Invariants (No mock-free refactors)</p>
+              <p class="text-slate-400">2. Sensory Gating (Context compression hooks)</p>
+              <p class="text-slate-400">3. Synaptic Memory Retrieval Protocols</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-synapse-border text-[11px] text-synapse-gold">
+              ✔ Verified by Rule 15 · Auto-healed by synapse doctor --fix
+            </div>
+          </div>
+
+          <!-- Zone 2 -->
+          <div class="p-6 bg-synapse-surface border border-synapse-cyan/50 corner-mark relative glow-card">
+            <div class="flex items-center justify-between pb-3 border-b border-synapse-cyan/30 mb-3">
+              <span class="text-synapse-cyan font-bold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-synapse-cyan"></span> ZONE 2: USER PERSONA
+              </span>
+              <span class="text-synapse-cyan/80 text-[10px] font-mono border border-synapse-cyan/30 px-1.5 py-0.5">100% USER EDITABLE</span>
+            </div>
+            <p class="text-slate-400 font-sans text-xs mb-3">Custom developer specifications, architectural styles, and operational demeanor.</p>
+            <div class="bg-[#020408] p-3 border border-synapse-border text-slate-300 text-[11px] space-y-1">
+              <p class="text-synapse-cyan"># --- ZONE 2: USER ENGINEERING CONTEXT ---</p>
+              <p class="text-slate-400">• Stack: Rust, TypeScript, Tauri, Tailwind</p>
+              <p class="text-slate-400">• Testing: Strict TDD with Vitest & Cargo</p>
+              <p class="text-slate-400">• Demeanor: Clinical, concise, zero emojis</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-synapse-border text-[11px] text-synapse-cyan">
+              ✔ Preserved during doctor repairs · Calibrated via synapse onboard
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="compression" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
       <div class="max-w-5xl mx-auto">
         <div class="text-center mb-12">
@@ -476,6 +564,28 @@
     </section>
 
     <!-- Runtime Gateway & Live HUD Section -->
+    
+    <!-- 3D Neural Cinema Interactive Showcase -->
+    <section id="cinema" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
+      <div class="max-w-5xl mx-auto text-center mb-10">
+        <div class="font-mono text-xs text-synapse-cyan uppercase tracking-widest mb-2">// INTERACTIVE 3D PREVIEW</div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight uppercase">3D Cybernetic Synaptic Memory Graph</h2>
+        <p class="text-slate-400 mt-2 text-sm max-w-2xl mx-auto">
+          A turbo-charged cinematic node matrix rendered with WebGL Three.js. Inspect live synaptic memory clusters, observe action potentials running along fiber-optic axons, and test the Clinical Alert & Action Center.
+        </p>
+      </div>
+
+      <!-- Live Interactive WebGL Cinema Frame -->
+      <div class="relative w-full h-[640px] rounded-2xl border border-synapse-border overflow-hidden bg-[#020408] shadow-[0_0_80px_rgba(0,240,255,0.15)] corner-mark">
+        <iframe
+          src="neural_graph_preview.html"
+          class="w-full h-full border-0"
+          title="SYNAPSE 3D Neural Cinema Engine"
+          loading="lazy"
+        ></iframe>
+      </div>
+    </section>
+
     <section id="runtime" class="max-w-7xl mx-auto px-6 py-20 border-t border-synapse-border">
       <div class="max-w-5xl mx-auto">
         <div class="text-center mb-12">
@@ -545,7 +655,7 @@
             <div class="bg-synapse-ink p-4 border border-synapse-border text-slate-300">
               <p><span class="text-synapse-cyan">$</span> cargo run -p synapse -- scan</p>
             </div>
-            <p class="text-slate-400 mt-3 text-[11px] font-sans">Scans home and workspace roots, mapping all 13 supported AI configurations without touching the disk.</p>
+            <p class="text-slate-400 mt-3 text-[11px] font-sans">Scans home and workspace roots, mapping all 15 supported AI configurations without touching the disk.</p>
           </div>
 
           <!-- Step 2 -->
@@ -607,11 +717,24 @@
   <!-- Interactive Terminal Switcher Script -->
   <script>
     const tabs = {
+      onboard: {
+        cmd: "synapse onboard",
+        desc: "# Interactive onboarding wizard to calibrate stack, architecture & demeanor",
+        output: [
+          "<span class="text-synapse-gold">⚡ SYNAPSE CLINICAL ONBOARDING WIZARD</span>",
+          "• Elicited Stack: Rust (Core), TypeScript/Tauri (GUI)",
+          "• Architecture Protocol: Clean Architecture & Ports/Adapters",
+          "• Provisioned Master Governance: ~/AIBrain/SYNAPSE.md",
+          "• Stamped Zone 1 with SHA-256 seal (d84fe6...)",
+          "<span class="text-synapse-emerald pt-1">✓ Pushed governance to 15 tools in 0.42s</span>"
+        ]
+      },
+
       scan: {
         cmd: "cargo run -p synapse -- scan",
         desc: "# Discovers all 13 AI coding tools across your workstation",
         output: [
-          "<span class=\"text-synapse-accentLight\">🔍 Discovered 13 active AI tools on workstation:</span>",
+          "<span class=\"text-synapse-accentLight\">🔍 Discovered 15 active AI tools on workstation:</span>",
           "• Claude Code (.claude/skills/, CLAUDE.md) [FOUND]",
           "• Cursor (.cursor/rules/*.mdc) [FOUND]",
           "• Gemini CLI (GEMINI.md, .gemini/settings.json) [FOUND]",
@@ -640,7 +763,7 @@
           "• Stamped CLAUDE.md with provenance header",
           "• Projected Obsidian worklog skill to .claude, .cursor, .agy, .continue",
           "• Merged .gemini/settings.json without data loss",
-          "<span class=\"text-synapse-emerald pt-1\">✓ 13/13 tools in lockstep</span>"
+          "<span class=\"text-synapse-emerald pt-1\">✓ 15/15 tools in lockstep</span>"
         ]
       },
       sync: {
@@ -649,7 +772,7 @@
         output: [
           "<span class=\"text-synapse-cyan\">🔄 Auto-Sync Daemon active (PID: 41209)...</span>",
           "• Watching ~/AIBrain for local edits",
-          "• Watching 13 tool config paths for external changes",
+          "• Watching 15 tool config paths for external changes",
           "• Debounce window: 500ms • 3-Way Merge Engine Ready",
           "<span class=\"text-synapse-emerald pt-1\">✓ In Lockstep. Time Machine active.</span>"
         ]
@@ -659,7 +782,7 @@
         desc: "# Diagnoses broken symlinks, drifted configs, and auto-repairs parity",
         output: [
           "<span class=\"text-synapse-gold\">🩺 Running Doctor Health Diagnostic...</span>",
-          "• Checked 13 adapter symlinks: 13 OK",
+          "• Checked 15 adapter symlinks: 13 OK",
           "• Checked SHA-256 rule checksums: PARITY VERIFIED",
           "• Audited OS Keychain secret placeholders: CLEAN",
           "<span class=\"text-synapse-emerald pt-1\">✓ 0 Faults Diagnosed. System 100% Healthy.</span>"
@@ -695,7 +818,7 @@
           "<span class=\"text-synapse-cyan\">└────────────────────────────────────────────────────────────┘</span>",
           "🩺 GATEWAY: <span class=\"text-synapse-emerald\">● ONLINE (127.0.0.1:8088)</span> • <span class=\"text-slate-400\">Model: qwen2.5-coder:7b</span>",
           "⚡ SENSORY GATING: <span class=\"text-synapse-emerald\">139,260 tokens saved (93% reduction)</span>",
-          "🏛️ BRAIN: <span class=\"text-synapse-emerald\">✔ LOCKSTEP SYNCED</span> • <span class=\"text-slate-400\">13 verified adapters</span>"
+          "🏛️ BRAIN: <span class=\"text-synapse-emerald\">✔ LOCKSTEP SYNCED</span> • <span class=\"text-slate-400\">15 verified adapters</span>"
         ]
       }
     };

@@ -67,7 +67,7 @@ impl MappingsFile {
         }
         let pretty = serde_json::to_string_pretty(self)
             .map_err(|e| AdapterError::Malformed(format!("Failed to serialize mappings: {}", e)))?;
-        fs::write(path, pretty)
+        crate::security::write_atomic(path, &pretty)
             .map_err(|e| AdapterError::Io(format!("Failed to write {}: {}", path.display(), e)))
     }
 }

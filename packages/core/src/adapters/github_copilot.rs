@@ -1,5 +1,6 @@
 use super::{
     clean_jsonc, compute_sha256, parse_and_validate_mcp_server, safe_join, strip_provenance,
+    write_if_changed,
 };
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, McpServer, Skill};
@@ -212,7 +213,7 @@ impl Adapter for GitHubCopilotAdapter {
                 .map_err(|e| AdapterError::Io(format!("Failed to create .github folder: {}", e)))?;
 
             let target_path = dot_github_dir.join("copilot-instructions.md");
-            fs::write(&target_path, output).map_err(|e| {
+            write_if_changed(&target_path, output).map_err(|e| {
                 AdapterError::Io(format!(
                     "Failed to write .github/copilot-instructions.md: {}",
                     e
@@ -256,7 +257,7 @@ impl Adapter for GitHubCopilotAdapter {
                     skill.source
                 );
 
-                fs::write(&target_path, output).map_err(|e| {
+                write_if_changed(&target_path, output).map_err(|e| {
                     AdapterError::Io(format!(
                         "Failed to write scoped skill to {}: {}",
                         relative_target, e
@@ -341,7 +342,7 @@ impl Adapter for GitHubCopilotAdapter {
 
             let pretty = serde_json::to_string_pretty(&current_json)
                 .map_err(|e| AdapterError::Malformed(format!("Failed to serialize JSON: {}", e)))?;
-            fs::write(&mcp_path, pretty).map_err(|e| {
+            write_if_changed(&mcp_path, pretty).map_err(|e| {
                 AdapterError::Io(format!("Failed to write .vscode/mcp.json: {}", e))
             })?;
             written.push(".vscode/mcp.json".to_string());

@@ -1,4 +1,4 @@
-use super::{compute_sha256, has_path_traversal, strip_provenance};
+use super::{compute_sha256, has_path_traversal, strip_provenance, write_if_changed};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, McpServer, Skill};
 use serde_json::{json, Value};
@@ -89,14 +89,16 @@ impl Adapter for RooCodeAdapter {
                         })
                         .unwrap_or_default();
 
-                    let role_definition = mode
-                        .get("roleDefinition")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    let custom_instructions = mode
-                        .get("customInstructions")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
+                    let role_definition = strip_provenance(
+                        mode.get("roleDefinition")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(""),
+                    );
+                    let custom_instructions = strip_provenance(
+                        mode.get("customInstructions")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(""),
+                    );
 
                     agents.push(Agent {
                         slug: slug.clone(),
@@ -161,7 +163,7 @@ impl Adapter for RooCodeAdapter {
                 concatenated
             );
             let rules_path = root.join(".clinerules");
-            fs::write(&rules_path, &output)
+            write_if_changed(&rules_path, &output)
                 .map_err(|e| AdapterError::Io(format!("Failed to write .clinerules: {}", e)))?;
             written.push(".clinerules".to_string());
         }
@@ -197,7 +199,7 @@ impl Adapter for RooCodeAdapter {
             let pretty = serde_json::to_string_pretty(&output).map_err(|e| {
                 AdapterError::Malformed(format!("Failed to serialize .roomodes: {}", e))
             })?;
-            fs::write(root.join(".roomodes"), pretty)
+            write_if_changed(&root.join(".roomodes"), pretty)
                 .map_err(|e| AdapterError::Io(format!("Failed to write .roomodes: {}", e)))?;
             written.push(".roomodes".to_string());
         }

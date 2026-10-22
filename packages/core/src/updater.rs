@@ -148,8 +148,7 @@ pub const UPDATE_PUBLIC_KEY: &str = "";
 /// until real release infrastructure exists (Phase 8, Package & Release);
 /// the `tauri-plugin-updater` wiring consumes this same endpoint + the
 /// public key above once both are real.
-pub const UPDATE_ENDPOINT_TEMPLATE: &str =
-    "https://releases.synapse.dev/{channel}/latest.json";
+pub const UPDATE_ENDPOINT_TEMPLATE: &str = "https://releases.synapse.dev/{channel}/latest.json";
 
 /// The concrete manifest URL for a channel. Read-only config resolution; the
 /// dry-run never actually fetches it in this build.

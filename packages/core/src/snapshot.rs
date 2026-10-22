@@ -60,14 +60,8 @@ pub fn ensure_repo(brain_root: &Path) -> Result<(), SnapshotError> {
     })?;
     if !brain_root.join(".git").is_dir() {
         run_git(brain_root, &["init", "-q"])?;
-        run_git(
-            brain_root,
-            &["config", "user.email", "brain@Synapse.local"],
-        )?;
-        run_git(
-            brain_root,
-            &["config", "user.name", "Synapse Brain"],
-        )?;
+        run_git(brain_root, &["config", "user.email", "brain@Synapse.local"])?;
+        run_git(brain_root, &["config", "user.name", "Synapse Brain"])?;
     }
     Ok(())
 }

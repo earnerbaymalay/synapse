@@ -1,98 +1,271 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Synapse – Synapse hero banner -->
-<svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="1200"
-    height="300"
-    viewBox="0 0 1200 300"
-    preserveAspectRatio="xMidYMid slice"
-    role="img"
-    aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="banner-title banner-desc">
+  <title id="banner-title">SYNAPSE — One Brain. All Models. Permanent Lockstep.</title>
+  <desc id="banner-desc">Technical blueprint banner for SYNAPSE featuring the canonical AI Brain hub connected to 15 hexagonal IDE adapter monograms, a live EKG vitals waveform, and surgical corner registration marks.</desc>
 
-  <title id="title">Synapse – Synapse Banner</title>
-  <desc id="desc">
-    A gradient background with abstract brain‑like synapse lines and the project title.
-  </desc>
-
-  <!-- ==================== BACKGROUND ==================== -->
   <defs>
-    <!-- Subtle dark‑blue → teal gradient -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"   stop-color="#0d1b2a"/>
-      <stop offset="100%" stop-color="#1b263b"/>
+    <linearGradient id="inkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06080b"/>
+      <stop offset="55%" stop-color="#0b0e13"/>
+      <stop offset="100%" stop-color="#10151e"/>
     </linearGradient>
 
-    <!-- Glowing “synapse” line style -->
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
+    <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1d9bf0" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#1d9bf0" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#06080b" stop-opacity="0"/>
+    </radialGradient>
 
-    <!-- Text outline (for crisp display on dark bg) -->
-    <filter id="textOutline" x="-0.05" y="-0.05" width="1.1" height="1.1">
-      <feMorphology operator="dilate" radius="1" result="dilated"/>
-      <feFlood flood-color="#000000" flood-opacity="0.6" result="color"/>
-      <feComposite in="color" in2="dilated" operator="in" result="outline"/>
-      <feComposite in="SourceGraphic" in2="outline" operator="over"/>
-    </filter>
+    <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="goldRule" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="45%" stop-color="#f0d580"/>
+      <stop offset="100%" stop-color="#8a6d1f" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <linearGradient id="ekgFade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3fb950" stop-opacity="0"/>
+      <stop offset="20%" stop-color="#3fb950" stop-opacity="0.6"/>
+      <stop offset="75%" stop-color="#3fb950" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#3fb950" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <pattern id="minorGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#141922" stroke-width="1"/>
+    </pattern>
+
+    <pattern id="majorGrid" width="120" height="120" patternUnits="userSpaceOnUse">
+      <rect width="120" height="120" fill="url(#minorGrid)"/>
+      <path d="M 120 0 L 0 0 0 120" fill="none" stroke="#1b222f" stroke-width="1"/>
+    </pattern>
+
+    <!-- Hexagon node templates (radius 18) -->
+    <g id="hexNode">
+      <polygon points="0,-18 15.6,-9 15.6,9 0,18 -15.6,9 -15.6,-9" fill="#0b0e13" stroke="#262c37" stroke-width="1.5"/>
+    </g>
+    <g id="hexNodeActive">
+      <polygon points="0,-18 15.6,-9 15.6,9 0,18 -15.6,9 -15.6,-9" fill="#12161d" stroke="#1d9bf0" stroke-width="1.6"/>
+    </g>
+    <g id="hexNodeNew">
+      <polygon points="0,-18 15.6,-9 15.6,9 0,18 -15.6,9 -15.6,-9" fill="#12161d" stroke="#d4af37" stroke-width="1.6"/>
+    </g>
   </defs>
 
-  <rect width="1200" height="300" fill="url(#bgGrad)"/>
+  <!-- 1. Base Ink Canvas & Technical Blueprint Grid -->
+  <rect width="1200" height="340" fill="url(#inkBg)"/>
+  <rect width="1200" height="340" fill="url(#majorGrid)"/>
 
-  <!-- ==================== SYNAPSE NETWORK ==================== -->
-  <!-- Abstract brain shape made of curved paths -->
-  <g stroke="#4fd1c5" stroke-width="2.5" fill="none" filter="url(#glow)">
-    <!-- Left hemisphere -->
-    <path d="M250,150
-             C180,70 180,230 250,150"/>
-    <path d="M250,150
-             C210,120 210,180 250,150"/>
+  <!-- Ambient radial glow behind the Neural Hub -->
+  <circle cx="910" cy="166" r="190" fill="url(#hubGlow)"/>
+  <circle cx="910" cy="166" r="85" fill="url(#goldGlow)"/>
 
-    <!-- Right hemisphere -->
-    <path d="M950,150
-             C1020,70 1020,230 950,150"/>
-    <path d="M950,150
-             C990,120 990,180 950,150"/>
+  <!-- 2. Outer Surgical Blueprint Frame (1px #262c37 + 4 Corner Registration '+' Marks) -->
+  <rect x="16" y="16" width="1168" height="308" fill="none" stroke="#262c37" stroke-width="1"/>
 
-    <!-- Central bridge (corpus callosum) -->
-    <path d="M350,150 Q600,80 850,150"/>
-    <path d="M350,150 Q600,220 850,150"/>
-
-    <!-- Random “neuron” spines -->
-    <circle cx="400" cy="120" r="4" fill="#4fd1c5"/>
-    <circle cx="500" cy="180" r="5" fill="#4fd1c5"/>
-    <circle cx="620" cy="110" r="3" fill="#4fd1c5"/>
-    <circle cx="720" cy="190" r="4" fill="#4fd1c5"/>
-    <circle cx="820" cy="130" r="5" fill="#4fd1c5"/>
+  <!-- Corner Registration Marks (#1d9bf0) -->
+  <g stroke="#1d9bf0" stroke-width="1.6">
+    <line x1="10" y1="16" x2="22" y2="16"/>
+    <line x1="16" y1="10" x2="16" y2="22"/>
+    <line x1="1178" y1="16" x2="1190" y2="16"/>
+    <line x1="1184" y1="10" x2="1184" y2="22"/>
+    <line x1="10" y1="324" x2="22" y2="324"/>
+    <line x1="16" y1="318" x2="16" y2="330"/>
+    <line x1="1178" y1="324" x2="1190" y2="324"/>
+    <line x1="1184" y1="318" x2="1184" y2="330"/>
   </g>
 
-  <!-- ==================== TITLE TEXT ==================== -->
-  <g filter="url(#textOutline)">
-    <text
-        x="50%" y="50%" 
-        dominant-baseline="middle" 
-        text-anchor="middle"
-        font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
-        font-size="48"
-        font-weight="700"
-        fill="#ffffff">
-      Synapse – Synapse
-    </text>
-  </g>
-
-  <!-- Optional subtitle (comment out if not needed) -->
-  <!--
-  <text
-      x="50%" y="62%" 
-      dominant-baseline="middle" 
-      text-anchor="middle"
-      font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
-      font-size="22"
-      fill="#cbd5e1">
-    Cutting‑edge AI Config Neural Surgery
+  <!-- Top Telemetry Header Strip -->
+  <line x1="16" y1="44" x2="1184" y2="44" stroke="#262c37" stroke-width="1"/>
+  <text x="34" y="34" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">
+    SYNAPSE // CLINICAL CONFIGURATION ENGINE &amp; RUNTIME GATEWAY
   </text>
-  -->
+  <circle cx="998" cy="30" r="3.5" fill="#3fb950"/>
+  <text x="1008" y="34" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#3fb950">
+    LOCKSTEP ACTIVE · v2.0
+  </text>
+
+  <!-- Vertical Divider separating Copy Column and Neural Topology Diagram -->
+  <line x1="636" y1="44" x2="636" y2="292" stroke="#262c37" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- 3. Left Column: Typography, Tagline & Clinical Proof Readouts -->
+  <g transform="translate(42, 0)">
+    <!-- Eyebrow -->
+    <rect x="0" y="65" width="7" height="7" fill="#1d9bf0"/>
+    <text x="15" y="73" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#5cb2f5">
+      LOCAL-FIRST AI TOOLING CONTROL PLANE · ZERO TELEMETRY
+    </text>
+
+    <!-- Main Wordmark -->
+    <text x="0" y="136" font-family="DejaVu Sans, Inter, Arial Black, sans-serif" font-size="56" font-weight="900" fill="#d4dae2">
+      SYNAPSE
+    </text>
+
+    <!-- Signature Gold Suture Rule (Hero Device Only per Brand Book) -->
+    <line x1="0" y1="152" x2="520" y2="152" stroke="url(#goldRule)" stroke-width="2"/>
+    <circle cx="0" cy="152" r="3" fill="#d4af37"/>
+    <circle cx="175" cy="152" r="2.5" fill="#f0d580"/>
+
+    <!-- Core Tagline -->
+    <text x="0" y="182" font-family="DejaVu Sans, Inter, sans-serif" font-size="19" font-weight="bold" fill="#d4dae2">
+      One Brain. All Models.
+    </text>
+    <text x="255" y="182" font-family="DejaVu Sans, Inter, sans-serif" font-size="19" font-weight="bold" fill="#5cb2f5">
+      Permanent Lockstep.
+    </text>
+
+    <!-- Concise Mechanism Description -->
+    <text x="0" y="208" font-family="DejaVu Sans, Inter, sans-serif" font-size="13" fill="#8b949e">
+      Bi-directional sync for skills, rules, agents, memory &amp; MCP servers across 15 IDEs
+    </text>
+    <text x="0" y="227" font-family="DejaVu Sans, Inter, sans-serif" font-size="13" fill="#8b949e">
+      with 95% token Sensory Gating, CWE prompt-injection guards, and Git time-travel.
+    </text>
+
+    <!-- 3-Step Workflow Pill Bar -->
+    <g transform="translate(0, 245)">
+      <rect x="0" y="0" width="554" height="32" fill="#12161d" stroke="#262c37" stroke-width="1"/>
+      <circle cx="18" cy="16" r="3.5" fill="#3fb950"/>
+      <text x="28" y="20" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="12" font-weight="bold" fill="#d4dae2">1. synapse scan</text>
+      <text x="155" y="20" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="12" fill="#4b5361">───►</text>
+      <circle cx="204" cy="16" r="3.5" fill="#1d9bf0"/>
+      <text x="214" y="20" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="12" font-weight="bold" fill="#d4dae2">2. synapse import</text>
+      <text x="355" y="20" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="12" fill="#4b5361">───►</text>
+      <circle cx="404" cy="16" r="3.5" fill="#d4af37"/>
+      <text x="414" y="20" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="12" font-weight="bold" fill="#d4dae2">3. synapse project</text>
+    </g>
+  </g>
+
+  <!-- 4. Right Column: Canonical Brain Hub & 15 Hexagonal Adapter Monograms -->
+  <g transform="translate(636, 0)">
+    <!-- Subtle EKG Vitals Monitor Waveform across the middle -->
+    <path d="M 10,164 L 70,164 L 82,156 L 92,172 L 106,126 L 118,198 L 130,146 L 142,164 L 418,164 L 430,154 L 442,174 L 454,132 L 466,192 L 478,164 L 540,164"
+          fill="none" stroke="url(#ekgFade)" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Synaptic Connection Lines from Center Hub (274, 164) to 15 Adapter Nodes -->
+    <g stroke="#1d9bf0" stroke-width="1.3" opacity="0.5">
+      <line x1="274" y1="164" x2="274" y2="84"/>
+      <line x1="274" y1="164" x2="348" y2="110"/>
+      <line x1="274" y1="164" x2="366" y2="178"/>
+      <line x1="274" y1="164" x2="322" y2="236"/>
+      <line x1="274" y1="164" x2="226" y2="236"/>
+      <line x1="274" y1="164" x2="182" y2="178"/>
+      <line x1="274" y1="164" x2="200" y2="110"/>
+    </g>
+
+    <g stroke="#262c37" stroke-width="1.2">
+      <line x1="274" y1="164" x2="122" y2="76"/>
+      <line x1="274" y1="164" x2="204" y2="62"/>
+      <line x1="274" y1="164" x2="346" y2="62"/>
+      <line x1="274" y1="164" x2="432" y2="80"/>
+      <line x1="274" y1="164" x2="466" y2="148"/>
+      <line x1="274" y1="164" x2="442" y2="230"/>
+      <line x1="274" y1="164" x2="112" y2="230"/>
+      <line x1="274" y1="164" x2="88"  y2="148"/>
+    </g>
+
+    <!-- Orbital Reference Rings -->
+    <circle cx="274" cy="164" r="85" fill="none" stroke="#1d2330" stroke-width="1" stroke-dasharray="3,4"/>
+    <circle cx="274" cy="164" r="142" fill="none" stroke="#171c25" stroke-width="1"/>
+
+    <!-- INNER RING: 7 Core Active Adapters -->
+    <g transform="translate(274, 84)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">CC</text>
+    </g>
+    <g transform="translate(348, 110)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">AG</text>
+    </g>
+    <g transform="translate(366, 178)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">CU</text>
+    </g>
+    <g transform="translate(322, 236)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">GM</text>
+    </g>
+    <g transform="translate(226, 236)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">WS</text>
+    </g>
+    <g transform="translate(182, 178)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">ZD</text>
+    </g>
+    <g transform="translate(200, 110)">
+      <use href="#hexNodeActive"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#d4dae2">OX</text>
+    </g>
+
+    <!-- OUTER RING: 8 Adapters (including new gold-highlighted KI & TR) -->
+    <g transform="translate(432, 80)">
+      <use href="#hexNodeNew"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#f0d580">KI</text>
+    </g>
+    <g transform="translate(466, 148)">
+      <use href="#hexNodeNew"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#f0d580">TR</text>
+    </g>
+    <g transform="translate(122, 76)">
+      <use href="#hexNode"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">CL</text>
+    </g>
+    <g transform="translate(204, 62)">
+      <use href="#hexNode"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">RC</text>
+    </g>
+    <g transform="translate(346, 62)">
+      <use href="#hexNode"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">AD</text>
+    </g>
+    <g transform="translate(442, 230)">
+      <use href="#hexNode"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">CP</text>
+    </g>
+    <g transform="translate(112, 230)">
+      <use href="#hexNode"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">CN</text>
+    </g>
+    <g transform="translate(88, 148)">
+      <use href="#hexNode"/>
+      <text y="4" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#8b949e">OC</text>
+    </g>
+
+    <!-- CENTRAL CANONICAL BRAIN ORGAN HUB -->
+    <g transform="translate(274, 164)">
+      <polygon points="0,-42 36.4,-21 36.4,21 0,42 -36.4,21 -36.4,-21" fill="#0b0e13" stroke="#d4af37" stroke-width="2"/>
+      <polygon points="0,-34 29.4,-17 29.4,17 0,34 -29.4,17 -29.4,-17" fill="#12161d" stroke="#1d9bf0" stroke-width="1.3"/>
+      <text y="-3" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" font-weight="bold" fill="#f0d580">BRAIN</text>
+      <text y="12" text-anchor="middle" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="9.5" font-weight="bold" fill="#5cb2f5">15 / 15</text>
+    </g>
+
+    <!-- Legend at bottom of diagram -->
+    <circle cx="84" cy="274" r="3.5" fill="#d4af37"/>
+    <text x="94" y="278" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="10" fill="#8b949e">CANONICAL GIT BRAIN</text>
+    <circle cx="246" cy="274" r="3.5" fill="#1d9bf0"/>
+    <text x="256" y="278" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="10" fill="#8b949e">ACTIVE GRAFTS</text>
+    <circle cx="372" cy="274" r="3.5" fill="#3fb950"/>
+    <text x="382" y="278" font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="10" fill="#8b949e">VITALS LOCKSTEP</text>
+  </g>
+
+  <!-- 5. Bottom Clinical Status Bar -->
+  <line x1="16" y1="292" x2="1184" y2="292" stroke="#262c37" stroke-width="1"/>
+  <g font-family="DejaVu Sans Mono, JetBrains Mono, monospace" font-size="11" fill="#8b949e">
+    <circle cx="36" cy="308" r="3.5" fill="#3fb950"/>
+    <text x="46" y="312">15 VERIFIED ADAPTERS</text>
+
+    <circle cx="242" cy="308" r="3.5" fill="#1d9bf0"/>
+    <text x="252" y="312">95% SENSORY TOKEN GATE</text>
+
+    <circle cx="476" cy="308" r="3.5" fill="#d4af37"/>
+    <text x="486" y="312">3-LAYER PERSISTENT MEMORY</text>
+
+    <circle cx="728" cy="308" r="3.5" fill="#3fb950"/>
+    <text x="738" y="312">CWE PROMPT-INJECTION GUARD</text>
+
+    <text x="1166" y="312" text-anchor="end" font-weight="bold" fill="#d4dae2">100% LOCAL · MIT</text>
+  </g>
 </svg>

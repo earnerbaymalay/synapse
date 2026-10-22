@@ -12,9 +12,9 @@
     },
     "windows": [
       {
-        "title": "SYNAPSE",
-        "width": 1200,
-        "height": 800,
+        "title": "SYNAPSE // Clinical Engine for AI Context",
+        "width": 1280,
+        "height": 840,
         "resizable": true,
         "fullscreen": false
       }
@@ -22,7 +22,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage"],
+    "targets": ["deb", "appimage", "dmg", "msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -31,8 +31,8 @@
       "icons/icon.ico"
     ],
     "category": "DeveloperTool",
-    "shortDescription": "Universal AI tool config manager — one Brain, all models",
-    "longDescription": "Synapse unifies the configuration of every AI coding tool on your machine into one canonical, git-backed Brain — and keeps every tool in sync automatically.",
+    "shortDescription": "Universal AI context engine — one Brain, all models in lockstep",
+    "longDescription": "Synapse unifies the configuration, memory, and governance of every AI coding tool on your machine into one canonical, git-backed Brain.",
     "linux": {
       "deb": {
         "depends": [
@@ -40,7 +40,20 @@
           "libgtk-3-0 (>= 3.24.0)",
           "libwebkit2gtk-4.1-0 (>= 2.38.0)",
           "libayatana-appindicator3-1"
-        ]
+        ],
+        "section": "devel",
+        "priority": "optional"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15.0"
+    },
+    "windows": {
+      "wix": {
+        "language": ["en-US"]
       }
     }
   }

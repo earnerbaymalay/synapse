@@ -4,9 +4,9 @@
 //! local AI coding agent telemetry, real-time Sensory Gating compression,
 //! and `~/AIBrain` synchronization lockstep.
 
-use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::Path;
 
 use crate::doctor::{diagnose, DoctorContext};
 use crate::gateway::GatewayStats;
@@ -30,31 +30,53 @@ impl HudSnapshot {
     pub fn collect(gateway_addr: &str, brain_dir: &Path, tool_root: &Path) -> Self {
         // 1. Check Gateway Health & Stats
         let health_url = format!("http://{}/health", gateway_addr);
-        let (active, upstream, stats) = match ureq::get(&health_url).timeout(std::time::Duration::from_millis(500)).call() {
+        let (active, upstream, stats) = match ureq::get(&health_url)
+            .timeout(std::time::Duration::from_millis(500))
+            .call()
+        {
             Ok(res) => {
                 if let Ok(json_val) = res.into_json::<Value>() {
-                    let upstream = json_val["upstream"].as_str().unwrap_or("Unknown").to_string();
-                    let stats: GatewayStats = serde_json::from_value(json_val["stats"].clone()).unwrap_or_default();
+                    let upstream = json_val["upstream"]
+                        .as_str()
+                        .unwrap_or("Unknown")
+                        .to_string();
+                    let stats: GatewayStats =
+                        serde_json::from_value(json_val["stats"].clone()).unwrap_or_default();
                     (true, upstream, stats)
                 } else {
                     (true, "Connected".to_string(), GatewayStats::default())
                 }
             }
-            Err(_) => (false, "Offline (Start with `synapse serve`)".to_string(), GatewayStats::default()),
+            Err(_) => (
+                false,
+                "Offline (Start with `synapse serve`)".to_string(),
+                GatewayStats::default(),
+            ),
         };
 
         // 2. Run Doctor Diagnostics on Brain
         let adapters = crate::adapters::all_adapters();
         let total_adapters = adapters.len();
 
+        let mappings_path = if brain_dir.join(".brain/mappings.json").exists() {
+            brain_dir.join(".brain/mappings.json")
+        } else {
+            brain_dir.join("mappings.json")
+        };
         let ctx = DoctorContext {
             brain_root: brain_dir.to_path_buf(),
             tool_root: tool_root.to_path_buf(),
-            mappings_path: brain_dir.join("mappings.json"),
+            mappings_path,
         };
         let issues = diagnose(&ctx);
-        let criticals = issues.iter().filter(|i| i.severity == crate::doctor::Severity::Critical).count();
-        let warnings = issues.iter().filter(|i| i.severity == crate::doctor::Severity::Warning).count();
+        let criticals = issues
+            .iter()
+            .filter(|i| i.severity == crate::doctor::Severity::Critical)
+            .count();
+        let warnings = issues
+            .iter()
+            .filter(|i| i.severity == crate::doctor::Severity::Warning)
+            .count();
 
         Self {
             gateway_active: active,
@@ -95,7 +117,10 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
 
     // Gateway Section
     let gw_status = if snap.gateway_active {
-        format!("{green}● ONLINE{reset} (Listening on {})", snap.gateway_bind)
+        format!(
+            "{green}● ONLINE{reset} (Listening on {})",
+            snap.gateway_bind
+        )
     } else {
         format!("{red}○ OFFLINE{reset} (Run `synapse serve` to activate)")
     };
@@ -104,15 +129,29 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
     out.push_str(&format!("  Status:   {}\n", gw_status));
     out.push_str(&format!("  Upstream: {cyan}{}{reset}\n", snap.upstream_url));
     if !snap.stats.last_model.is_empty() {
-        out.push_str(&format!("  Model:    {bold}{}{reset} ({dim}{}ms latency{reset})\n", snap.stats.last_model, snap.stats.last_latency_ms));
+        out.push_str(&format!(
+            "  Model:    {bold}{}{reset} ({dim}{}ms latency{reset})\n",
+            snap.stats.last_model, snap.stats.last_latency_ms
+        ));
     }
     out.push('\n');
 
     // Sensory Gating & Token Metrics
-    out.push_str(&format!("{bold}⚡ SYNAPTIC SENSORY GATING & TOKEN METRICS{reset}\n"));
-    out.push_str(&format!("  Requests Handled:     {bold}{}{reset}\n", snap.stats.total_requests));
-    out.push_str(&format!("  Raw Prompt Tokens:    {dim}{}{reset}\n", snap.stats.prompt_tokens_raw));
-    out.push_str(&format!("  Gated Prompt Tokens:  {cyan}{}{reset}\n", snap.stats.prompt_tokens_gated));
+    out.push_str(&format!(
+        "{bold}⚡ SYNAPTIC SENSORY GATING & TOKEN METRICS{reset}\n"
+    ));
+    out.push_str(&format!(
+        "  Requests Handled:     {bold}{}{reset}\n",
+        snap.stats.total_requests
+    ));
+    out.push_str(&format!(
+        "  Raw Prompt Tokens:    {dim}{}{reset}\n",
+        snap.stats.prompt_tokens_raw
+    ));
+    out.push_str(&format!(
+        "  Gated Prompt Tokens:  {cyan}{}{reset}\n",
+        snap.stats.prompt_tokens_gated
+    ));
     out.push_str(&format!(
         "  Tokens Pruned/Saved:  {green}{}{reset} ({bold}{}% reduction{reset})\n\n",
         snap.stats.tokens_saved, snap.stats.avg_reduction_percent
@@ -121,17 +160,26 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
     // Canonical Brain & Doctor Status
     let brain_status = if snap.doctor_healthy {
         if snap.doctor_warnings > 0 {
-            format!("{yellow}⚠ ATTENTION REQUIRED{reset} ({} warnings)", snap.doctor_warnings)
+            format!(
+                "{yellow}⚠ ATTENTION REQUIRED{reset} ({} warnings)",
+                snap.doctor_warnings
+            )
         } else {
             format!("{green}✔ LOCKSTEP SYNCED{reset} (0 faults)",)
         }
     } else {
-        format!("{red}✖ CORRUPTED / DRIFTED{reset} ({} criticals, run `synapse doctor --fix`)", snap.doctor_criticals)
+        format!(
+            "{red}✖ CORRUPTED / DRIFTED{reset} ({} criticals, run `synapse doctor --fix`)",
+            snap.doctor_criticals
+        )
     };
 
     out.push_str(&format!("{bold}🏛️ CANONICAL BRAIN (THE ORGAN){reset}\n"));
     out.push_str(&format!("  Path:      {dim}{}{reset}\n", snap.brain_path));
-    out.push_str(&format!("  Adapters:  {bold}{} verified tools{reset}\n", snap.total_adapters));
+    out.push_str(&format!(
+        "  Adapters:  {bold}{} verified tools{reset}\n",
+        snap.total_adapters
+    ));
     out.push_str(&format!("  Doctor:    {}\n\n", brain_status));
 
     // Command Bar

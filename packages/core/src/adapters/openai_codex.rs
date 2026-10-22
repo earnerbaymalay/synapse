@@ -1,4 +1,7 @@
-use super::{compute_sha256, has_path_traversal, parse_and_validate_mcp_server, strip_provenance};
+use super::{
+    compute_sha256, has_path_traversal, parse_and_validate_mcp_server, strip_provenance,
+    write_if_changed,
+};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, HealthStatus, McpServer, Skill};
 use std::fs;
@@ -231,7 +234,7 @@ impl Adapter for OpenAiCodexAdapter {
                 concatenated
             );
             let rules_path = root.join("AGENTS.md");
-            fs::write(&rules_path, &output)
+            write_if_changed(&rules_path, &output)
                 .map_err(|e| AdapterError::Io(format!("Failed to write AGENTS.md: {}", e)))?;
             written.push("AGENTS.md".to_string());
         }
@@ -321,7 +324,7 @@ impl Adapter for OpenAiCodexAdapter {
 
             let serialized = toml::to_string_pretty(&current)
                 .map_err(|e| AdapterError::Malformed(format!("Failed to serialize TOML: {}", e)))?;
-            fs::write(&config_path, serialized).map_err(|e| {
+            write_if_changed(&config_path, serialized).map_err(|e| {
                 AdapterError::Io(format!("Failed to write .codex/config.toml: {}", e))
             })?;
             written.push(".codex/config.toml".to_string());

@@ -1,6 +1,6 @@
 //! Outcomes and actions of sync passes (import + project).
 
-use crate::adapters::{all_adapters, strip_provenance, write_if_changed};
+use crate::adapters::{all_adapters, safe_join, strip_provenance, write_if_changed};
 use crate::conflict_queue::{ConflictQueue, QueuedConflict};
 use crate::mappings::{Mapping, MappingsFile};
 use crate::model::{Agent, McpServer, Skill};
@@ -38,14 +38,28 @@ impl SyncLock {
             return Err(format!("failed to create brain directory: {e}"));
         }
 
-        match fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&lock_path)
+        if let Ok(meta) = fs::symlink_metadata(&lock_path) {
+            if meta.file_type().is_symlink() {
+                return Err(format!(
+                    "refusing to acquire symlinked lock file at {}",
+                    lock_path.display()
+                ));
+            }
+        }
+
+        let mut opts = fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        #[cfg(unix)]
         {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+
+        match opts.open(&lock_path) {
             Ok(mut file) => {
                 use std::io::Write;
                 let _ = writeln!(file, "{}", std::process::id());
+                let _ = file.sync_all();
                 Ok(SyncLock {
                     path: lock_path,
                     acquired: true,
@@ -164,7 +178,11 @@ pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
         let skill = Skill {
             id: OBSIDIAN_WORKLOG_SKILL_ID.to_string(),
             version: "1.0.0".to_string(),
-            triggers: vec!["*".to_string(), "session-init".to_string(), "milestone".to_string()],
+            triggers: vec![
+                "*".to_string(),
+                "session-init".to_string(),
+                "milestone".to_string(),
+            ],
             targets: vec![
                 "claude-code".to_string(),
                 "cursor".to_string(),
@@ -207,7 +225,9 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             if skill.targets.is_empty() {
                 skill.targets = all_adapters().iter().map(|a| a.id().to_string()).collect();
             }
-            let skill_dir = brain_root.join("skills").join(&skill.id);
+            let rel_skill_dir = format!("skills/{}", skill.id);
+            let skill_dir = safe_join(brain_root, &rel_skill_dir)
+                .map_err(|e| format!("Invalid skill id '{}': {e}", skill.id))?;
             fs::create_dir_all(&skill_dir)
                 .map_err(|e| format!("Failed to create skill dir: {e}"))?;
 
@@ -237,7 +257,9 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             let agents_dir = brain_root.join("agents");
             fs::create_dir_all(&agents_dir)
                 .map_err(|e| format!("Failed to create agents dir: {e}"))?;
-            let agent_file = agents_dir.join(format!("{}.md", agent.slug));
+            let rel_path = format!("agents/{}.md", agent.slug);
+            let agent_file = safe_join(brain_root, &rel_path)
+                .map_err(|e| format!("Invalid agent slug '{}': {e}", agent.slug))?;
             let content = format!(
                 "---\nname: {}\nmodel: {}\n---\n\nImported agent definition.\n",
                 agent.slug,
@@ -246,7 +268,6 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             write_if_changed(&agent_file, content)
                 .map_err(|e| format!("Failed to write agent file: {e}"))?;
 
-            let rel_path = format!("agents/{}.md", agent.slug);
             imported_paths.push(rel_path);
         }
 
@@ -254,13 +275,14 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             let mcp_dir = brain_root.join("mcp_servers");
             fs::create_dir_all(&mcp_dir)
                 .map_err(|e| format!("Failed to create mcp_servers dir: {e}"))?;
-            let server_file = mcp_dir.join(format!("{}.json", server.id));
+            let rel_path = format!("mcp_servers/{}.json", server.id);
+            let server_file = safe_join(brain_root, &rel_path)
+                .map_err(|e| format!("Invalid mcp server id '{}': {e}", server.id))?;
             let json_str = serde_json::to_string_pretty(&server)
                 .map_err(|e| format!("Failed to serialize mcp server: {e}"))?;
             write_if_changed(&server_file, json_str)
                 .map_err(|e| format!("Failed to write mcp server file: {e}"))?;
 
-            let rel_path = format!("mcp_servers/{}.json", server.id);
             imported_paths.push(rel_path);
         }
     }
@@ -505,7 +527,7 @@ pub fn perform_sync(brain_root: &Path, tool_root: &Path) -> Result<SyncOutcome, 
         let conflicts_path = brain_root.join("conflicts.json");
         let json = serde_json::to_string_pretty(&conflicts)
             .map_err(|e| format!("Failed to serialize conflicts: {e}"))?;
-        fs::write(&conflicts_path, json)
+        write_if_changed(&conflicts_path, json)
             .map_err(|e| format!("Failed to write conflicts.json: {e}"))?;
 
         let queue = ConflictQueue {
@@ -560,6 +582,8 @@ mod tests {
 
     #[test]
     fn perform_import_and_project_roundtrip() {
+        let home = tempfile::tempdir().unwrap();
+        let _home = crate::test_home::HomeGuard::set(home.path());
         let root = tempfile::tempdir().unwrap();
         let brain = tempfile::tempdir().unwrap();
         let tool_root = tempfile::tempdir().unwrap();
@@ -581,6 +605,8 @@ mod tests {
 
     #[test]
     fn test_default_obsidian_skill_auto_provisioned_and_projected() {
+        let home = tempfile::tempdir().unwrap();
+        let _home = crate::test_home::HomeGuard::set(home.path());
         let brain = tempfile::tempdir().unwrap();
         let tool_root = tempfile::tempdir().unwrap();
 
@@ -589,26 +615,48 @@ mod tests {
         assert!(!projected.is_empty());
 
         // Check brain has the skill
-        let brain_skill = brain.path().join("skills/obsidian-session-worklog/SKILL.md");
-        assert!(brain_skill.exists(), "Brain must contain obsidian-session-worklog SKILL.md");
+        let brain_skill = brain
+            .path()
+            .join("skills/obsidian-session-worklog/SKILL.md");
+        assert!(
+            brain_skill.exists(),
+            "Brain must contain obsidian-session-worklog SKILL.md"
+        );
         let content = fs::read_to_string(&brain_skill).unwrap();
         assert!(content.contains("Obsidian Session Worklog"));
 
         // Check projected to tool targets:
         // Claude Code
-        let claude_skill = tool_root.path().join(".claude/skills/obsidian-session-worklog/SKILL.md");
-        assert!(claude_skill.exists(), "Claude must have obsidian skill projected");
+        let claude_skill = tool_root
+            .path()
+            .join(".claude/skills/obsidian-session-worklog/SKILL.md");
+        assert!(
+            claude_skill.exists(),
+            "Claude must have obsidian skill projected"
+        );
 
         // Cursor
-        let cursor_rule = tool_root.path().join(".cursor/rules/obsidian-session-worklog.mdc");
-        assert!(cursor_rule.exists(), "Cursor must have obsidian rule projected");
+        let cursor_rule = tool_root
+            .path()
+            .join(".cursor/rules/obsidian-session-worklog.mdc");
+        assert!(
+            cursor_rule.exists(),
+            "Cursor must have obsidian rule projected"
+        );
 
         // AGY / Agents
-        let agy_skill = tool_root.path().join(".agents/skills/obsidian-session-worklog/SKILL.md");
+        let agy_skill = tool_root
+            .path()
+            .join(".agents/skills/obsidian-session-worklog/SKILL.md");
         assert!(agy_skill.exists(), "AGY must have obsidian skill projected");
 
         // Continue
-        let continue_rule = tool_root.path().join(".continue/rules/obsidian-session-worklog.md");
-        assert!(continue_rule.exists(), "Continue must have obsidian rule projected");
+        let continue_rule = tool_root
+            .path()
+            .join(".continue/rules/obsidian-session-worklog.md");
+        assert!(
+            continue_rule.exists(),
+            "Continue must have obsidian rule projected"
+        );
     }
 }

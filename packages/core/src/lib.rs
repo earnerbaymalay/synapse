@@ -20,14 +20,16 @@ pub mod gateway;
 pub mod hud;
 pub mod mappings;
 pub mod marketplace;
-pub mod memory;
+pub mod master_prompt;
 pub mod mcp_registry;
+pub mod memory;
 pub mod merge;
 pub mod model;
 pub mod projector;
 pub mod scanner;
 pub mod scheduler;
 pub mod secrets;
+pub mod security;
 pub mod snapshot;
 pub mod sync;
 pub mod updater;
@@ -35,8 +37,8 @@ pub mod watcher;
 
 pub use adapter::Adapter;
 pub use compression::{
-    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression,
-    CompressedOutput, CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
+    compress_text, detect_stream_kind, estimate_tokens, execute_with_compression, CompressedOutput,
+    CompressionLevel, SpoolEntry, SpoolManager, StreamKind,
 };
 pub use conflict_queue::{reconcile, ConflictQueue, QueuedConflict};
 pub use doctor::{diagnose, Diagnosis, DoctorContext, Severity};
@@ -53,6 +55,10 @@ pub use projector::{Artifact, ProjectionPolicy};
 pub use scanner::ScanResult;
 pub use scheduler::{ScheduledJob, SchedulerOs};
 pub use secrets::{MemorySecretStore, SecretError, SecretStore};
+pub use security::{
+    audit_prompt_content, sanitize_prompt_content, strip_invisible_unicode, write_atomic,
+    SecurityAuditReport, SecurityFinding, ThreatCategory,
+};
 pub use snapshot::{SnapshotError, SnapshotLock};
 pub use sync::{perform_import, perform_project, SyncOutcome};
 pub use updater::{check_for_update, Channel, ReleaseManifest, UpdateDecision, UpdateError};
