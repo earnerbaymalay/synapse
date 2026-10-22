@@ -294,6 +294,35 @@ pub fn handle_request(
 }
 
 /// Applies Sensory Gating and tool-call normalization, then executes upstream request
+/// Applies Sensory Gating to each message's string `content` in place,
+/// leaving every other field untouched. Returns `(raw_tokens, gated_tokens)`.
+pub fn gate_messages(messages: &mut [Value], level: CompressionLevel) -> (usize, usize) {
+    let mut raw_tokens = 0;
+    let mut gated_tokens = 0;
+    for msg in messages.iter_mut() {
+        if let Some(content) = msg["content"].as_str() {
+            let initial_tokens = estimate_tokens(content);
+            raw_tokens += initial_tokens;
+
+            // Compress large blocks (terminal outputs, giant source files)
+            if content.len() > 120 {
+                let (compressed, _, comp_tokens, _) = compress_text(content, level);
+                if !compressed.is_empty() && comp_tokens < initial_tokens {
+                    // Replace only the content: tool_call_id, tool_calls and
+                    // name must survive or OpenAI-style upstreams reject the turn.
+                    msg["content"] = Value::String(compressed);
+                    gated_tokens += comp_tokens;
+                } else {
+                    gated_tokens += initial_tokens;
+                }
+            } else {
+                gated_tokens += initial_tokens;
+            }
+        }
+    }
+    (raw_tokens, gated_tokens)
+}
+
 pub fn process_chat_request(
     body: &str,
     config: &GatewayConfig,
@@ -320,28 +349,9 @@ pub fn process_chat_request(
 
     // 1. Sensory Gating on incoming messages
     if let Some(messages) = payload["messages"].as_array_mut() {
-        for msg in messages.iter_mut() {
-            if let Some(content) = msg["content"].as_str() {
-                let initial_tokens = estimate_tokens(content);
-                raw_prompt_tokens += initial_tokens;
-
-                // Compress large blocks (terminal outputs, giant source files)
-                if content.len() > 120 {
-                    let (compressed, _, comp_tokens, _) = compress_text(content, config.gate_level);
-                    if !compressed.is_empty() && comp_tokens < initial_tokens {
-                        *msg = json!({
-                            "role": msg["role"].as_str().unwrap_or("user"),
-                            "content": compressed
-                        });
-                        gated_prompt_tokens += comp_tokens;
-                    } else {
-                        gated_prompt_tokens += initial_tokens;
-                    }
-                } else {
-                    gated_prompt_tokens += initial_tokens;
-                }
-            }
-        }
+        let (raw, gated) = gate_messages(messages, config.gate_level);
+        raw_prompt_tokens += raw;
+        gated_prompt_tokens += gated;
     }
 
     // 2. Local Model Tool Calling Schema Normalization

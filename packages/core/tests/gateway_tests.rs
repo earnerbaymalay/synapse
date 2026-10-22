@@ -149,3 +149,40 @@ fn test_hud_formatting() {
     assert!(formatted.contains("15 verified tools"));
     assert!(formatted.contains("LOCKSTEP SYNCED"));
 }
+
+#[test]
+fn test_gating_preserves_tool_message_fields() {
+    let noisy: String = (0..400)
+        .map(|i| format!("   Compiling crate{i} v0.1.0\n"))
+        .collect();
+    let body = json!({
+        "model": "m",
+        "messages": [
+            { "role": "assistant", "content": null,
+              "tool_calls": [{ "id": "c1", "type": "function",
+                               "function": { "name": "sh", "arguments": "{}" } }] },
+            { "role": "tool", "tool_call_id": "c1", "name": "sh", "content": noisy }
+        ]
+    });
+    let mut payload = body.clone();
+    let messages = payload["messages"].as_array_mut().unwrap();
+    synapse_core::gateway::gate_messages(messages, CompressionLevel::Balanced);
+    assert_eq!(messages[1]["tool_call_id"], "c1");
+    assert_eq!(messages[1]["name"], "sh");
+    assert_eq!(messages[1]["role"], "tool");
+    assert!(messages[1]["content"].as_str().unwrap().len() < noisy.len());
+    assert_eq!(messages[0]["tool_calls"], body["messages"][0]["tool_calls"]);
+}
+
+#[test]
+fn test_gate_level_off_is_passthrough() {
+    assert_eq!(CompressionLevel::parse("off"), Some(CompressionLevel::Off));
+    let noisy: String = (0..400)
+        .map(|i| format!("   Compiling crate{i} v0.1.0\n"))
+        .collect();
+    let (out, raw, comp, pct) =
+        synapse_core::compression::compress_text(&noisy, CompressionLevel::Off);
+    assert_eq!(out, noisy);
+    assert_eq!(raw, comp);
+    assert_eq!(pct, 0);
+}
