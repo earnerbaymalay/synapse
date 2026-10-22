@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 const API_BASE: &str = "https://api.github.com/repos/anthropics/skills/contents";
+/// Recursive tree listing: one request covers every nested file, so the
+/// executable-content check sees `scripts/run.py` as well as top-level files.
+const TREE_URL: &str = "https://api.github.com/repos/anthropics/skills/git/trees/HEAD?recursive=1";
 /// File extensions that make a skill "contains executable content" per
 /// MASTER_PROMPT.md's untrusted-content flag — not a sandboxed lint (that's
 /// a much larger undertaking), but enough to force a human to look before
@@ -76,6 +79,20 @@ struct ContentsEntry {
 }
 
 #[derive(Deserialize)]
+struct TreeResponse {
+    tree: Vec<TreeEntry>,
+    #[serde(default)]
+    truncated: bool,
+}
+
+#[derive(Deserialize)]
+struct TreeEntry {
+    path: String,
+    #[serde(rename = "type")]
+    entry_type: String,
+}
+
+#[derive(Deserialize)]
 struct ContentsFile {
     content: String,
     encoding: String,
@@ -127,14 +144,8 @@ pub fn fetch_anthropic_skill(slug: &str) -> Result<MarketplaceSkill, Marketplace
     let (frontmatter, _body) = split_frontmatter(&content);
     let (description, license_note) = parse_skill_frontmatter(frontmatter.as_deref());
 
-    let entries: Vec<ContentsEntry> = get_json(&skill_dir_url)?;
-    let contains_executable_content = entries.iter().any(|e| {
-        e.entry_type == "file"
-            && e.name
-                .rsplit_once('.')
-                .map(|(_, ext)| EXECUTABLE_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
-                .unwrap_or(false)
-    });
+    let tree: TreeResponse = get_json(TREE_URL)?;
+    let contains_executable_content = tree_has_executable(&tree, &format!("skills/{slug}/"));
 
     Ok(MarketplaceSkill {
         id: slug.to_string(),
@@ -145,6 +156,24 @@ pub fn fetch_anthropic_skill(slug: &str) -> Result<MarketplaceSkill, Marketplace
         contains_executable_content,
         enabled: false,
     })
+}
+
+/// True if any file under `prefix` (at any depth) has an executable
+/// extension. A truncated listing is treated as executable: we could not
+/// see every file, so a human has to look (fail closed).
+fn tree_has_executable(tree: &TreeResponse, prefix: &str) -> bool {
+    tree.truncated
+        || tree.tree.iter().any(|e| {
+            e.entry_type == "blob"
+                && e.path.starts_with(prefix)
+                && e.path
+                    .rsplit('/')
+                    .next()
+                    .and_then(|name| name.rsplit_once('.'))
+                    .is_some_and(|(_, ext)| {
+                        EXECUTABLE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+                    })
+        })
 }
 
 fn parse_skill_frontmatter(frontmatter: Option<&str>) -> (String, Option<String>) {
@@ -174,6 +203,45 @@ mod tests {
         let (description, license) = parse_skill_frontmatter(Some(fm));
         assert_eq!(description, "Creating algorithmic art using p5.js");
         assert_eq!(license, Some("Complete terms in LICENSE.txt".to_string()));
+    }
+
+    fn tree(paths: &[(&str, &str)], truncated: bool) -> TreeResponse {
+        TreeResponse {
+            tree: paths
+                .iter()
+                .map(|(p, t)| TreeEntry {
+                    path: p.to_string(),
+                    entry_type: t.to_string(),
+                })
+                .collect(),
+            truncated,
+        }
+    }
+
+    #[test]
+    fn executable_check_sees_nested_scripts() {
+        let t = tree(
+            &[
+                ("skills/pdf", "tree"),
+                ("skills/pdf/SKILL.md", "blob"),
+                ("skills/pdf/scripts", "tree"),
+                ("skills/pdf/scripts/fill_form.PY", "blob"),
+                ("skills/docs/SKILL.md", "blob"),
+            ],
+            false,
+        );
+        assert!(tree_has_executable(&t, "skills/pdf/"));
+        assert!(!tree_has_executable(&t, "skills/docs/"));
+        // `skills/pdf-extra/` must not match the `skills/pdf/` prefix.
+        assert!(!tree_has_executable(
+            &tree(&[("skills/pdf-extra/run.sh", "blob")], false),
+            "skills/pdf/"
+        ));
+    }
+
+    #[test]
+    fn truncated_tree_fails_closed() {
+        assert!(tree_has_executable(&tree(&[], true), "skills/x/"));
     }
 
     #[test]
