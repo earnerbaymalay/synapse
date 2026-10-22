@@ -16,6 +16,10 @@ ureq = { version = "2", features = ["json"] }
 tiny_http = "0.12"
 base64 = "0.22"
 semver = "1"
+# Secret redaction (memory, spool, MCP import) and gateway token generation.
+regex = "1"
+getrandom = "0.2"
+dirs = "6"
 # One dependency, real keychain on all 3 OSes: Secret Service via DBus on
 # Linux, Security.framework on macOS, Credential Manager on Windows.
 # Optional because headless CI has no unlocked keyring to talk to —
