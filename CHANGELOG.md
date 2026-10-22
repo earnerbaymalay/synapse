@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Tool root defaults to your home directory, not the current directory.** This is a behaviour change. Commands that take `--tool-root` (`doctor`, `onboard`) accept it. Every command reads `$SYNAPSE_WORKSPACE_PATH` / `$SYNAPSE_TOOL_ROOT`. For a per-project run, use `SYNAPSE_TOOL_ROOT=. synapse scan` or pass `--tool-root .`.
+- **The gateway now requires a per-launch token.** `synapse serve` prints `Gateway token: …`; clients send it as `Authorization: Bearer <token>` or `x-api-key: <token>`. Pin it with `SYNAPSE_GATEWAY_TOKEN`, or disable it with `SYNAPSE_GATEWAY_NO_TOKEN=1`. `--api-key` can now come from `SYNAPSE_UPSTREAM_API_KEY`. Requests with `"stream": true` are refused with a 400 until streaming is supported.
+- `SKILL.md` is the Brain's editable source of truth; `skill.yaml` only carries metadata.
+- `synapse rollback` now projects the restored Brain to your tools straight away.
+- Unknown `--level` / `--gate-level` values are rejected instead of falling back to `balanced`.
+- Subtitle: Synapse — The Canonical AI Brain.
 
 ### Fixed
 - Gateway gating dropped `tool_call_id`, `tool_calls`, and `name` from compressed messages. Compression now edits message content in place and keeps those fields.
@@ -25,6 +30,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI `pnpm --filter` selectors matched no package, so the E2E and schema suites never ran in CI. The selectors now resolve to the intended packages.
 - `ralph.sh` used incorrect paths.
 - Antigravity adapter documentation listed `.agy/` and `.gemini/settings.json`. The adapter reads `.agents/` and `.gemini/config/`, and the docs now match.
+- **Sync data loss.** A Brain-only edit was overwritten by the old tool content, and a clean three-way merge was computed and then discarded. Both now survive; conflicting items are queued and left untouched on both sides.
+- **Sync never settled.** Projected files were re-imported by other adapters under new ids, so every sync created more skills. Sync now reaches a fixed point and reports "no drift" when nothing changed.
+- Agent `tools` were widened to `*` when projected; agent tools and model hints now round-trip.
+- The sync `.lock` was committed into snapshots (blocking every sync after a rollback), and a lock left by a crashed sync blocked forever. The Brain now ignores `.lock`, and stale locks from dead processes are reclaimed.
+- `rollback` discarded uncommitted Brain edits; it snapshots them first. The next sync no longer undoes a rollback.
+- `import`, `project`, `rollback` and the HUD could race a running sync; every Brain mutation now takes the sync lock.
+- `doctor` flagged every fresh projection as hand-edited, and `doctor --fix` followed `../` or absolute paths from `mappings.json`; both fixed.
+
+### Security
+- Gateway: removed `Access-Control-Allow-Origin: *` (any website could spend your upstream API key through `127.0.0.1`), added a `Host` allowlist against DNS rebinding, token auth, an 8 MiB body cap, a bounded worker pool, and no upstream URL in `/health`. Client credentials are never forwarded.
+- Memory and spool: secret redaction now catches `KEY=…`, JSON `"api_key":"…"`, `Authorization: Bearer`, URL passwords, GitHub/GitLab/Slack/Stripe/AWS/Google tokens and PEM private keys; files are owner-only (`0600`, dirs `0700`) and symlink-safe. The predictable `/tmp` spool fallback is gone.
+- MCP server commands/URLs containing credentials are replaced with `${SYNAPSE_REDACTED_N}` placeholders before they reach the Brain's git history.
+- The Zed adapter no longer writes to `$HOME` when projecting into another folder.
+- MCP registry: queries are encoded, runtimes are limited to `npx`/`uvx`/`docker`/`dnx`, and checksums cover the full record. Marketplace executable-content checks are recursive.
+- Desktop: a Content Security Policy is set, and `heal_vitals` ignores paths sent from the webview.
+- Docs hub: closed a DOM XSS via `?doc=`; CDN scripts are pinned with subresource integrity.
+
+### Performance
+- `mem search` is linear instead of quadratic (43 s → well under a second at 10k observations); memory hooks no longer re-read the whole log, and the stop hook only appends.
+- The gateway reuses one HTTP client with connect/read timeouts.
 
 ## [1.0.0] - 2026-08-19
 
