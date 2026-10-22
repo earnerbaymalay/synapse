@@ -244,13 +244,60 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             let rel_path = format!("skills/{}/SKILL.md", skill.id);
             imported_paths.push(rel_path.clone());
 
-            mappings_file.mappings.push(Mapping {
+            let projection_path = match adapter.id() {
+                "agy-cli" => {
+                    if skill.id == "agy-cli-memory" {
+                        "AGENTS.md".to_string()
+                    } else {
+                        let slug = skill.id.trim_start_matches("agy-skill-");
+                        let slug = if slug.is_empty() { "skill" } else { slug };
+                        format!(".agents/skills/{}/SKILL.md", slug)
+                    }
+                }
+                "claude-code" => {
+                    if skill.id == "claude-rules" {
+                        "CLAUDE.md".to_string()
+                    } else {
+                        let slug = skill.id.trim_start_matches("claude-skill-");
+                        let slug = if slug.is_empty() { "skill" } else { slug };
+                        format!(".claude/skills/{}/SKILL.md", slug)
+                    }
+                }
+                "gemini-cli" => "GEMINI.md".to_string(),
+                "zed" => {
+                    if root.join(".config/zed/AGENTS.md").exists() {
+                        ".config/zed/AGENTS.md".to_string()
+                    } else {
+                        ".rules".to_string()
+                    }
+                }
+                "opencode" => {
+                    if root.join("AGENTS.md").exists() {
+                        "AGENTS.md".to_string()
+                    } else {
+                        ".roomodes".to_string()
+                    }
+                }
+                "roo-code" => ".roomodes".to_string(),
+                "openai-codex" => "AGENTS.md".to_string(),
+                "continue" => format!(".continue/rules/{}.md", skill.id),
+                _ => format!(".agents/skills/{}/SKILL.md", skill.id),
+            };
+
+            let mapping = Mapping {
                 tool_id: adapter.id().to_string(),
                 canonical_path: rel_path,
-                projection_path: format!(".agents/skills/{}/SKILL.md", skill.id),
+                projection_path,
                 policy: crate::projector::ProjectionPolicy::Generate,
                 content_sha256: skill.sha256,
-            });
+            };
+            if let Some(existing) = mappings_file.mappings.iter_mut().find(|m| {
+                m.canonical_path == mapping.canonical_path && m.tool_id == mapping.tool_id
+            }) {
+                *existing = mapping;
+            } else {
+                mappings_file.mappings.push(mapping);
+            }
         }
 
         for agent in import_res.agents {
@@ -286,6 +333,14 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
             imported_paths.push(rel_path);
         }
     }
+
+    mappings_file.mappings.sort_by(|a, b| {
+        (&a.tool_id, &a.canonical_path, &a.projection_path)
+            .cmp(&(&b.tool_id, &b.canonical_path, &b.projection_path))
+    });
+    mappings_file.mappings.dedup_by(|a, b| {
+        a.tool_id == b.tool_id && a.canonical_path == b.canonical_path
+    });
 
     let _ = mappings_file.save(&mappings_path);
 

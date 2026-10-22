@@ -111,11 +111,11 @@ pub fn diagnose(ctx: &DoctorContext) -> Vec<Diagnosis> {
         }
     };
 
-    let mut seen_canonical: HashMap<&str, usize> = HashMap::new();
+    let mut seen_canonical: HashMap<(&str, &str), usize> = HashMap::new();
 
     for mapping in &mappings.mappings {
         *seen_canonical
-            .entry(mapping.canonical_path.as_str())
+            .entry((mapping.tool_id.as_str(), mapping.canonical_path.as_str()))
             .or_insert(0) += 1;
 
         // Rule 4: every mapping's canonical source must still exist in the Brain.
@@ -214,8 +214,8 @@ pub fn diagnose(ctx: &DoctorContext) -> Vec<Diagnosis> {
         }
     }
 
-    // Rule 10: two mappings claiming the same canonical source.
-    for (canonical, count) in &seen_canonical {
+    // Rule 10: two mappings claiming the same canonical source for the same tool.
+    for ((_tool, canonical), count) in &seen_canonical {
         if *count > 1 {
             out.push(Diagnosis {
                 rule_id: "duplicate-canonical-mapping",
@@ -224,7 +224,7 @@ pub fn diagnose(ctx: &DoctorContext) -> Vec<Diagnosis> {
                     "Brain source '{canonical}' is mapped {count} times — one projection may shadow another."
                 ),
                 subject: Some(canonical.to_string()),
-                auto_fixable: false,
+                auto_fixable: true,
             });
         }
     }
@@ -335,6 +335,22 @@ pub fn apply_fixes(ctx: &DoctorContext) -> Result<usize, DoctorError> {
                 crate::master_prompt::heal_master_prompt(&ctx.brain_root)
                     .map_err(|e| DoctorError::Io(e.to_string()))?;
                 fixed += 1;
+            }
+            "duplicate-canonical-mapping" => {
+                if let Ok(mut mappings) = MappingsFile::load(&ctx.mappings_path) {
+                    let before_len = mappings.mappings.len();
+                    mappings.mappings.sort_by(|a, b| {
+                        (&a.tool_id, &a.canonical_path, &a.projection_path)
+                            .cmp(&(&b.tool_id, &b.canonical_path, &b.projection_path))
+                    });
+                    mappings.mappings.dedup_by(|a, b| {
+                        a.tool_id == b.tool_id && a.canonical_path == b.canonical_path
+                    });
+                    if mappings.mappings.len() < before_len {
+                        let _ = mappings.save(&ctx.mappings_path);
+                        fixed += 1;
+                    }
+                }
             }
             "projection-missing" | "symlink-detached" | "symlink-retargeted" => {
                 if let Some(subject) = &diag.subject {
