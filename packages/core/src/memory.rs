@@ -29,6 +29,8 @@ use crate::compression::{compress_text, estimate_tokens, CompressionLevel};
 
 const NARRATIVE_MAX_CHARS: usize = 700;
 const TITLE_MAX_CHARS: usize = 90;
+/// How much of the log `add` reads to find the next id.
+const TAIL_BYTES: u64 = 64 * 1024;
 
 /// One remembered event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,14 +143,17 @@ impl MemoryStore {
             return Ok(None);
         }
         let _guard = self.lock()?;
-        let existing = self.all()?;
+        // Only the tail is needed: ids are assigned under the lock and
+        // appended in order, so the newest record holds the max id, and
+        // duplicate-collapse only cares about the session's latest event.
+        let recent = self.tail()?;
         // Collapse immediate duplicates (e.g. repeated identical reads).
-        if let Some(last) = existing.iter().rev().find(|o| o.session == new.session) {
+        if let Some(last) = recent.iter().rev().find(|o| o.session == new.session) {
             if last.kind == new.kind && last.title == title && last.narrative == narrative {
                 return Ok(None);
             }
         }
-        let id = existing.iter().map(|o| o.id).max().unwrap_or(0) + 1;
+        let id = recent.iter().map(|o| o.id).max().unwrap_or(0) + 1;
         let obs = Observation {
             id,
             ts: now_secs(),
@@ -182,16 +187,65 @@ impl MemoryStore {
     }
 
     /// All observations in id order. Corrupt lines are skipped, not fatal.
+    /// Each session's summary is rolling: the stop hook appends a fresh one
+    /// rather than rewriting the log, and only the newest is visible here.
     pub fn all(&self) -> std::io::Result<Vec<Observation>> {
         let raw = match fs::read_to_string(self.log_path()) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
             Err(e) => return Err(e),
         };
-        Ok(raw
+        let parsed: Vec<Observation> = raw
             .lines()
             .filter_map(|l| serde_json::from_str::<Observation>(l).ok())
+            .collect();
+        let mut latest_summary: HashMap<&str, u64> = HashMap::new();
+        for o in parsed.iter().filter(|o| o.kind == "summary") {
+            latest_summary.insert(o.session.as_str(), o.id);
+        }
+        let superseded: HashSet<u64> = parsed
+            .iter()
+            .filter(|o| {
+                o.kind == "summary" && latest_summary.get(o.session.as_str()) != Some(&o.id)
+            })
+            .map(|o| o.id)
+            .collect();
+        Ok(parsed
+            .into_iter()
+            .filter(|o| !superseded.contains(&o.id))
             .collect())
+    }
+
+    /// The records in the last [`TAIL_BYTES`] of the log (all of them for a
+    /// small log). Falls back to a full parse if the tail holds no
+    /// parseable record, so the max id is never under-counted.
+    fn tail(&self) -> std::io::Result<Vec<Observation>> {
+        use std::io::{Read, Seek, SeekFrom};
+        let mut f = match File::open(self.log_path()) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+            Err(e) => return Err(e),
+        };
+        let len = f.metadata()?.len();
+        let start = len.saturating_sub(TAIL_BYTES);
+        f.seek(SeekFrom::Start(start))?;
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf)?;
+        let text = String::from_utf8_lossy(&buf);
+        // Skip the (probably partial) first line when we seeked mid-file.
+        let body = if start > 0 {
+            text.split_once('\n').map_or("", |(_, rest)| rest)
+        } else {
+            &text
+        };
+        let parsed: Vec<Observation> = body
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Observation>(l).ok())
+            .collect();
+        if parsed.is_empty() && start > 0 {
+            return self.all();
+        }
+        Ok(parsed)
     }
 
     /// Layer 1: ranked keyword search. Terms are scored title ×3, files ×2,
@@ -212,30 +266,43 @@ impl MemoryStore {
             return Ok(pool.into_iter().rev().take(limit).cloned().collect());
         }
         let n = pool.len().max(1) as f64;
+        // Term weights are only tracked for query terms, and document
+        // frequency is counted once per term: O(N) per query, not O(N^2).
+        let wanted: HashSet<&str> = terms.iter().map(String::as_str).collect();
         let docs: Vec<(HashMap<String, f64>, &Observation)> = pool
             .iter()
             .map(|o| {
                 let mut tf: HashMap<String, f64> = HashMap::new();
+                let mut bump = |t: String, w: f64| {
+                    if wanted.contains(t.as_str()) {
+                        *tf.entry(t).or_default() += w;
+                    }
+                };
                 for t in tokenize(&o.title) {
-                    *tf.entry(t).or_default() += 3.0;
+                    bump(t, 3.0);
                 }
                 for t in o.files.iter().flat_map(|f| tokenize(f)) {
-                    *tf.entry(t).or_default() += 2.0;
+                    bump(t, 2.0);
                 }
                 for t in tokenize(&o.narrative) {
-                    *tf.entry(t).or_default() += 1.0;
+                    bump(t, 1.0);
                 }
                 (tf, *o)
             })
             .collect();
+        let mut df: HashMap<&str, f64> = HashMap::new();
+        for (tf, _) in &docs {
+            for t in tf.keys() {
+                *df.entry(t.as_str()).or_default() += 1.0;
+            }
+        }
         let mut scored: Vec<(f64, &Observation)> = docs
             .iter()
             .filter_map(|(tf, o)| {
                 let mut score = 0.0;
                 for t in &terms {
                     if let Some(w) = tf.get(t) {
-                        let df = docs.iter().filter(|(d, _)| d.contains_key(t)).count() as f64;
-                        score += w * (1.0 + (n / df).ln());
+                        score += w * (1.0 + (n / df[t.as_str()]).ln());
                     }
                 }
                 (score > 0.0).then_some((score + o.id as f64 * 1e-6, *o))
@@ -724,6 +791,53 @@ mod tests {
         let ids: HashSet<u64> = all.iter().map(|o| o.id).collect();
         assert_eq!(all.len(), 80);
         assert_eq!(ids.len(), 80);
+    }
+
+    #[test]
+    fn search_scales_linearly_with_history() {
+        let (d, s) = store();
+        let mut raw = String::new();
+        for i in 1..=5000u64 {
+            let o = Observation {
+                id: i,
+                ts: i,
+                session: format!("s{}", i % 50),
+                project: "p".into(),
+                kind: "command".into(),
+                title: format!("Ran: cargo test module{} common words here", i % 97),
+                narrative: format!("compiling crate{} and running shared common checks", i % 13),
+                files: vec![format!("src/file{}.rs", i % 31)],
+            };
+            raw.push_str(&serde_json::to_string(&o).unwrap());
+            raw.push('\n');
+        }
+        fs::write(d.path().join("observations.jsonl"), raw).unwrap();
+        let t = std::time::Instant::now();
+        let hits = s.search("common cargo module5 crate3", None, 10).unwrap();
+        assert!(t.elapsed() < std::time::Duration::from_secs(2), "{:?}", t.elapsed());
+        assert_eq!(hits.len(), 10);
+        assert!(hits[0].title.contains("module5 "));
+        // Appending is a tail read, not a full parse: the next id follows on.
+        let added = s.add(note("s", "p", "note", "tail id", "")).unwrap().unwrap();
+        assert_eq!(added.id, 5001);
+    }
+
+    #[test]
+    fn only_the_latest_summary_per_session_is_visible() {
+        let (_d, s) = store();
+        s.add(note("s", "p", "summary", "Session: a", "stalewombat")).unwrap();
+        s.add(note("s", "p", "change", "Edited a.rs", "")).unwrap();
+        s.add(note("s", "p", "summary", "Session: a", "second")).unwrap();
+        s.add(note("t", "p", "summary", "Session: b", "other")).unwrap();
+        let summaries: Vec<String> = s
+            .all()
+            .unwrap()
+            .into_iter()
+            .filter(|o| o.kind == "summary")
+            .map(|o| o.narrative)
+            .collect();
+        assert_eq!(summaries, vec!["second", "other"]);
+        assert!(!s.context("p", 10).unwrap().contains("stalewombat"));
     }
 
     #[test]
