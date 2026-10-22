@@ -571,7 +571,8 @@ mod tests {
         // Run via `sh <script>` rather than exec'ing the freshly written file:
         // a concurrent test's fork can briefly hold it open for writing, which
         // makes a direct exec fail with ETXTBSY under parallel load.
-        let status = health_check_stdio(&format!("sh {}", script.display()), Duration::from_secs(5));
+        let status =
+            health_check_stdio(&format!("sh {}", script.display()), Duration::from_secs(5));
         assert_eq!(status, HealthStatus::Healthy);
     }
 

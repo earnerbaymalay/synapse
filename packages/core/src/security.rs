@@ -716,18 +716,48 @@ mod tests {
     #[test]
     fn redact_secrets_catches_credentials_the_old_word_splitter_missed() {
         let cases = [
-            ("OPENAI_API_KEY=sk-proj-abcdefghijklmnop1234", "sk-proj-abcdefghijklmnop1234"),
-            (r#"{"api_key":"sk-abcdefghijklmnopqrstuv"}"#, "sk-abcdefghijklmnopqrstuv"),
-            ("token:ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123", "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123"),
-            ("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig", "eyJhbGciOiJIUzI1NiJ9"),
-            ("connect postgres://admin:hunter2pw@db.internal:5432/app", "hunter2pw"),
-            ("stripe sk_live_51HabcdefghijklmnopQRST", "sk_live_51HabcdefghijklmnopQRST"),
-            ("glpat-abcdefghijklmnopqrstu in ci", "glpat-abcdefghijklmnopqrstu"),
-            ("ghs_abcdefghijklmnopqrstuvwxyz0123 action", "ghs_abcdefghijklmnopqrstuvwxyz0123"),
+            (
+                "OPENAI_API_KEY=sk-proj-abcdefghijklmnop1234",
+                "sk-proj-abcdefghijklmnop1234",
+            ),
+            (
+                r#"{"api_key":"sk-abcdefghijklmnopqrstuv"}"#,
+                "sk-abcdefghijklmnopqrstuv",
+            ),
+            (
+                "token:ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123",
+                "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123",
+            ),
+            (
+                "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig",
+                "eyJhbGciOiJIUzI1NiJ9",
+            ),
+            (
+                "connect postgres://admin:hunter2pw@db.internal:5432/app",
+                "hunter2pw",
+            ),
+            (
+                "stripe sk_live_51HabcdefghijklmnopQRST",
+                "sk_live_51HabcdefghijklmnopQRST",
+            ),
+            (
+                "glpat-abcdefghijklmnopqrstu in ci",
+                "glpat-abcdefghijklmnopqrstu",
+            ),
+            (
+                "ghs_abcdefghijklmnopqrstuvwxyz0123 action",
+                "ghs_abcdefghijklmnopqrstuvwxyz0123",
+            ),
             ("id AKIAIOSFODNN7EXAMPLE ok", "AKIAIOSFODNN7EXAMPLE"),
-            ("aws wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY end", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+            (
+                "aws wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY end",
+                "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            ),
             ("password = hunter22", "hunter22"),
-            ("https://api.example.com/v1?access_token=abc123def456&x=1", "abc123def456"),
+            (
+                "https://api.example.com/v1?access_token=abc123def456&x=1",
+                "abc123def456",
+            ),
         ];
         for (input, secret) in cases {
             let out = redact_secrets(input);
@@ -761,13 +791,11 @@ mod tests {
     #[test]
     fn redact_secrets_with_numbers_each_secret() {
         let mut n = 0;
-        let (out, count) = redact_secrets_with(
-            "postgresql://u:pw1234@h --api-key=abcd1234efgh",
-            || {
+        let (out, count) =
+            redact_secrets_with("postgresql://u:pw1234@h --api-key=abcd1234efgh", || {
                 n += 1;
                 format!("${{X{n}}}")
-            },
-        );
+            });
         assert_eq!(count, 2);
         assert_eq!(out, "postgresql://u:${X2}@h --api-key=${X1}");
         // Already-redacted output is a fixed point.
@@ -788,14 +816,20 @@ mod tests {
         let root = tempdir().unwrap();
         let dir = root.path().join("a/b");
         create_private_dir_all(&dir).unwrap();
-        assert_eq!(fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(
+            fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
 
         let file = dir.join("f.log");
         fs::write(&file, "old").unwrap();
         fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
         write_private_atomic(&file, "new").unwrap();
         assert_eq!(fs::read_to_string(&file).unwrap(), "new");
-        assert_eq!(fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
 
         let outside = root.path().join("victim");
         fs::write(&outside, "keep").unwrap();
