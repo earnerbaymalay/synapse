@@ -18,16 +18,10 @@
 
 <div align="center">
 
-<img src="./assets/hero.png" width="100%" alt="SYNAPSE Hero Banner">
-
-# SYNAPSE
-### The Clinical Engine for AI Context
-**One Brain. All Models. Permanent Lockstep.** — 100% local execution, zero telemetry, fully open-source (MIT), every line auditable.
-
 [![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-1d9bf0?style=flat-square&logo=github)](https://earnerbaymalay.github.io/synapse/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)
 [![E2E Vitest](https://img.shields.io/badge/E2E_Tests-160%2F160_Passed-success?style=flat-square&logo=vitest)](packages/e2e/)
-[![Rust Tests](https://img.shields.io/badge/Rust_Tests-257%2F257_Passed-success?style=flat-square&logo=rust)](packages/core/)
+[![Rust Tests](https://img.shields.io/badge/Rust_Tests-258%2F258_Passed-success?style=flat-square&logo=rust)](packages/core/)
 [![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/synapse?style=flat-square)](https://github.com/earnerbaymalay/synapse/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Open Source](https://img.shields.io/badge/source-100%25_open-1d9bf0?style=flat-square&logo=opensourceinitiative)](https://github.com/earnerbaymalay/synapse)
