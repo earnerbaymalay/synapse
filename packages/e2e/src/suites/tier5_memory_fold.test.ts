@@ -153,6 +153,22 @@ async function waitFor(fn: () => Promise<boolean>, ms = 10000) {
   throw new Error('timed out waiting for gateway');
 }
 
+/** Resolves with the per-launch token `synapse serve` prints on startup. */
+function gatewayToken(gw: ReturnType<typeof runCLI>, ms = 15000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let out = '';
+    const timer = setTimeout(() => reject(new Error(`no gateway token in serve output:\n${out}`)), ms);
+    gw.stdout?.on('data', (chunk) => {
+      out += chunk.toString();
+      const m = /Gateway token: ([0-9a-f]{64})/.exec(out);
+      if (m) {
+        clearTimeout(timer);
+        resolve(m[1]);
+      }
+    });
+  });
+}
+
 describe('Tier 5: gateway context folding', () => {
   it('folds old tool results into restorable stubs and keeps recent ones intact', async () => {
     const sandbox = createSandbox('fold');
@@ -193,7 +209,9 @@ describe('Tier 5: gateway context folding', () => {
     );
     gw.catch(() => undefined);
     try {
-      await waitFor(async () => (await fetch(`http://127.0.0.1:${gwPort}/v1/models`)).ok);
+      const token = await gatewayToken(gw);
+      const auth = { authorization: `Bearer ${token}` };
+      await waitFor(async () => (await fetch(`http://127.0.0.1:${gwPort}/v1/models`, { headers: auth })).ok);
 
       const messages = [
         { role: 'user', content: 'run the build' },
@@ -207,9 +225,18 @@ describe('Tier 5: gateway context folding', () => {
       const post = () =>
         fetch(`http://127.0.0.1:${gwPort}/v1/chat/completions`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', ...auth },
           body: JSON.stringify({ model: 'm', messages }),
         });
+
+      // Without the token the gateway refuses and nothing reaches upstream.
+      const anon = await fetch(`http://127.0.0.1:${gwPort}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'm', messages }),
+      });
+      expect(anon.status).toBe(401);
+      expect(received).toHaveLength(0);
 
       const res = await post();
       expect(res.status).toBe(200);
@@ -270,7 +297,9 @@ describe('Tier 5: gateway context folding', () => {
     );
     gw.catch(() => undefined);
     try {
-      await waitFor(async () => (await fetch(`http://127.0.0.1:${gwPort}/v1/models`)).ok);
+      const token = await gatewayToken(gw);
+      const auth = { authorization: `Bearer ${token}` };
+      await waitFor(async () => (await fetch(`http://127.0.0.1:${gwPort}/v1/models`, { headers: auth })).ok);
       const messages = [
         { role: 'user', content: 'go' },
         { role: 'tool', tool_call_id: 'c1', content: output },
@@ -280,7 +309,7 @@ describe('Tier 5: gateway context folding', () => {
       ];
       await fetch(`http://127.0.0.1:${gwPort}/v1/chat/completions`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...auth },
         body: JSON.stringify({ model: 'm', messages }),
       });
       expect(received[0].messages.find((m: any) => m.tool_call_id === 'c1').content).toBe(output);

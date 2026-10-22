@@ -16,11 +16,19 @@ ureq = { version = "2", features = ["json"] }
 tiny_http = "0.12"
 base64 = "0.22"
 semver = "1"
+# Secret redaction (memory, spool, MCP import) and gateway token generation.
+regex = "1"
+getrandom = "0.2"
+dirs = "6"
 # One dependency, real keychain on all 3 OSes: Secret Service via DBus on
 # Linux, Security.framework on macOS, Credential Manager on Windows.
 # Optional because headless CI has no unlocked keyring to talk to —
 # everything secrets-related tests against the fixture store by default.
 keyring = { version = "3", features = ["sync-secret-service", "apple-native", "windows-native"], optional = true }
+
+# O_NOFOLLOW for appends to owner-only logs.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [features]
 os-keychain = ["dep:keyring"]

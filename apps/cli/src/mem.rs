@@ -308,14 +308,9 @@ fn run_hook(event: &str, store: &MemoryStore) -> std::io::Result<()> {
         }
         "stop" => {
             if let Some(sum) = summarize_session(store, &session, &project)? {
-                // One rolling summary per session: replace the previous one.
-                let stale: Vec<u64> = store
-                    .all()?
-                    .iter()
-                    .filter(|o| o.session == session && o.kind == "summary")
-                    .map(|o| o.id)
-                    .collect();
-                store.forget(&stale)?;
+                // One rolling summary per session: append the new one. The
+                // store only surfaces the latest per session, so the hook
+                // never rewrites the log.
                 store.add(sum)?;
             }
         }
