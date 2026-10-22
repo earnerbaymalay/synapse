@@ -434,8 +434,8 @@ fn main() -> ExitCode {
                     println!();
                     chart::row(chart::Mark::Present, "snapshot", &sha);
                     chart::close(
-                        "The Brain can be returned to this state.",
-                        Some(&format!("synapse rollback {sha}")),
+                        "The Brain is protected and can be returned to this state anytime.",
+                        Some("synapse hud"),
                     );
                     ExitCode::SUCCESS
                 }
