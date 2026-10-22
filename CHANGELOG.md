@@ -13,7 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Progressive disclosure: `mem search` (token-costed index) → `mem timeline <id>` → `mem get <ids>`; `mem context` is the SessionStart injection block.
   - No LLM in the loop: tool output is distilled with the Sensory Gating engine; `<private>…</private>` spans are dropped and credential-looking tokens redacted before anything touches disk.
   - Storage is an append-only JSONL at `~/.synapse/memory/` (override: `SYNAPSE_MEMORY_DIR`); `mem forget`, `mem stats`, `mem observe` for management.
+  - Tier-5 E2E suite covering `mem` lifecycle hooks and gateway context folding.
 - **Reversible context folding (`synapse serve --fold-keep N`)** — inspired by billion-context, but deterministic and model-free: tool results older than the newest N messages (OpenAI `tool` and Anthropic `tool_result` shapes) collapse into a short digest stub; the original is spooled under a content-addressed id and restored with `synapse spool show <id>`. Stubs are byte-stable across requests so prefix caching is preserved. Off by default.
+
+### Changed
+- **Tool root defaults to your home directory, not the current directory.** This is a behaviour change. Commands that take `--tool-root` (`doctor`, `onboard`) accept it. Every command reads `$SYNAPSE_WORKSPACE_PATH` / `$SYNAPSE_TOOL_ROOT`. For a per-project run, use `SYNAPSE_TOOL_ROOT=. synapse scan` or pass `--tool-root .`.
+
+### Fixed
+- Gateway gating dropped `tool_call_id`, `tool_calls`, and `name` from compressed messages. Compression now edits message content in place and keeps those fields.
+- `synapse serve --gate-level off` silently fell back to `balanced`. `off` is now a real pass-through.
+- CI `pnpm --filter` selectors matched no package, so the E2E and schema suites never ran in CI. The selectors now resolve to the intended packages.
+- `ralph.sh` used incorrect paths.
+- Antigravity adapter documentation listed `.agy/` and `.gemini/settings.json`. The adapter reads `.agents/` and `.gemini/config/`, and the docs now match.
 
 ## [1.0.0] - 2026-08-19
 
@@ -30,9 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Binary Alias Integration**:
   - Single `synapse` binary exposing the CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
 - **Antigravity CLI Adapter (`agy-cli`)**:
-  - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agy/skills/`), and settings configurations (`.gemini/settings.json`).
+  - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agents/skills/`), and MCP configuration (`.agents/mcp_config.json`). (Corrected: the earlier text named `.agy/skills/` and `.gemini/settings.json`.)
 - **Full CLI Non-Dry-Run Write Paths**:
-  - Implemented write execution for `synapse import`, `synapse project`, `synapse sync` (`--once`, `--daemon`, `--poll-interval`), `synapse snapshot`, and `synapse rollback`.
+  - Implemented write execution for `synapse import`, `synapse project`, `synapse sync` (`--once`), `synapse snapshot`, and `synapse rollback`. (Corrected: `sync` has no `--daemon` or `--poll-interval` flags. Each run performs one pass.)
 - **E2E Quality & Test Hardening (100% Pass Rate)**:
   - Achieved 142/142 (100%) test pass rate across the full E2E Vitest suite:
     - Sanity suite: 4/4 passing (100%)
