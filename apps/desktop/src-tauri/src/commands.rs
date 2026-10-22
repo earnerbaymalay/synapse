@@ -446,8 +446,7 @@ pub fn get_cockpit_telemetry(
 
 #[tauri::command]
 pub fn heal_vitals(brain: Option<String>, tools: Option<String>) -> Result<usize, String> {
-    let brain_root = resolve_brain_root(brain)?;
-    let tool_root = resolve_tool_root(tools)?;
+    let (brain_root, tool_root) = heal_roots(brain, tools)?;
 
     let ctx = DoctorContext {
         brain_root: brain_root.clone(),
@@ -456,6 +455,16 @@ pub fn heal_vitals(brain: Option<String>, tools: Option<String>) -> Result<usize
     };
 
     synapse_core::doctor::apply_fixes(&ctx).map_err(|e| e.to_string())
+}
+
+/// Roots `heal_vitals` may modify. `apply_fixes` writes to disk, so the
+/// webview cannot choose where: paths it supplies are ignored and only the
+/// configured roots (env, then defaults) are used.
+fn heal_roots(
+    _webview_brain: Option<String>,
+    _webview_tools: Option<String>,
+) -> Result<(PathBuf, PathBuf), String> {
+    Ok((resolve_brain_root(None)?, resolve_tool_root(None)?))
 }
 
 #[cfg(test)]
@@ -613,5 +622,16 @@ mod tests {
             resolve_brain_root(Some(String::new())).unwrap(),
             PathBuf::from(""),
         );
+    }
+
+    #[test]
+    fn heal_vitals_ignores_webview_supplied_paths() {
+        // resolve_* read HOME; hold the guard so parallel tests can't move it.
+        let home = tempfile::tempdir().unwrap();
+        let _home = HomeGuard::empty(home.path());
+        let (brain, tools) = heal_roots(Some("/etc".into()), Some("/".into())).unwrap();
+        assert_eq!(brain, resolve_brain_root(None).unwrap());
+        assert_eq!(tools, resolve_tool_root(None).unwrap());
+        assert_ne!(brain, PathBuf::from("/etc"));
     }
 }
