@@ -224,7 +224,7 @@ fn main() -> ExitCode {
                         return ExitCode::FAILURE;
                     }
                 };
-                match perform_import(&root, &brain_root) {
+                match with_brain_lock(&brain_root, || perform_import(&root, &brain_root)) {
                     Ok(paths) => {
                         chart::open("intake", &chart::plural(paths.len(), "artifact"));
                         chart::field("Site", &root.display().to_string());
@@ -274,7 +274,7 @@ fn main() -> ExitCode {
                 );
                 ExitCode::SUCCESS
             } else {
-                match perform_project(&brain_root, &tool_root) {
+                match with_brain_lock(&brain_root, || perform_project(&brain_root, &tool_root)) {
                     Ok(paths) => {
                         chart::open("graft", &chart::plural(paths.len(), "file"));
                         chart::field("Brain", &brain_root.display().to_string());
@@ -455,16 +455,38 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            match rollback(&brain_root, &snapshot_ref) {
-                Ok(sha) => {
+            let tool_root = match resolve_tool_root(None) {
+                Ok(t) => t,
+                Err(e) => {
+                    chart::fault("reversal", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+            };
+            // Project straight after restoring: otherwise the next sync sees
+            // the tools' newer files as edits and imports them over the
+            // rollback.
+            let restored = with_brain_lock(&brain_root, || {
+                let sha = rollback(&brain_root, &snapshot_ref).map_err(|e| e.to_string())?;
+                let projected = perform_project(&brain_root, &tool_root)
+                    .map_err(|e| format!("restored to {sha} but projection failed: {e}"))?;
+                Ok((sha, projected))
+            });
+            match restored {
+                Ok((sha, projected)) => {
                     chart::open("reversal", "brain restored");
                     chart::field("Brain", &brain_root.display().to_string());
+                    chart::field("Tools", &tool_root.display().to_string());
                     chart::field("To", &snapshot_ref);
                     println!();
                     chart::row(chart::Mark::Present, "restored", &sha);
+                    chart::row(
+                        chart::Mark::Present,
+                        "projected",
+                        &chart::plural(projected.len(), "file"),
+                    );
                     chart::close(
-                        "Tools still hold the old projection.",
-                        Some("synapse project"),
+                        "Brain and tools are back at that snapshot.",
+                        Some("synapse doctor"),
                     );
                     ExitCode::SUCCESS
                 }
@@ -875,7 +897,9 @@ fn run_interactive_hud(
                                         );
                                     }
                                 } else if cmd == "s" || cmd == "sync" {
-                                    match perform_sync(brain_root, tool_root) {
+                                    match with_brain_lock(brain_root, || {
+                                        perform_sync(brain_root, tool_root)
+                                    }) {
                                         Ok(SyncOutcome::Applied { changed_paths }) => {
                                             status_msg = Some(format!(
                                                 "Sync: {} applied.",
@@ -956,7 +980,9 @@ fn run_interactive_hud(
                                         }
                                     }
                                 } else if cmd == "p" || cmd == "project" {
-                                    match perform_project(brain_root, tool_root) {
+                                    match with_brain_lock(brain_root, || {
+                                        perform_project(brain_root, tool_root)
+                                    }) {
                                         Ok(paths) => {
                                             status_msg = Some(format!(
                                                 "Project: {} projected out of the Brain.",
@@ -1057,7 +1083,9 @@ fn run_interactive_hud(
                                 last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
                             KeyCode::Char('s') => {
-                                match perform_sync(brain_root, tool_root) {
+                                match with_brain_lock(brain_root, || {
+                                    perform_sync(brain_root, tool_root)
+                                }) {
                                     Ok(SyncOutcome::Applied { changed_paths }) => {
                                         status_msg = Some(format!(
                                             "Sync: {} applied.",
@@ -1121,7 +1149,9 @@ fn run_interactive_hud(
                                 last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
                             KeyCode::Char('p') => {
-                                match perform_project(brain_root, tool_root) {
+                                match with_brain_lock(brain_root, || {
+                                    perform_project(brain_root, tool_root)
+                                }) {
                                     Ok(paths) => {
                                         status_msg = Some(format!(
                                             "Project: {} projected out of the Brain.",
@@ -1325,11 +1355,23 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     Err("cannot locate a home directory; pass --brain <PATH>".to_string())
 }
 
+/// Runs a Brain-mutating operation under the same lock `synapse sync`
+/// takes, so import/project/rollback and the HUD can't race a sync.
+fn with_brain_lock<T>(
+    brain_root: &Path,
+    f: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let _lock = SyncLock::acquire(brain_root)
+        .map_err(|e| format!("could not acquire the Brain lock: {e}"))?;
+    f()
+}
+
 /// Parses a gating level, rejecting unknown names instead of silently
 /// falling back to Balanced.
 fn parse_level(s: &str) -> Result<CompressionLevel, String> {
-    CompressionLevel::parse(s)
-        .ok_or_else(|| format!("unknown level '{s}' (expected balanced, aggressive, strict, or off)"))
+    CompressionLevel::parse(s).ok_or_else(|| {
+        format!("unknown level '{s}' (expected balanced, aggressive, strict, or off)")
+    })
 }
 
 /// Resolves the tool config root that projection paths are relative to.
