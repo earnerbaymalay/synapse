@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SYNAPSE — Routing...</title>
+  <script>
+    // Smart router for GitHub Pages
+    (function() {
+      const path = window.location.pathname;
+      const cleanPath = path.replace(/^\/synapse\/?/, '').replace(/^\//, '');
+
+      // Known vanity paths
+      if (cleanPath === 'quickstart' || cleanPath === 'quickstart/') {
+        window.location.replace('/synapse/#quickstart');
+        return;
+      }
+      if (cleanPath === 'cli-demo' || cleanPath === 'simulator') {
+        window.location.replace('/synapse/#simulator');
+        return;
+      }
+      if (cleanPath === 'adapters' || cleanPath === 'adapters/') {
+        window.location.replace('/synapse/#adapters');
+        return;
+      }
+      if (cleanPath === 'docs-hub' || cleanPath === 'docs') {
+        window.location.replace('/synapse/docs.html?doc=README.md');
+        return;
+      }
+      if (cleanPath === 'architecture') {
+        window.location.replace('/synapse/docs.html?doc=ARCHITECTURE.md');
+        return;
+      }
+
+      // If it ends with .md or starts with doc references
+      if (cleanPath.endsWith('.md')) {
+        window.location.replace('/synapse/docs.html?doc=' + encodeURIComponent(cleanPath));
+        return;
+      }
+
+      // Fallback redirect to home if unknown
+    })();
+  </script>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 48 48' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='24' cy='24' r='7' fill='%230b0e13' stroke='%231d9bf0' stroke-width='2'/%3E%3Ccircle cx='24' cy='24' r='2.4' fill='%231d9bf0'/%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#06080b] text-slate-300 font-mono min-h-screen flex items-center justify-center p-6">
+  <div class="max-w-md w-full border border-[#1d2330] bg-[#0b0e13] p-8 text-center shadow-2xl">
+    <div class="text-[#1d9bf0] text-3xl font-bold mb-3 tracking-widest">SYNAPSE</div>
+    <div class="text-xs uppercase tracking-wider text-slate-400 mb-6 border-b border-[#1d2330] pb-3">404 // Neural Node Not Found</div>
+    <p class="text-xs text-slate-400 mb-6">The requested path does not map to an active clinical engine surface.</p>
+    <div class="flex flex-col gap-2 text-xs">
+      <a href="/synapse/" class="p-2.5 bg-[#1d9bf0] text-[#06080b] font-bold uppercase tracking-wider hover:bg-[#5cb2f5] transition-colors">Return to Home</a>
+      <a href="/synapse/docs.html?doc=README.md" class="p-2.5 bg-[#12161d] border border-[#1d2330] text-slate-300 uppercase tracking-wider hover:border-[#1d9bf0] transition-colors">Documentation Hub</a>
+    </div>
+  </div>
+</body>
+</html>

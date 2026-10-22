@@ -1,19 +1,19 @@
 ```text
-┌─ CYBERDECK // SYNAPSE CLINICAL ENGINE · TERMINAL COCKPIT ─────────────────────── v1.0.0 ─┐
-│                                                                                          │
-│                ●       ●      ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗        │
-│                 \     /       ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝        │
-│            ● ─── (●) ─── ●    ███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝███████╗        │
-│                 / │ \         ╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ╚════██║        │
-│                ●  ●  ●        ███████║   ██║   ██║ ╚████║██║  ██║██║     ███████║        │
-│                               ╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝     ╚══════╝        │
-│                                                                                          │
-│ Dual-Zone Architecture · Star Topology · Local Execution · Zero Telemetry · MIT License  │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│  SYSTEM PARITY:   15/15 ONLINE (100%)      │ TOKEN GATING:     -93% RATIO (ACTIVE)       │
-│  RUNTIME GATEWAY: PORT 8088 (127.0.0.1)    │ ZERO TELEMETRY:   0 PACKETS (LOCAL)         │
-│  STAR ADAPTERS:   15 REGISTERED / 0 DRIFT  │ DIAGNOSTICS:      LOCKSTEP SYNCED (0 FAULTS)│
-└──────────────────────────────────────────────────────────────────────────────────────────┘
+┌─ SYNAPSE // CLINICAL CONFIGURATION ENGINE & RUNTIME GATEWAY ───────────────────────── v1.0.0 ─ 100% LOCAL ─┐
+│                                                                                                            │
+│                  ●       ●      ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗                │
+│                   \     /       ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝                │
+│              ● ─── (●) ─── ●    ███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝███████╗█████╗                  │
+│                   / │ \         ╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ╚════██║██╔══╝                  │
+│                  ●  ●  ●        ███████║   ██║   ██║ ╚████║██║  ██║██║     ███████║███████╗                │
+│                                 ╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝                │
+│                                                                                                            │
+│    Dual-Zone Architecture · 15-Tool Star Topology · 100% Local Execution · Zero Telemetry · MIT License    │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  SYSTEM PARITY:   [▰▰▰▰▰▰▰▰▰▰▰▰] 15/15 ONLINE (100%) │ TOKEN GATING:     [▰▰▰▰▰▰▰▰▰▰▰▱] 93% RATIO (-139k)  │
+│  RUNTIME GATEWAY: ● 127.0.0.1:8088 (Ollama/llama.cpp) │ ZERO TELEMETRY:   ✔ 0 Packets (Audit In Source)    │
+│  STAR ADAPTERS:   15 Registered Grafts (0 Drift)      │ SELF-HEALING:     ✔ Lockstep Synced (0 Faults)     │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 <div align="center">
@@ -325,7 +325,7 @@ synapse mem observe "Migrated to 15 adapters" --file packages/core/src/adapters/
 The **Vital Signs HUD** is a zero-RAM, clinical terminal dashboard for monitoring your active AI workstation in real time:
 
 ```text
-┌─ CYBERDECK // SYNAPSE VITAL SIGNS HUD · RUNTIME COCKPIT ─────────────── v1.0.0 ─┐
+┌─ SYNAPSE VITAL SIGNS HUD · RUNTIME COCKPIT ───────────────────────────── v1.0.0 ─┐
 │  Dual-Zone Architecture · 15-Tool Star-Topology · Zero-Drift Telemetry           │
 └──────────────────────────────────────────────────────────────────────────────────┘
 
