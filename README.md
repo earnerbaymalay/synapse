@@ -6,20 +6,20 @@
 ### The Clinical Engine for AI Context
 **One Brain. All Models. Permanent Lockstep.** — 100% local execution, zero telemetry, fully open-source (MIT), every line auditable.
 
-[![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-00f0ff?style=flat-square&logo=github)](https://earnerbaymalay.github.io/synapse/)
+[![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-1d9bf0?style=flat-square&logo=github)](https://earnerbaymalay.github.io/synapse/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)
 [![E2E Vitest](https://img.shields.io/badge/E2E_Tests-160%2F160_Passed-success?style=flat-square&logo=vitest)](packages/e2e/)
 [![Rust Tests](https://img.shields.io/badge/Rust_Tests-257%2F257_Passed-success?style=flat-square&logo=rust)](packages/core/)
 [![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/synapse?style=flat-square)](https://github.com/earnerbaymalay/synapse/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Open Source](https://img.shields.io/badge/source-100%25_open-1d9bf0?style=flat-square&logo=opensourceinitiative)](https://github.com/earnerbaymalay/synapse)
-[![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-10B981?style=flat-square)](docs/security.md)
-[![Local Only](https://img.shields.io/badge/execution-100%25_local-10B981?style=flat-square)](docs/security.md)
+[![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-3fb950?style=flat-square)](docs/security.md)
+[![Local Only](https://img.shields.io/badge/execution-100%25_local-3fb950?style=flat-square)](docs/security.md)
 [![Rust 1.75+](https://img.shields.io/badge/rust-1.75%2B-dea584?style=flat-square&logo=rust)](https://www.rust-lang.org/)
-[![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8DB?style=flat-square&logo=tauri)](https://v2.tauri.app/)
+[![Tauri v2](https://img.shields.io/badge/Tauri-v2-1d9bf0?style=flat-square&logo=tauri)](https://v2.tauri.app/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square)](docs/packaging/RELEASE_PACKAGING.md)
 
-**[Live Site](https://earnerbaymalay.github.io/synapse/)** · **[Privacy & Safety](#privacy--safety-by-design)** · **[Quickstart](#-tier-1-day-1--60-second-quickstart)** · **[15 Adapters](#15-verified-tool-adapters)** · **[Architecture](#architecture--mental-model)** · **[The Doctor](#-tier-2-day-2--care--maintenance)** · **[Gateway & Sensory Gate](#-tier-3-day-3--runtime-gateway-sensory-gating--memory)** · **[Memory (`synapse mem`)](#synaptic-memory-synapse-mem)** · **[HUD](#vital-signs-hud-synapse-hud)** · **[Desktop App](#desktop-gui-application)** · **[Docs Hub](docs/README.md)**
+**[Live Site](https://earnerbaymalay.github.io/synapse/)** · **[Privacy & Safety](#privacy--safety-by-design)** · **[Quickstart](#tier-1-day-1--60-second-quickstart)** · **[15 Adapters](#15-verified-tool-adapters)** · **[Architecture](#architecture--mental-model)** · **[The Doctor](#tier-2-day-2--care--maintenance)** · **[Gateway & Sensory Gate](#tier-3-day-3--runtime-gateway-sensory-gating--memory)** · **[Memory (`synapse mem`)](#synaptic-memory-synapse-mem)** · **[HUD](#vital-signs-hud-synapse-hud)** · **[Desktop App](#desktop-gui-application)** · **[Docs Hub](docs/README.md)**
 
 ---
 
@@ -30,13 +30,13 @@
 - [What is SYNAPSE?](#what-is-synapse)
   - [Privacy & Safety by Design](#privacy--safety-by-design)
   - [Clinical Operating Identity](#clinical-operating-identity)
-- [Tier 1: Day 1 — 60-Second Quickstart](#-tier-1-day-1--60-second-quickstart)
+- [Tier 1: Day 1 — 60-Second Quickstart](#tier-1-day-1--60-second-quickstart)
   - [Terminal Walkthrough](#terminal-walkthrough)
-- [Tier 2: Day 2 — Care & Maintenance](#-tier-2-day-2--care--maintenance)
+- [Tier 2: Day 2 — Care & Maintenance](#tier-2-day-2--care--maintenance)
   - [The Doctor: Self-Healing Configurations](#the-doctor-self-healing-configurations)
   - [Continuous Daemon Sync](#continuous-daemon-sync)
   - [Git Time Machine Snapshots & Rollback](#git-time-machine-snapshots--rollback)
-- [Tier 3: Day 3+ — Runtime Gateway, Sensory Gating & Memory](#-tier-3-day-3--runtime-gateway-sensory-gating--memory)
+- [Tier 3: Day 3+ — Runtime Gateway, Sensory Gating & Memory](#tier-3-day-3--runtime-gateway-sensory-gating--memory)
   - [The Runtime Gateway (`synapse serve`)](#the-runtime-gateway-synapse-serve)
   - [Synaptic Sensory Gating: 95% Token Auto-Compression](#synaptic-sensory-gating-95-token-auto-compression)
   - [Synaptic Memory (`synapse mem`)](#synaptic-memory-synapse-mem)
@@ -91,7 +91,7 @@ A developer's AI tooling environment is treated like a vital clinical system:
 
 ---
 
-## ⚡ Tier 1: Day 1 — 60-Second Quickstart
+## Tier 1: Day 1 — 60-Second Quickstart
 
 Get your workstation synchronized and calibrated in minutes:
 
@@ -179,7 +179,7 @@ $ synapse project
 
 ---
 
-## 🩺 Tier 2: Day 2 — Care & Maintenance
+## Tier 2: Day 2 — Care & Maintenance
 
 Once your Brain is initialized, use Synapse's care commands to maintain permanent lockstep:
 
@@ -230,7 +230,7 @@ synapse rollback <commit-hash>
 
 ---
 
-## ⚡ Tier 3: Day 3+ — Runtime Gateway, Sensory Gating & Memory
+## Tier 3: Day 3+ — Runtime Gateway, Sensory Gating & Memory
 
 For active AI development, Synapse provides a complete local runtime proxy, token compression gate, and semantic context layer.
 
@@ -307,28 +307,31 @@ synapse mem observe "Migrated to 15 adapters" --file packages/core/src/adapters/
 The **Vital Signs HUD** is a zero-RAM, clinical terminal dashboard for monitoring your active AI workstation in real time:
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE VITAL SIGNS HUD // RUNTIME COCKPIT                     v1.0.0  │
-└──────────────────────────────────────────────────────────────────────────┘
+┌─ CYBERDECK // SYNAPSE VITAL SIGNS HUD · RUNTIME COCKPIT ─────────────── v1.0.0 ─┐
+│  Dual-Zone Architecture · 15-Tool Star-Topology · Zero-Drift Telemetry           │
+└──────────────────────────────────────────────────────────────────────────────────┘
 
-🩺 RUNTIME GATEWAY
-  Status:   ● ONLINE (Listening on 127.0.0.1:8088)
-  Upstream: http://127.0.0.1:11434 (Ollama)
-  Model:    qwen2.5-coder:7b (12ms latency)
+╭── RUNTIME GATEWAY (LOCAL PROXY)
+│  Status:   ● ONLINE (Listening on 127.0.0.1:8088) [Press 'g' to halt]
+│  Upstream: http://127.0.0.1:11434
+│  Model:    qwen2.5-coder:7b (12ms latency)
+╰──────────────────────────────────────────────────────────────────────────────────
 
-⚡ SYNAPTIC SENSORY GATING & TOKEN METRICS
-  Requests Handled:     14
-  Raw Prompt Tokens:    148,200
-  Gated Prompt Tokens:  8,940
-  Tokens Pruned/Saved:  139,260 (93% reduction)
+╭── SYNAPTIC SENSORY GATING & TOKEN METRICS
+│  Requests Handled:     14
+│  Raw Prompt Tokens:    148,200
+│  Gated Prompt Tokens:  8,940
+│  Compression Ratio:    [▰▰▰▰▰▰▰▰▰▰▰▱] 93% reduction (139,260 saved)
+╰──────────────────────────────────────────────────────────────────────────────────
 
-🏛️ CANONICAL BRAIN (THE ORGAN)
-  Path:      /home/ebaymlay/Desktop/AI BRAIN
-  Adapters:  15 verified tools
-  Doctor:    ✔ LOCKSTEP SYNCED (0 faults)
+╭── CANONICAL BRAIN (THE ORGAN)
+│  Path:      /home/ebaymlay/Desktop/AI BRAIN
+│  Adapters:  15 verified tools
+│  Doctor:    [▰▰▰▰▰▰▰▰▰▰▰▰] ✔ LOCKSTEP SYNCED (0 faults)
+╰──────────────────────────────────────────────────────────────────────────────────
 
-────────────────────────────────────────────────────────────────────────────
-  Shortcuts: [s] Sync Brain  •  [d] Doctor Diagnostic  •  [p] Project  •  [q] Quit
+──────────────────────────────────────────────────────────────────────────────────
+  Shortcuts: [s] Sync  [d] Doctor  [p] Project  [g] Gateway  [:] Console  [q] Quit
 ```
 
 ```bash
@@ -436,8 +439,8 @@ It is crowned by the **Global Clinical Alert & Action Center**, providing real-t
 ├───────────────┬────────────────────────────────────────────────────────┤
 │ Intake        │  ● SYSTEM PARITY: 100% · ADAPTERS: 15/15 ONLINE        │
 │ Examination   │  ● ZONE 1 INTEGRITY: VERIFIED (SHA-256: d84f...9c)     │
-│ Cockpit       │  ⚡ SENSORY GATING: 42% TOKEN COMPRESSION (ACTIVE)      │
-│ Memory (3D)   │  🧠 3D CINEMA: 14 CLUSTERS · 22 AXONS · 60 FPS WEBGL   │
+│ Cockpit       │  ● SENSORY GATING: 42% TOKEN COMPRESSION (ACTIVE)      │
+│ Memory (3D)   │  ● 3D CINEMA: 14 CLUSTERS · 22 AXONS · 60 FPS WEBGL   │
 │ Sensory Spool │                                                        │
 │ [Heal Vitals] │  [Interactive 3D WebGL Neural Matrix Running]          │
 └───────────────┴────────────────────────────────────────────────────────┘
