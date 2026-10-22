@@ -5,6 +5,7 @@ Companion reference to `brands/synapse/SYNAPSE_Brand_System.dc.html` (the visual
 ## Identity
 
 - **Name:** SYNAPSE — always paired with the subtitle **Synapse** at first mention on any surface.
+- **Subtitle:** "The Canonical AI Brain"
 - **Tagline:** "One Brain. All Models."
 - **Tone anchor:** "Surgical precision. Zero friction."
 - **Concept:** structure meets organism. A hairline technical grid (blueprint corner marks, terminal chrome) wraps around living motifs (neurons, pulses, a stitched incision line). Precision on the outside, a brain at work inside.

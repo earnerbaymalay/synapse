@@ -1,5 +1,5 @@
 ```text
-┌─ SYNAPSE // CLINICAL ENGINE · RUNTIME GATEWAY ─────────────────── v1.0.0 ─ 100% LOCAL ─┐
+┌─ SYNAPSE // THE CANONICAL AI BRAIN ────────────────────────────── v1.0.0 ─ 100% LOCAL ─┐
 │                                                                                        │
 │       ●       ●      ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗       │
 │        \     /       ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝       │
@@ -17,6 +17,10 @@
 ```
 
 <div align="center">
+
+### Synapse — The Canonical AI Brain
+
+**One Brain. All Models.** Local-first, zero-telemetry, and fully auditable.
 
 [![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-1d9bf0?style=flat-square&logo=github)](https://earnerbaymalay.github.io/synapse/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)

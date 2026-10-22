@@ -73,7 +73,7 @@ export interface Sandbox {
 }
 
 export function createSandbox(testName: string): Sandbox {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `neuro-e2e-${testName}-`));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `synapse-e2e-${testName}-`));
   const workspaceDir = path.join(tmpDir, 'workspace');
   const brainDir = path.join(tmpDir, 'AIBrain');
   const mockHome = path.join(tmpDir, 'home');

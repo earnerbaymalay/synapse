@@ -2,7 +2,7 @@
 name = "synapse-core"
 version = "1.0.0"
 edition = "2021"
-description = "Canonical Brain model, scanner, adapter trait, projector, and sync engine shared by the desktop app and CLI"
+description = "Synapse — The Canonical AI Brain: Brain model, scanner, adapter trait, projector, and sync engine shared by the desktop app and CLI"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
