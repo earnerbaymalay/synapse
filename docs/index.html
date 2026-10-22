@@ -178,7 +178,7 @@
       </p>
 
       <!-- Primary Action Buttons -->
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
         <a href="#quickstart" class="w-full sm:w-auto px-8 py-3.5 bg-synapse-accent hover:bg-synapse-accentLight text-synapse-ink font-bold text-xs uppercase tracking-widest transition-all shadow-lg font-mono">
           Get Started in 60s
         </a>
@@ -188,6 +188,36 @@
         <a href="https://github.com/earnerbaymalay/synapse/releases" target="_blank" class="w-full sm:w-auto px-8 py-3.5 bg-synapse-card hover:bg-synapse-surface border border-synapse-borderLight text-slate-300 font-mono text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
           <span>Download Installers</span>
         </a>
+      </div>
+
+      <!-- Master Promo Video Player (Blueprint Cyberdeck Frame) -->
+      <div class="max-w-4xl mx-auto mb-16 corner-mark border border-synapse-border bg-synapse-surface p-2 text-left">
+        <div class="flex items-center justify-between px-3 py-2 border-b border-synapse-border mb-2 font-mono text-[11px] text-slate-400">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-synapse-accent animate-pulse"></span>
+            <span class="text-white font-semibold uppercase tracking-wider">// SYNAPSE PROMO · CLINICAL ARCHITECTURE IN MOTION</span>
+          </div>
+          <span class="text-synapse-accent font-mono text-[11px]">1080P · 60s · 100% LOCAL</span>
+        </div>
+        <div class="relative overflow-hidden bg-[#06080b] aspect-video border border-synapse-borderLight/40">
+          <video 
+            id="promo-video" 
+            controls 
+            preload="metadata" 
+            poster="assets/synapse-promo-poster.png"
+            class="w-full h-full object-cover"
+          >
+            <source src="assets/synapse-promo.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        <div class="px-3 py-2 flex items-center justify-between font-mono text-[11px] text-slate-500 border-t border-synapse-border mt-2">
+          <span>// SOUNDTRACK &amp; NARRATION: CHRISTOPHER NEURAL · SYNAPSE SCORE BED</span>
+          <a href="#quickstart" class="text-synapse-accent hover:underline flex items-center gap-1">
+            <span>60s Quickstart</span>
+            <span>→</span>
+          </a>
+        </div>
       </div>
 
       <!-- Interactive CLI Terminal Simulator -->
