@@ -2,7 +2,7 @@
 #
 # ralph.sh — the RALPH outer loop.
 #
-# Repeatedly invokes `claude -p "$(cat RALPH_PROMPT.md)"`. Each iteration the
+# Repeatedly invokes `claude -p "$(cat .ai/RALPH_PROMPT.md)"`. Each iteration the
 # agent reads PLAN.md, picks the single highest-priority unchecked, non-gate
 # task, implements it, runs its `verify:` check, commits, and ticks the box.
 # Fresh context per iteration is the token saver (see MASTER_PROMPT.md §2).
@@ -26,8 +26,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT" || exit 1
 
-PLAN="$ROOT/PLAN.md"
-PROMPT_FILE="$ROOT/RALPH_PROMPT.md"
+PLAN="$ROOT/.ai/PLAN.md"
+PROMPT_FILE="$ROOT/.ai/RALPH_PROMPT.md"
 MAX_ITERATIONS="${MAX_ITERATIONS:-20}"
 PERMISSION_MODE="${PERMISSION_MODE:-acceptEdits}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
@@ -84,7 +84,7 @@ while :; do
 
   if [[ "$DRY_RUN" == "1" ]]; then
     echo "     [dry-run] would run:" \
-      "$CLAUDE_BIN -p \"\$(cat RALPH_PROMPT.md)\" --permission-mode $PERMISSION_MODE"
+      "$CLAUDE_BIN -p \"\$(cat .ai/RALPH_PROMPT.md)\" --permission-mode $PERMISSION_MODE"
     break
   fi
 

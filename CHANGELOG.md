@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Interactive Cyber-Dark GitHub Pages Landing Site (`docs/index.html`)**:
   - Standalone interactive terminal simulator with tabbed verbs (`scan`, `import`, `project`, `sync`, `doctor`), live ECG vitals pulse, and 13 tool adapter specifications.
 - **CLI Binary Alias Integration**:
-  - Exposed binary aliases `synapse` and `synapse` across CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
+  - Single `synapse` binary exposing the CLI commands (`scan`, `import`, `project`, `sync`, `doctor`, `snapshot`, `rollback`).
 - **Antigravity CLI Adapter (`agy-cli`)**:
   - Implemented 13th tool adapter supporting Antigravity CLI rule files (`AGENTS.md`), custom skills (`.agy/skills/`), and settings configurations (`.gemini/settings.json`).
 - **Full CLI Non-Dry-Run Write Paths**:

@@ -331,7 +331,7 @@ pub fn get_memory_graph(brain: Option<String>) -> Result<MemoryGraphPayload, Str
     if nodes.len() == 1 {
         nodes.push(MemoryNodeDto {
             id: "node-synapse".to_string(),
-            label: "llm-neuro-surgeon".to_string(),
+            label: "synapse".to_string(),
             kind: "project".to_string(),
             narrative: "Primary Synapse orchestration workspace".to_string(),
             files: vec!["packages/core".to_string(), "apps/desktop".to_string()],
