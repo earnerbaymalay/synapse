@@ -98,6 +98,14 @@ impl Adapter for AgyCliAdapter {
                     continue;
                 }
                 let path = entry.path();
+                let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
+                if dir_name == "agy-cli-memory"
+                    || dir_name.ends_with("-rules")
+                    || dir_name.starts_with("claude-")
+                    || dir_name.starts_with("roo-mode-")
+                {
+                    continue;
+                }
                 let skill_md = path.join("SKILL.md");
                 if fs::symlink_metadata(&skill_md)
                     .map(|m| m.file_type().is_file())
@@ -107,12 +115,18 @@ impl Adapter for AgyCliAdapter {
                         AdapterError::Io(format!("Failed to read {}: {}", skill_md.display(), e))
                     })?;
                     let content = strip_provenance(&raw);
-                    let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
+                    let clean_slug = dir_name.trim_start_matches("agy-skill-");
+                    let clean_slug = if clean_slug.is_empty() { "skill" } else { clean_slug };
                     let sha256 = compute_sha256(&content);
+                    let id = if clean_slug == "obsidian-session-worklog" {
+                        "obsidian-session-worklog".to_string()
+                    } else {
+                        format!("agy-skill-{}", clean_slug)
+                    };
                     skills.push(Skill {
-                        id: format!("agy-skill-{}", dir_name),
+                        id,
                         version: "1.0.0".to_string(),
-                        triggers: vec![format!("skill:{}", dir_name)],
+                        triggers: vec![format!("skill:{}", clean_slug)],
                         targets: vec!["agy-cli".to_string()],
                         source: content,
                         sha256,
@@ -207,10 +221,15 @@ impl Adapter for AgyCliAdapter {
 
         // Write custom skills
         for skill in agy_skills {
-            if skill.id == "agy-cli-memory" {
+            if skill.id == "agy-cli-memory"
+                || skill.id.ends_with("-rules")
+                || skill.id.starts_with("claude-")
+                || skill.id.starts_with("roo-mode-")
+            {
                 continue;
             }
-            let slug = skill.id.strip_prefix("agy-skill-").unwrap_or(&skill.id);
+            let slug = skill.id.trim_start_matches("agy-skill-");
+            let slug = if slug.is_empty() { "skill" } else { slug };
 
             let skill_dir = safe_join(&paths.skills_dir, slug)?;
             fs::create_dir_all(&skill_dir).map_err(|e| {
