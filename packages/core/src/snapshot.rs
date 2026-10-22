@@ -41,10 +41,24 @@ fn run_git(cwd: &Path, args: &[&str]) -> Result<String, SnapshotError> {
         .output()
         .map_err(|e| SnapshotError::Io(format!("failed to run git {}: {}", args.join(" "), e)))?;
     if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let details = if !stderr.is_empty() {
+            stderr
+        } else if !stdout.is_empty() {
+            stdout
+        } else {
+            String::new()
+        };
+        let detail_suffix = if details.is_empty() {
+            String::new()
+        } else {
+            format!(": {details}")
+        };
         return Err(SnapshotError::Command(format!(
-            "git {} failed: {}",
+            "git {} failed{}",
             args.join(" "),
-            String::from_utf8_lossy(&output.stderr).trim()
+            detail_suffix
         )));
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -78,13 +92,26 @@ pub fn snapshot(brain_root: &Path, message: &str) -> Result<String, SnapshotErro
     ensure_repo(brain_root)?;
     run_git(brain_root, &["add", "-A"])?;
 
-    let status = run_git(brain_root, &["status", "--porcelain"])?;
-    if status.is_empty() {
+    // Check if anything is actually staged in the index ready to be committed.
+    // We check `git diff --cached --name-only` rather than status, because
+    // submodules with dirty working copies or untracked files appear in porcelain status
+    // but are never staged into the index by `git add -A`.
+    let staged_diff = run_git(brain_root, &["diff", "--cached", "--name-only"])?;
+    if staged_diff.is_empty() {
         return current_head(brain_root);
     }
 
-    run_git(brain_root, &["commit", "-q", "-m", message])?;
-    current_head(brain_root)
+    match run_git(brain_root, &["commit", "-q", "-m", message]) {
+        Ok(_) => current_head(brain_root),
+        Err(SnapshotError::Command(ref err))
+            if err.contains("no changes added to commit")
+                || err.contains("nothing to commit")
+                || err.contains("clean") =>
+        {
+            current_head(brain_root)
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Restores `brain_root`'s working tree to be byte-identical to `commit`
@@ -313,6 +340,19 @@ mod tests {
         let log = run_git(dir.path(), &["log", "--oneline"]).unwrap();
         assert_eq!(log.lines().count(), 3);
         assert_ne!(rollback_sha, snapshot_one);
+    }
+
+    #[test]
+    fn rollback_to_current_commit_without_staged_changes_does_not_halt() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.yaml"), "version: 1").unwrap();
+        let initial_sha = snapshot(dir.path(), "initial").unwrap();
+
+        // Rolling back to the exact current commit when nothing has changed
+        // should return the existing HEAD without erroring on empty commit.
+        let result = rollback(dir.path(), &initial_sha);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), initial_sha);
     }
 
     /// A revision that looks like a git flag must be treated as a (bad)
