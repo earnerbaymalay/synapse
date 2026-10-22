@@ -25,6 +25,8 @@ pub enum CompressionLevel {
     Aggressive,
     /// Zero-noise mode: emits output only if the process fails (non-zero exit or error)
     StrictErrorsOnly,
+    /// Pass-through: output is returned unchanged
+    Off,
 }
 
 impl CompressionLevel {
@@ -33,6 +35,7 @@ impl CompressionLevel {
             "balanced" => Some(Self::Balanced),
             "aggressive" => Some(Self::Aggressive),
             "strict" | "strict-errors-only" => Some(Self::StrictErrorsOnly),
+            "off" | "none" => Some(Self::Off),
             _ => None,
         }
     }
@@ -118,6 +121,9 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
     let raw_tokens = estimate_tokens(input);
     if input.trim().is_empty() {
         return (String::new(), 0, 0, 0);
+    }
+    if level == CompressionLevel::Off {
+        return (input.to_string(), raw_tokens, raw_tokens, 0);
     }
 
     let kind = detect_stream_kind(input);
