@@ -26,6 +26,10 @@ dirs = "6"
 # everything secrets-related tests against the fixture store by default.
 keyring = { version = "3", features = ["sync-secret-service", "apple-native", "windows-native"], optional = true }
 
+# O_NOFOLLOW for appends to owner-only logs.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [features]
 os-keychain = ["dep:keyring"]
 
