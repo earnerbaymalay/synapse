@@ -20,8 +20,8 @@
 * **[Design Pack](DESIGN_PACK.md)** — Design tokens, component specs, and ASCII wireframes.
 * **[Security Architecture](security.md)** — Threat model, path traversal defense (`safe_join`), symlink loop guards, and OS Keychain integration.
 
-### 🔌 3. Verified Tool Adapters (13 Ecosystems)
-* **[Adapters Overview](adapters/README.md)** — Full schema translation table across all 13 AI coding tools.
+### 3. Verified Tool Adapters (15 Ecosystems)
+* **[Adapters Overview](adapters/README.md)** — Full schema translation table across all 15 AI coding tools.
 * **[Adapter Authoring Guide](ADAPTER_AUTHORING_GUIDE.md)** — Step-by-step instructions for implementing custom Rust adapters.
 * Individual Adapters:
   * [Claude Code / Desktop](adapters/claude.md)
@@ -32,6 +32,8 @@
   * [Roo Code](adapters/roo-code.md)
   * [GitHub Copilot](adapters/github-copilot.md)
   * [Zed](adapters/zed.md)
+  * [AWS Kiro](adapters/kiro.md)
+  * [Trae IDE](adapters/trae.md)
   * [Antigravity CLI](adapters/antigravity.md)
   * [OpenAI Codex CLI](adapters/openai-codex.md)
   * [Aider](adapters/aider.md)

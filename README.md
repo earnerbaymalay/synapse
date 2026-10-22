@@ -1,5 +1,5 @@
 ```text
-┌─ SYNAPSE // CLINICAL CONFIGURATION ENGINE & RUNTIME GATEWAY ───────────────────────── v1.0.0 ─ 100% LOCAL ─┐
+┌─ CYBERDECK // SYNAPSE CLINICAL ENGINE & RUNTIME GATEWAY ───────────────────────────── v1.0.0 ─ 100% LOCAL ─┐
 │                                                                                                            │
 │                  ●       ●      ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗                │
 │                   \     /       ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝                │
