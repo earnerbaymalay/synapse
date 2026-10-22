@@ -568,7 +568,10 @@ mod tests {
             std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let status = health_check_stdio(&script.display().to_string(), Duration::from_millis(250));
+        // Run via `sh <script>` rather than exec'ing the freshly written file:
+        // a concurrent test's fork can briefly hold it open for writing, which
+        // makes a direct exec fail with ETXTBSY under parallel load.
+        let status = health_check_stdio(&format!("sh {}", script.display()), Duration::from_secs(5));
         assert_eq!(status, HealthStatus::Healthy);
     }
 
@@ -658,14 +661,15 @@ mod tests {
         let mut installed = InstalledMcpServer::install(McpServer {
             id: "example/fixture".into(),
             transport: "stdio".into(),
-            command_or_url: script.display().to_string(),
+            // `sh <script>` avoids ETXTBSY flakes (see the handshake test).
+            command_or_url: format!("sh {}", script.display()),
             env_placeholders: vec![],
             targets: vec![],
             health: HealthStatus::Unknown,
         });
         installed.enable();
 
-        let status = health_check(&installed, Duration::from_secs(5)).unwrap();
+        let status = health_check(&installed, Duration::from_secs(10)).unwrap();
         assert_eq!(status, HealthStatus::Healthy);
     }
 
