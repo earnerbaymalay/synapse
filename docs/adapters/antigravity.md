@@ -10,18 +10,20 @@
 | Property | Value |
 |---|---|
 | **Adapter ID** | `agy-cli` |
-| **Native Configs** | `AGENTS.md`, `.agy/skills/`, `.gemini/settings.json` |
+| **Native Configs** | `AGENTS.md`, `.agents/skills/`, `.agents/agents/`, `.agents/mcp_config.json`, `.gemini/config/` |
 | **Parsing Engine** | Markdown agents + YAML frontmatter skill parser |
-| **Projection Target** | `AGENTS.md` + `.agy/skills/` |
-| **Symlink Support** | Direct symlink for `.agy/skills/` |
+| **Projection Target** | `AGENTS.md` + `.agents/skills/`, `.agents/agents/`, `.agents/mcp_config.json` |
+| **Symlink Support** | None. Skills, agents, and MCP config are written as files. |
 
 ---
 
 ## 📥 Ingestion & Projection Strategy
 
-- Ingests Antigravity skills from `.agy/skills/<slug>/SKILL.md` into `~/AIBrain/skills/<slug>/`.
-- Ingests agent definitions from `AGENTS.md`.
-- Projects canonical Brain skills into Antigravity workspaces.
+- Ingests skills from `.agents/skills/<slug>/SKILL.md` into the Brain's `skills/<slug>/`. Directories and `SKILL.md` files that are symlinks are skipped.
+- Ingests agent definitions from `.agents/agents/` and memory from `AGENTS.md`.
+- Ingests MCP servers from `.agents/mcp_config.json`.
+- Under a `.gemini/config/` root, the same layout applies with `skills/`, `sidecars/`, and `mcp_config.json` relative to that root.
+- Projects Brain skills, agents, and MCP servers into `.agents/`.
 
 ---
 
