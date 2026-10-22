@@ -485,7 +485,12 @@ fn main() -> ExitCode {
             }
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::parse)
+                .map(parse_level)
+                .transpose()
+                .unwrap_or_else(|e| {
+                    chart::fault("exec", &e, None);
+                    std::process::exit(2)
+                })
                 .unwrap_or_default();
 
             let bin = &command[0];
@@ -509,7 +514,12 @@ fn main() -> ExitCode {
         Command::Filter { level, spool_dir } => {
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::parse)
+                .map(parse_level)
+                .transpose()
+                .unwrap_or_else(|e| {
+                    chart::fault("filter", &e, None);
+                    std::process::exit(2)
+                })
                 .unwrap_or_default();
 
             let mut input = String::new();
@@ -589,8 +599,13 @@ fn main() -> ExitCode {
             api_key,
             fold_keep,
         } => {
-            let comp_level =
-                CompressionLevel::parse(&gate_level).unwrap_or(CompressionLevel::Balanced);
+            let comp_level = match parse_level(&gate_level) {
+                Ok(l) => l,
+                Err(e) => {
+                    chart::fault("serve", &e, None);
+                    return ExitCode::from(2);
+                }
+            };
             let upstream_kind = UpstreamKind::from_url_or_name(&upstream);
             let bind_addr = format!("{}:{}", host, port);
 
@@ -1310,6 +1325,13 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     Err("cannot locate a home directory; pass --brain <PATH>".to_string())
 }
 
+/// Parses a gating level, rejecting unknown names instead of silently
+/// falling back to Balanced.
+fn parse_level(s: &str) -> Result<CompressionLevel, String> {
+    CompressionLevel::parse(s)
+        .ok_or_else(|| format!("unknown level '{s}' (expected balanced, aggressive, strict, or off)"))
+}
+
 /// Resolves the tool config root that projection paths are relative to.
 /// Precedence: `--tool-root`, then `$SYNAPSE_WORKSPACE_PATH` / `$SYNAPSE_TOOL_ROOT`, then home.
 fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
@@ -1320,9 +1342,6 @@ fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
         std::env::var_os("SYNAPSE_WORKSPACE_PATH").or_else(|| std::env::var_os("SYNAPSE_TOOL_ROOT"))
     {
         return Ok(PathBuf::from(env));
-    }
-    if let Ok(cur) = std::env::current_dir() {
-        return Ok(cur);
     }
     dirs::home_dir()
         .ok_or_else(|| "cannot locate a home directory; pass --tool-root <PATH>".to_string())
