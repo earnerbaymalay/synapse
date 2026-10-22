@@ -9,14 +9,15 @@
 //!   Sensory Gating engine ([`crate::compression`]) and truncated.
 //! * **Privacy** — `<private>…</private>` spans are dropped before storage and
 //!   obvious credentials are redacted.
-//! * **Storage** — an append-only JSONL file; no database, no network.
+//! * **Storage** — an append-only JSONL file (owner-only permissions on
+//!   unix); no database, no network. Writers serialise on an advisory lock.
 //! * **Progressive disclosure** — `search` returns a cheap index, `timeline`
 //!   adds surrounding context, `get` fetches full detail for chosen ids.
 //! * **Injection** — [`MemoryStore::context`] renders a compact index of recent
 //!   work for SessionStart.
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -114,6 +115,23 @@ impl MemoryStore {
         self.dir.join("observations.jsonl")
     }
 
+    /// Takes the store-wide advisory lock (released when the guard drops).
+    /// A separate lock file is used because `forget` replaces the log by
+    /// rename, which would orphan a lock held on the log itself.
+    fn lock(&self) -> std::io::Result<File> {
+        crate::security::create_private_dir_all(&self.dir)?;
+        let mut opts = OpenOptions::new();
+        opts.create(true).truncate(false).write(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let f = opts.open(self.dir.join("observations.lock"))?;
+        f.lock()?;
+        Ok(f)
+    }
+
     /// Sanitises (privacy + redaction), assigns an id, and appends.
     /// Returns `None` when nothing is left to store after sanitising.
     pub fn add(&self, new: NewObservation) -> std::io::Result<Option<Observation>> {
@@ -122,7 +140,7 @@ impl MemoryStore {
         if title.trim().is_empty() && narrative.trim().is_empty() {
             return Ok(None);
         }
-        fs::create_dir_all(&self.dir)?;
+        let _guard = self.lock()?;
         let existing = self.all()?;
         // Collapse immediate duplicates (e.g. repeated identical reads).
         if let Some(last) = existing.iter().rev().find(|o| o.session == new.session) {
@@ -147,11 +165,19 @@ impl MemoryStore {
         };
         let mut line = serde_json::to_string(&obs).map_err(std::io::Error::other)?;
         line.push('\n');
-        let mut f = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(self.log_path())?;
-        f.write_all(line.as_bytes())?;
+        let mut opts = OpenOptions::new();
+        opts.create(true).append(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+            opts.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+            let f = opts.open(self.log_path())?;
+            // Tighten logs created by older versions with the default umask.
+            f.set_permissions(fs::Permissions::from_mode(0o600))?;
+            (&f).write_all(line.as_bytes())?;
+        }
+        #[cfg(not(unix))]
+        opts.open(self.log_path())?.write_all(line.as_bytes())?;
         Ok(Some(obs))
     }
 
@@ -251,18 +277,29 @@ impl MemoryStore {
             .collect())
     }
 
-    /// Delete observations by id. Returns how many were removed.
+    /// Delete observations by id. Returns how many were removed. Lines that
+    /// do not parse are kept verbatim (they may be from a newer version),
+    /// and the log is replaced atomically so a crash never truncates it.
     pub fn forget(&self, ids: &[u64]) -> std::io::Result<usize> {
-        let all = self.all()?;
-        let keep: Vec<&Observation> = all.iter().filter(|o| !ids.contains(&o.id)).collect();
-        let removed = all.len() - keep.len();
-        if removed > 0 {
-            let mut out = String::new();
-            for o in keep {
-                out.push_str(&serde_json::to_string(o).map_err(std::io::Error::other)?);
-                out.push('\n');
+        let _guard = self.lock()?;
+        let raw = match fs::read_to_string(self.log_path()) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+            Err(e) => return Err(e),
+        };
+        let mut removed = 0;
+        let mut out = String::with_capacity(raw.len());
+        for line in raw.lines() {
+            match serde_json::from_str::<Observation>(line) {
+                Ok(o) if ids.contains(&o.id) => removed += 1,
+                _ => {
+                    out.push_str(line);
+                    out.push('\n');
+                }
             }
-            fs::write(self.log_path(), out)?;
+        }
+        if removed > 0 {
+            crate::security::write_private_atomic(&self.log_path(), out)?;
         }
         Ok(removed)
     }
@@ -512,32 +549,7 @@ pub fn sanitize(text: &str) -> String {
             }
         }
     }
-    redact_secrets(&out)
-}
-
-fn redact_secrets(text: &str) -> String {
-    const PREFIXES: [&str; 8] = [
-        "sk-",
-        "ghp_",
-        "gho_",
-        "github_pat_",
-        "AKIA",
-        "xoxb-",
-        "xoxp-",
-        "AIza",
-    ];
-    text.split_inclusive(char::is_whitespace)
-        .map(|chunk| {
-            let word = chunk.trim_end();
-            let tail = &chunk[word.len()..];
-            let core = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_');
-            if core.len() >= 20 && PREFIXES.iter().any(|p| core.starts_with(p)) {
-                format!("[REDACTED]{}", tail)
-            } else {
-                chunk.to_string()
-            }
-        })
-        .collect()
+    crate::security::redact_secrets(&out)
 }
 
 fn response_text(v: &Value) -> String {
@@ -650,6 +662,68 @@ mod tests {
         let raw = fs::read_to_string(d.path().join("observations.jsonl")).unwrap();
         assert!(!raw.contains("hunter2") && !raw.contains("sk-abcdef"));
         assert!(raw.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn sanitize_redacts_assignment_and_header_shaped_secrets() {
+        let out = sanitize(
+            "export GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123 then curl -H 'Authorization: Bearer abc.def.ghi' postgres://u:pw99@h",
+        );
+        for secret in ["ghp_ABCDEF", "abc.def.ghi", "pw99"] {
+            assert!(!out.contains(secret), "{out}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn memory_log_and_dir_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let s = MemoryStore::new(d.path().join("mem"));
+        s.add(note("s", "p", "note", "hello", "")).unwrap();
+        let mode = |p: PathBuf| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(d.path().join("mem")), 0o700);
+        assert_eq!(mode(d.path().join("mem/observations.jsonl")), 0o600);
+    }
+
+    #[test]
+    fn forget_keeps_unparsable_lines_verbatim() {
+        let (d, s) = store();
+        s.add(note("s", "p", "note", "one", "")).unwrap();
+        let log = d.path().join("observations.jsonl");
+        let mut raw = fs::read_to_string(&log).unwrap();
+        raw.push_str("{\"future\":\"format\"}\n");
+        fs::write(&log, raw).unwrap();
+        s.add(note("s", "p", "note", "two", "")).unwrap();
+        assert_eq!(s.forget(&[1]).unwrap(), 1);
+        let after = fs::read_to_string(&log).unwrap();
+        assert!(after.contains("{\"future\":\"format\"}"));
+        assert!(after.contains("\"two\"") && !after.contains("\"one\""));
+    }
+
+    #[test]
+    fn concurrent_adds_never_reuse_an_id() {
+        let (d, _s) = store();
+        let dir = d.path().to_path_buf();
+        let handles: Vec<_> = (0..8)
+            .map(|t| {
+                let dir = dir.clone();
+                std::thread::spawn(move || {
+                    let s = MemoryStore::new(dir);
+                    for i in 0..10 {
+                        s.add(note(&format!("s{t}"), "p", "note", &format!("t{t} n{i}"), ""))
+                            .unwrap();
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let all = MemoryStore::new(dir).all().unwrap();
+        let ids: HashSet<u64> = all.iter().map(|o| o.id).collect();
+        assert_eq!(all.len(), 80);
+        assert_eq!(ids.len(), 80);
     }
 
     #[test]
