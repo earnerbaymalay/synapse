@@ -132,9 +132,14 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
         format!("{red}○ OFFLINE{reset} {yellow}[Press 'g' to start runtime gateway]{reset}")
     };
 
-    out.push_str(&format!("{bold}{cyan}╭── RUNTIME GATEWAY (LOCAL PROXY){reset}\n"));
+    out.push_str(&format!(
+        "{bold}{cyan}╭── RUNTIME GATEWAY (LOCAL PROXY){reset}\n"
+    ));
     out.push_str(&format!("│  Status:   {}\n", gw_status));
-    out.push_str(&format!("│  Upstream: {cyan}{}{reset}\n", snap.upstream_url));
+    out.push_str(&format!(
+        "│  Upstream: {cyan}{}{reset}\n",
+        snap.upstream_url
+    ));
     if !snap.stats.last_model.is_empty() {
         out.push_str(&format!(
             "│  Model:    {bold}{}{reset} ({dim}{}ms latency{reset})\n",
@@ -171,13 +176,16 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
     let (brain_status, brain_gauge) = if snap.doctor_healthy {
         if snap.doctor_warnings > 0 {
             (
-                format!("{yellow}⚠ ATTENTION REQUIRED{reset} ({} warnings)", snap.doctor_warnings),
-                format!("{yellow}[{}]{reset}", render_gauge(85, 12))
+                format!(
+                    "{yellow}⚠ ATTENTION REQUIRED{reset} ({} warnings)",
+                    snap.doctor_warnings
+                ),
+                format!("{yellow}[{}]{reset}", render_gauge(85, 12)),
             )
         } else {
             (
                 format!("{green}✔ LOCKSTEP SYNCED{reset} (0 faults)"),
-                format!("{green}[{}]{reset}", render_gauge(100, 12))
+                format!("{green}[{}]{reset}", render_gauge(100, 12)),
             )
         }
     } else {
@@ -190,7 +198,9 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
         )
     };
 
-    out.push_str(&format!("{bold}{cyan}╭── CANONICAL BRAIN (THE ORGAN){reset}\n"));
+    out.push_str(&format!(
+        "{bold}{cyan}╭── CANONICAL BRAIN (THE ORGAN){reset}\n"
+    ));
     out.push_str(&format!("│  Path:      {dim}{}{reset}\n", snap.brain_path));
     out.push_str(&format!(
         "│  Adapters:  {bold}{} verified tools{reset}\n",
