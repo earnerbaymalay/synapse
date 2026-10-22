@@ -188,7 +188,7 @@ enum SpoolAction {
     },
 }
 
-use std::io::Read;
+use std::io::{Read, Write};
 use synapse_core::compression::{execute_with_compression, CompressionLevel, SpoolManager};
 use synapse_core::gateway::{GatewayConfig, GatewayServer, UpstreamKind};
 use synapse_core::hud::{format_hud, HudSnapshot};
@@ -676,11 +676,7 @@ fn main() -> ExitCode {
                 print!("{}", format_hud(&snap, !no_color));
                 ExitCode::SUCCESS
             } else {
-                loop {
-                    let snap = HudSnapshot::collect(&gateway, &brain_root, &tool_root);
-                    print!("\x1b[2J\x1b[1;1H{}", format_hud(&snap, !no_color));
-                    std::thread::sleep(std::time::Duration::from_secs(interval));
-                }
+                run_interactive_hud(&gateway, &brain_root, &tool_root, interval, !no_color)
             }
         }
         Command::Onboard {
@@ -717,6 +713,127 @@ fn main() -> ExitCode {
             )
         }
     }
+}
+
+fn run_interactive_hud(
+    gateway: &str,
+    brain_root: &Path,
+    tool_root: &Path,
+    interval: u64,
+    use_color: bool,
+) -> ExitCode {
+    use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+    use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+    use std::time::{Duration, Instant};
+
+    struct RawModeGuard;
+    impl Drop for RawModeGuard {
+        fn drop(&mut self) {
+            let _ = disable_raw_mode();
+            print!("\r\n");
+            let _ = std::io::stdout().flush();
+        }
+    }
+
+    if let Err(e) = enable_raw_mode() {
+        eprintln!("Failed to enable raw mode: {}", e);
+        return ExitCode::FAILURE;
+    }
+    let _guard = RawModeGuard;
+
+    let mut status_msg: Option<String> = None;
+    let mut last_render = Instant::now() - Duration::from_secs(interval + 1);
+    let poll_interval = Duration::from_millis(100);
+
+    loop {
+        if last_render.elapsed() >= Duration::from_secs(interval) {
+            let snap = HudSnapshot::collect(gateway, brain_root, tool_root);
+            let mut rendered = format_hud(&snap, use_color);
+            rendered = rendered.replace('\n', "\r\n");
+            print!("\x1b[2J\x1b[1;1H{}", rendered);
+            if let Some(msg) = &status_msg {
+                let bullet = if use_color { "\x1b[1;32m●\x1b[0m" } else { "●" };
+                print!("  {} {}\r\n", bullet, msg);
+            }
+            let _ = std::io::stdout().flush();
+            last_render = Instant::now();
+        }
+
+        if event::poll(poll_interval).unwrap_or(false) {
+            if let Ok(Event::Key(key)) = event::read() {
+                if key.kind == crossterm::event::KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => break,
+                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                        KeyCode::Char('s') => {
+                            match perform_sync(brain_root, tool_root) {
+                                Ok(SyncOutcome::Applied { changed_paths }) => {
+                                    status_msg = Some(format!(
+                                        "Sync: {} applied.",
+                                        chart::plural(changed_paths.len(), "change")
+                                    ));
+                                }
+                                Ok(SyncOutcome::NoChanges) => {
+                                    status_msg = Some("Sync: Brain is already in sync with every tool.".to_string());
+                                }
+                                Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
+                                    status_msg = Some(format!(
+                                        "Sync: {} need human resolution.",
+                                        chart::plural(conflict_ids.len(), "conflict")
+                                    ));
+                                }
+                                Err(e) => {
+                                    status_msg = Some(format!("Sync failed: {}", e));
+                                }
+                            }
+                            last_render = Instant::now() - Duration::from_secs(interval + 1);
+                        }
+                        KeyCode::Char('d') => {
+                            let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
+                                brain_root.join(".brain/mappings.json")
+                            } else {
+                                brain_root.join("mappings.json")
+                            };
+                            let ctx = synapse_core::doctor::DoctorContext {
+                                brain_root: brain_root.to_path_buf(),
+                                tool_root: tool_root.to_path_buf(),
+                                mappings_path,
+                            };
+                            let diags = synapse_core::doctor::diagnose(&ctx);
+                            let criticals = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Critical).count();
+                            let warnings = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Warning).count();
+                            if diags.is_empty() {
+                                status_msg = Some("Doctor: Clean bill of health. No drift or faults.".to_string());
+                            } else {
+                                status_msg = Some(format!(
+                                    "Doctor: {} criticals, {} warnings.",
+                                    criticals, warnings
+                                ));
+                            }
+                            last_render = Instant::now() - Duration::from_secs(interval + 1);
+                        }
+                        KeyCode::Char('p') => {
+                            match perform_project(brain_root, tool_root) {
+                                Ok(paths) => {
+                                    status_msg = Some(format!(
+                                        "Project: {} projected out of the Brain.",
+                                        chart::plural(paths.len(), "file")
+                                    ));
+                                }
+                                Err(e) => {
+                                    status_msg = Some(format!("Project failed: {}", e));
+                                }
+                            }
+                            last_render = Instant::now() - Duration::from_secs(interval + 1);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    ExitCode::SUCCESS
 }
 
 /// Charts which of the registered adapters are present under `root`.
