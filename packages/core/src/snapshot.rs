@@ -77,7 +77,39 @@ pub fn ensure_repo(brain_root: &Path) -> Result<(), SnapshotError> {
         run_git(brain_root, &["config", "user.email", "brain@Synapse.local"])?;
         run_git(brain_root, &["config", "user.name", "Synapse Brain"])?;
     }
-    Ok(())
+    ensure_gitignore(brain_root)
+}
+
+/// Runtime files that must never be captured by a snapshot: a committed
+/// `.lock` would be restored by rollback and block every later sync.
+const BRAIN_IGNORES: &[&str] = &[".lock", "conflicts.json"];
+
+fn ensure_gitignore(brain_root: &Path) -> Result<(), SnapshotError> {
+    let path = brain_root.join(".gitignore");
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let missing: Vec<&str> = BRAIN_IGNORES
+        .iter()
+        .copied()
+        .filter(|entry| !existing.lines().any(|l| l.trim() == *entry))
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let mut content = existing;
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+    for entry in missing {
+        content.push_str(entry);
+        content.push('\n');
+        // Untrack a copy committed before it was ignored.
+        let _ = run_git(
+            brain_root,
+            &["rm", "-q", "--cached", "--ignore-unmatch", entry],
+        );
+    }
+    fs::write(&path, content)
+        .map_err(|e| SnapshotError::Io(format!("failed to write {}: {}", path.display(), e)))
 }
 
 fn current_head(brain_root: &Path) -> Result<String, SnapshotError> {
@@ -133,6 +165,10 @@ pub fn rollback(brain_root: &Path, commit: &str) -> Result<String, SnapshotError
         brain_root,
         &["rev-parse", "--verify", "--end-of-options", commit],
     )?;
+
+    // Record any uncommitted Brain edits first so the rollback itself can
+    // be undone; `checkout -- .` would otherwise discard them for good.
+    snapshot(brain_root, "auto-snapshot before rollback")?;
 
     // Restores every path present in the target commit's tree.
     run_git(brain_root, &["checkout", &target, "--", "."])?;

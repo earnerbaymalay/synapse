@@ -136,7 +136,8 @@ describe('Tier 3: Combinations & State Transitions', () => {
         source: '# Rules\nSpacing rules mod brain.\n',
         sha256: '83cf13426e632b724f7a2d8e404bf7c2d7f8a70c8c9735d461cf6a568c4a93a1'
       };
-      writeFile(sandbox.brainDir, 'skills/cline-rules/skill.yaml', JSON.stringify(skillData));
+      // SKILL.md is the Brain's editable source of truth; skill.yaml is metadata.
+      writeFile(sandbox.brainDir, 'skills/cline-rules/SKILL.md', skillData.source);
 
       // 3. Sync should detect conflict
       const result = await runCLI(['sync', '--once'], { sandbox, reject: false });
@@ -162,7 +163,8 @@ describe('Tier 3: Combinations & State Transitions', () => {
         source: '# Rules\nSpacing rules mod brain.\n',
         sha256: '83cf13426e632b724f7a2d8e404bf7c2d7f8a70c8c9735d461cf6a568c4a93a1'
       };
-      writeFile(sandbox.brainDir, 'skills/cline-rules/skill.yaml', JSON.stringify(skillData));
+      // SKILL.md is the Brain's editable source of truth; skill.yaml is metadata.
+      writeFile(sandbox.brainDir, 'skills/cline-rules/SKILL.md', skillData.source);
 
       await runCLI(['sync', '--once'], { sandbox, reject: false });
 
@@ -178,12 +180,25 @@ describe('Tier 3: Combinations & State Transitions', () => {
   it('should prevent concurrent sync operations using a file lock', async () => {
     const sandbox = createSandbox('combo-lock');
     try {
-      // Simulate file lock
-      writeFile(sandbox.brainDir, '.lock', '12345');
+      // A lock held by a live process (this test runner). Locks naming a
+      // dead PID are reclaimed; see the stale-lock test below.
+      writeFile(sandbox.brainDir, '.lock', String(process.pid));
 
       const result = await runCLI(['sync', '--once'], { sandbox, reject: false });
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain('lock');
+    } finally {
+      sandbox.cleanup();
+    }
+  });
+
+  it('should reclaim a lock left by a dead process', async () => {
+    const sandbox = createSandbox('combo-stale-lock');
+    try {
+      writeFile(sandbox.workspaceDir, '.clinerules', '# Rules\n');
+      writeFile(sandbox.brainDir, '.lock', '4194303');
+      const result = await runCLI(['sync', '--once'], { sandbox, reject: false });
+      expect(result.exitCode).toBe(0);
     } finally {
       sandbox.cleanup();
     }
