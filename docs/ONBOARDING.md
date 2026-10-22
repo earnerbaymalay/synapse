@@ -1,5 +1,5 @@
 # Onboarding Guide — SYNAPSE
-### The Clinical Engine for AI Context — Four-Phase Journey
+### The Canonical AI Brain — Four-Phase Journey
 
 Welcome to **SYNAPSE**. This guide walks you through the four phases of setting up and taking complete control of your AI tool configurations.
 
@@ -7,7 +7,7 @@ Welcome to **SYNAPSE**. This guide walks you through the four phases of setting 
 flowchart TD
     Phase1[Phase 1: The Hook\nIdentify fragmented tool configs] --> Phase2[Phase 2: The Solution\nInitialize canonical ~/AIBrain]
     Phase2 --> Phase3[Phase 3: Immediate Value\nExecute scan -> import -> project]
-    Phase3 --> Phase4[Phase 4: Long-Term Power\nDaemon sync + Time Machine snapshots]
+    Phase3 --> Phase4[Phase 4: Long-Term Power\nScheduled sync + Time Machine snapshots]
 ```
 
 ---
@@ -70,10 +70,10 @@ Once your Brain is initialized, unlock long-term features:
 | Feature | Command | Benefits |
 |---|---|---|
 | **Time Machine** | `synapse snapshot "msg"` | Every sync is a Git commit. Revert anytime with `synapse rollback <hash>`. |
-| **Auto-Sync Daemon** | `synapse sync --daemon` | Watches the Brain and all tools; resolves drift with a 3-way merge in real time. |
+| **Scheduled Sync** | `synapse sync` (run from cron, a systemd timer, or launchd) | One pass per run: imports tool edits, projects Brain edits, and resolves two-sided changes with a 3-way merge. Unresolved conflicts are queued in the Brain. |
 | **Doctor Auto-Repair** | `synapse doctor --fix` | Diagnoses broken symlinks and config drift, repairing them automatically. |
 | **Runtime Gateway** | `synapse serve` | Local reverse proxy normalizing tool-calls and executing 95% sensory gating compression. |
-| **Context Retrieval** | `synapse mem <query>` | 3-layer semantic retrieval (Layer 1 search, Layer 2 timeline, Layer 3 topic get). |
+| **Context Retrieval** | `synapse mem search <terms>` | 3-layer retrieval (Layer 1 `search`, Layer 2 `timeline`, Layer 3 `get`). Keyword matching, not semantic search. |
 | **Vital Signs HUD** | `synapse hud` | Zero-RAM live terminal cockpit displaying token burn, latency, and Brain lockstep. |
 
 ---

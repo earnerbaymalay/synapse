@@ -11,7 +11,7 @@
       "source-map-js": "^1.2.2"
     }
   },
-  "description": "Monorepo root \u2014 see PLAN.md for phase status",
+  "description": "Synapse \u2014 The Canonical AI Brain (monorepo root)",
   "scripts": {
     "test": "pnpm -r test"
   }

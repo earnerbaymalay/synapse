@@ -2,7 +2,7 @@
 name = "desktop-app"
 version = "1.0.0"
 edition = "2021"
-description = "Synapse desktop application (Tauri core)"
+description = "Synapse — The Canonical AI Brain (desktop app)"
 
 
 [[bin]]
@@ -31,6 +31,10 @@ tempfile = "3"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+# Passthrough so `tauri build --features os-keychain` (which only accepts
+# features of this crate) can enable the OS keychain secret store for
+# release bundles. See .github/workflows/build.yml.
+os-keychain = ["synapse-core/os-keychain"]
 
 # Release profile is configured in the workspace root (see ../../../Cargo.toml).
 # Defining it again here would trigger:

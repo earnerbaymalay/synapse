@@ -1,5 +1,7 @@
 # Progress
 
+_State reconciled 2026-10-23: phases 3–8.2 are complete per PLAN.md and the green test suites; only Gate 4 (T8.3, human install) remains._
+
 - T0.1 ✅ Scaffold repo, state files, Ralph loop, and swarm roles.
 - T0.2 ✅ Reconnaissance: authored 12 briefs in `docs/research/`.
 - T0.3 ✅ Complete: 3 brand identity packages with HTML dashboard mocks.
@@ -11,20 +13,20 @@
 - [x] T2.1 ✅ Complete: Monorepo layout (apps/desktop, packages/core, packages/schema, apps/cli, fixtures). (An early iteration reopened this as PARTIAL on 2026-07-08 when packages/core/schema/cli/fixtures were missing; they were subsequently built and cargo test --workspace is green — so T2.1 is genuinely complete.)
 - [x] T2.2 ✅ Complete: Empty Tauri app launches on all 3 OSes.
 - [x] T2.3 ✅ Complete: CLI --help complete.
-- [ ] T3.1 🔄 Next: Adapter-smith swarm (12 adapters, detect/import/project + round-trip).
-- T3.2 🔄 Next: Projection engine with policy table, mappings.json, drift detector.
-- T3.3 🔄 Next: Red-team pass (symlink escape, path traversal, circular links, malformed configs).
-- T3.4 🔄 Next: Gate 2: human runs cli scan && cli import --dry-run.
-- T4.1 🔄 Next: Filesystem watcher + OS scheduler registration.
-- T4.2 🔄 Next: Conflict queue API + three-way merge.
-- T4.3 🔄 Next: Git snapshot/rollback commands + crash-safe lock.
-- T5.1 🔄 Next: ui-builder implements 8 screens from DESIGN_PACK.md.
-- T5.2 🔄 Next: Onboarding wizard wraps dry-run flow.
-- T5.3 🔄 Next: Gate 3: human reviews screenshots + demo.
-- T6.1 🔄 Next: Marketplace importers for skill sources.
-- T6.2 🔄 Next: MCP registry importers + health-check handshake.
-- T6.3 🔄 Next: Secrets flow: keychain, placeholders, project-to-all-tools.
-- T7.1 🔄 Next: Threat-model pass + red-team sign-off.
+- [x] T3.1 ✅ Complete: Adapter-smith swarm (12 adapters, detect/import/project + round-trip).
+- [x] T3.2 ✅ Complete: Projection engine with policy table, mappings.json, drift detector.
+- [x] T3.3 ✅ Complete: Red-team pass (symlink escape, path traversal, circular links, malformed configs).
+- [x] T3.4 ✅ Complete: Gate 2: human runs cli scan && cli import --dry-run.
+- [x] T4.1 ✅ Complete: Filesystem watcher + OS scheduler registration.
+- [x] T4.2 ✅ Complete: Conflict queue API + three-way merge.
+- [x] T4.3 ✅ Complete: Git snapshot/rollback commands + crash-safe lock.
+- [x] T5.1 ✅ Complete: ui-builder implements 8 screens from DESIGN_PACK.md.
+- [x] T5.2 ✅ Complete: Onboarding wizard wraps dry-run flow.
+- [x] T5.3 ✅ Complete: Gate 3: human reviews screenshots + demo.
+- [x] T6.1 ✅ Complete: Marketplace importers for skill sources.
+- [x] T6.2 ✅ Complete: MCP registry importers + health-check handshake.
+- [x] T6.3 ✅ Complete: Secrets flow: keychain, placeholders, project-to-all-tools.
+- [x] T7.1 ✅ Complete: Threat-model pass + red-team sign-off.
 - T7.2 ✅ Complete: Doctor rules library (13 rules) + CLI wiring + corrupted-fixture self-verify.
 - T7.3 ✅ Complete: Auto-update channel dry-run (core module + fixture + Tauri command).
 - T7.4 ✅ Complete: Doc set (README.md, docs/USER_GUIDE.md, docs/ADAPTER_AUTHORING_GUIDE.md, CHANGELOG.md).

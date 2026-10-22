@@ -26,6 +26,10 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 const REGISTRY_BASE: &str = "https://registry.modelcontextprotocol.io/v0";
+/// Package runners a registry entry may name in `runtimeHint`. Anything
+/// else (`bash`, `curl`, an absolute path…) is a registry-controlled
+/// program we would later spawn on health-check, so the entry is dropped.
+const ALLOWED_RUNTIME_HINTS: &[&str] = &["npx", "uvx", "docker", "dnx"];
 
 #[derive(Debug)]
 pub enum RegistryError {
@@ -65,7 +69,9 @@ struct SearchResponse {
 
 #[derive(Deserialize)]
 struct ServerEnvelope {
-    server: ServerRecord,
+    /// Kept as raw JSON so the checksum covers the whole record, not
+    /// just the fields this module happens to read.
+    server: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -111,7 +117,10 @@ pub fn search_official_registry(
     query: &str,
     limit: usize,
 ) -> Result<Vec<RegistryServer>, RegistryError> {
-    let url = format!("{REGISTRY_BASE}/servers?search={query}&limit={limit}");
+    let url = format!(
+        "{REGISTRY_BASE}/servers?search={}&limit={limit}",
+        percent_encode_query(query)
+    );
     let raw = ureq::get(&url)
         .set("User-Agent", "Synapse")
         .timeout(Duration::from_secs(15))
@@ -127,20 +136,35 @@ pub fn search_official_registry(
         .servers
         .into_iter()
         .filter_map(|envelope| {
-            // Re-serialize the individual record for a per-entry checksum.
-            let record_json = serde_json::json!({
-                "name": envelope.server.name,
-                "version": envelope.server.version,
-            })
-            .to_string();
-            map_record(envelope.server).map(|(server, description, version)| RegistryServer {
+            let sha256 = record_checksum(&envelope.server);
+            let record: ServerRecord = serde_json::from_value(envelope.server).ok()?;
+            map_record(record).map(|(server, description, version)| RegistryServer {
                 server,
                 description,
                 version,
-                sha256: compute_sha256(&record_json),
+                sha256,
             })
         })
         .collect())
+}
+
+/// SHA256 of the complete registry record (serde_json's map is ordered,
+/// so the serialisation is canonical for a given record).
+fn record_checksum(record: &serde_json::Value) -> String {
+    compute_sha256(&record.to_string())
+}
+
+/// Percent-encodes `s` for use as a URL query value (RFC 3986 unreserved
+/// characters pass through), so a query cannot inject extra parameters.
+fn percent_encode_query(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }
 
 /// Maps a registry record onto the canonical `McpServer`. Remote
@@ -169,12 +193,17 @@ fn map_record(record: ServerRecord) -> Option<(McpServer, String, String)> {
             let runner = if pkg.runtime_hint.is_empty() {
                 "npx"
             } else {
-                &pkg.runtime_hint
+                pkg.runtime_hint.as_str()
             };
-            (
-                "stdio".to_string(),
-                format!("{} -y {}", runner, pkg.identifier),
-            )
+            if !ALLOWED_RUNTIME_HINTS.contains(&runner) {
+                return None;
+            }
+            let invocation = if runner == "npx" {
+                format!("npx -y {}", pkg.identifier)
+            } else {
+                format!("{} {}", runner, pkg.identifier)
+            };
+            ("stdio".to_string(), invocation)
         }
         (None, None) => return None,
     };
@@ -470,6 +499,43 @@ mod tests {
     }
 
     #[test]
+    fn map_record_rejects_runtime_hints_outside_the_allowlist() {
+        for hint in ["bash", "/usr/bin/curl", "sh -c"] {
+            let record = ServerRecord {
+                name: "example/evil".into(),
+                description: String::new(),
+                version: String::new(),
+                remotes: vec![],
+                packages: vec![PackageRecord {
+                    registry_type: "npm".into(),
+                    identifier: "x".into(),
+                    runtime_hint: hint.into(),
+                    environment_variables: vec![],
+                }],
+            };
+            assert!(map_record(record).is_none(), "{hint} must be rejected");
+        }
+    }
+
+    #[test]
+    fn search_query_is_percent_encoded() {
+        assert_eq!(percent_encode_query("file system"), "file%20system");
+        assert_eq!(
+            percent_encode_query("x&limit=999#frag"),
+            "x%26limit%3D999%23frag"
+        );
+        assert_eq!(percent_encode_query("a-b_c.d~"), "a-b_c.d~");
+    }
+
+    #[test]
+    fn checksum_covers_the_whole_record() {
+        let a = serde_json::json!({"name": "n", "version": "1", "packages": [{"identifier": "a"}]});
+        let b = serde_json::json!({"name": "n", "version": "1", "packages": [{"identifier": "b"}]});
+        assert_ne!(record_checksum(&a), record_checksum(&b));
+        assert_eq!(record_checksum(&a).len(), 64);
+    }
+
+    #[test]
     fn map_record_drops_entries_with_no_usable_endpoint() {
         let record = ServerRecord {
             name: "example/empty".into(),
@@ -502,7 +568,11 @@ mod tests {
             std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let status = health_check_stdio(&script.display().to_string(), Duration::from_millis(250));
+        // Run via `sh <script>` rather than exec'ing the freshly written file:
+        // a concurrent test's fork can briefly hold it open for writing, which
+        // makes a direct exec fail with ETXTBSY under parallel load.
+        let status =
+            health_check_stdio(&format!("sh {}", script.display()), Duration::from_secs(5));
         assert_eq!(status, HealthStatus::Healthy);
     }
 
@@ -592,14 +662,15 @@ mod tests {
         let mut installed = InstalledMcpServer::install(McpServer {
             id: "example/fixture".into(),
             transport: "stdio".into(),
-            command_or_url: script.display().to_string(),
+            // `sh <script>` avoids ETXTBSY flakes (see the handshake test).
+            command_or_url: format!("sh {}", script.display()),
             env_placeholders: vec![],
             targets: vec![],
             health: HealthStatus::Unknown,
         });
         installed.enable();
 
-        let status = health_check(&installed, Duration::from_secs(5)).unwrap();
+        let status = health_check(&installed, Duration::from_secs(10)).unwrap();
         assert_eq!(status, HealthStatus::Healthy);
     }
 

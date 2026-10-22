@@ -18,7 +18,7 @@ If your environment supports subagents, skills, hooks, and headless invocation (
 
 **Problem.** Power users of AI coding tools maintain the same knowledge many times: skills for Claude Code, GEMINI.md for Gemini CLI, AGENTS.md for Codex/OpenCode, .cursor/rules, .clinerules, CONVENTIONS.md for Aider, copilot-instructions.md, plus per-tool MCP server configs. Formats drift, skills go stale in some tools, and no single place shows what any given model "knows."
 
-**Solution.** A local-first desktop app + CLI that performs "neurosurgery" on the user's machine: it scans for every AI tool's config, extracts skills/agents/rules/memory/prompts/MCP servers into ONE canonical, human-readable directory (**the Brain**), then projects that Brain back out to every tool via symlinks or generated files, kept in sync automatically. Result: every model is equally skilled; the user edits in one place, forever.
+**Solution.** A local-first desktop app + CLI that acts as the canonical AI brain for the user's machine: it scans for every AI tool's config, extracts skills/agents/rules/memory/prompts/MCP servers into ONE canonical, human-readable directory (**the Brain**), then projects that Brain back out to every tool via symlinks or generated files, kept in sync automatically. Result: every model is equally skilled; the user edits in one place, forever.
 
 **Product pillars (all are in scope):**
 

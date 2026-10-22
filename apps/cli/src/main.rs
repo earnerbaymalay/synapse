@@ -109,8 +109,8 @@ enum Command {
         /// Sensory Gating compression level: balanced (default), aggressive, strict, or off
         #[arg(short, long, default_value = "balanced")]
         gate_level: String,
-        /// Optional upstream API key (or set via environment/keychain)
-        #[arg(long)]
+        /// Optional upstream API key (prefer the env var: argv is visible to other users)
+        #[arg(long, env = "SYNAPSE_UPSTREAM_API_KEY", hide_env_values = true)]
         api_key: Option<String>,
         /// Fold tool results older than the newest N messages into stubs restorable
         /// via `synapse spool show <id>` (off unless set; try 8)
@@ -224,7 +224,7 @@ fn main() -> ExitCode {
                         return ExitCode::FAILURE;
                     }
                 };
-                match perform_import(&root, &brain_root) {
+                match with_brain_lock(&brain_root, || perform_import(&root, &brain_root)) {
                     Ok(paths) => {
                         chart::open("intake", &chart::plural(paths.len(), "artifact"));
                         chart::field("Site", &root.display().to_string());
@@ -274,7 +274,7 @@ fn main() -> ExitCode {
                 );
                 ExitCode::SUCCESS
             } else {
-                match perform_project(&brain_root, &tool_root) {
+                match with_brain_lock(&brain_root, || perform_project(&brain_root, &tool_root)) {
                     Ok(paths) => {
                         chart::open("graft", &chart::plural(paths.len(), "file"));
                         chart::field("Brain", &brain_root.display().to_string());
@@ -455,16 +455,38 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            match rollback(&brain_root, &snapshot_ref) {
-                Ok(sha) => {
+            let tool_root = match resolve_tool_root(None) {
+                Ok(t) => t,
+                Err(e) => {
+                    chart::fault("reversal", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+            };
+            // Project straight after restoring: otherwise the next sync sees
+            // the tools' newer files as edits and imports them over the
+            // rollback.
+            let restored = with_brain_lock(&brain_root, || {
+                let sha = rollback(&brain_root, &snapshot_ref).map_err(|e| e.to_string())?;
+                let projected = perform_project(&brain_root, &tool_root)
+                    .map_err(|e| format!("restored to {sha} but projection failed: {e}"))?;
+                Ok((sha, projected))
+            });
+            match restored {
+                Ok((sha, projected)) => {
                     chart::open("reversal", "brain restored");
                     chart::field("Brain", &brain_root.display().to_string());
+                    chart::field("Tools", &tool_root.display().to_string());
                     chart::field("To", &snapshot_ref);
                     println!();
                     chart::row(chart::Mark::Present, "restored", &sha);
+                    chart::row(
+                        chart::Mark::Present,
+                        "projected",
+                        &chart::plural(projected.len(), "file"),
+                    );
                     chart::close(
-                        "Tools still hold the old projection.",
-                        Some("synapse project"),
+                        "Brain and tools are back at that snapshot.",
+                        Some("synapse doctor"),
                     );
                     ExitCode::SUCCESS
                 }
@@ -485,7 +507,12 @@ fn main() -> ExitCode {
             }
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::parse)
+                .map(parse_level)
+                .transpose()
+                .unwrap_or_else(|e| {
+                    chart::fault("exec", &e, None);
+                    std::process::exit(2)
+                })
                 .unwrap_or_default();
 
             let bin = &command[0];
@@ -509,7 +536,12 @@ fn main() -> ExitCode {
         Command::Filter { level, spool_dir } => {
             let comp_level = level
                 .as_deref()
-                .and_then(CompressionLevel::parse)
+                .map(parse_level)
+                .transpose()
+                .unwrap_or_else(|e| {
+                    chart::fault("filter", &e, None);
+                    std::process::exit(2)
+                })
                 .unwrap_or_default();
 
             let mut input = String::new();
@@ -589,8 +621,13 @@ fn main() -> ExitCode {
             api_key,
             fold_keep,
         } => {
-            let comp_level =
-                CompressionLevel::parse(&gate_level).unwrap_or(CompressionLevel::Balanced);
+            let comp_level = match parse_level(&gate_level) {
+                Ok(l) => l,
+                Err(e) => {
+                    chart::fault("serve", &e, None);
+                    return ExitCode::from(2);
+                }
+            };
             let upstream_kind = UpstreamKind::from_url_or_name(&upstream);
             let bind_addr = format!("{}:{}", host, port);
 
@@ -640,6 +677,12 @@ fn main() -> ExitCode {
             if let Err(e) = server.start_background() {
                 chart::fault("gateway", &e, None);
                 return ExitCode::FAILURE;
+            }
+            // Clients authenticate /v1/* with this per-launch token
+            // (Authorization: Bearer <token> or x-api-key: <token>).
+            match server.token() {
+                Some(token) => println!("Gateway token: {token}"),
+                None => println!("Gateway token: disabled (SYNAPSE_GATEWAY_NO_TOKEN)"),
             }
 
             while server.is_running() {
@@ -756,7 +799,11 @@ fn run_interactive_hud(
             print!("\x1b[2J\x1b[1;1H{}", rendered);
 
             if let Some(msg) = &status_msg {
-                let bullet = if use_color { "\x1b[1;32m●\x1b[0m" } else { "●" };
+                let bullet = if use_color {
+                    "\x1b[1;32m●\x1b[0m"
+                } else {
+                    "●"
+                };
                 print!("  {} {}\r\n", bullet, msg);
             }
 
@@ -764,7 +811,10 @@ fn run_interactive_hud(
                 let cyan = if use_color { "\x1b[1;36m" } else { "" };
                 let reset = if use_color { "\x1b[0m" } else { "" };
                 let blink = if use_color { "\x1b[5m" } else { "" };
-                print!("  {cyan}COMMAND ❯{reset} {}{blink}█{reset}\r\n", input_buffer);
+                print!(
+                    "  {cyan}COMMAND ❯{reset} {}{blink}█{reset}\r\n",
+                    input_buffer
+                );
             } else {
                 let dim = if use_color { "\x1b[2m" } else { "" };
                 let reset = if use_color { "\x1b[0m" } else { "" };
@@ -799,22 +849,34 @@ fn run_interactive_hud(
                                     // no-op
                                 } else if cmd == "q" || cmd == "quit" || cmd == "exit" {
                                     break;
-                                } else if cmd == "g" || cmd == "serve" || cmd == "gateway" || cmd == "start" {
+                                } else if cmd == "g"
+                                    || cmd == "serve"
+                                    || cmd == "gateway"
+                                    || cmd == "start"
+                                {
                                     if let Some(mut gw) = local_gateway.take() {
                                         gw.stop();
                                         status_msg = Some("Gateway proxy stopped.".to_string());
                                     } else {
-                                        let is_active = HudSnapshot::collect(gateway, brain_root, tool_root).gateway_active;
+                                        let is_active =
+                                            HudSnapshot::collect(gateway, brain_root, tool_root)
+                                                .gateway_active;
                                         if is_active {
-                                            status_msg = Some(format!("Gateway is already running on http://{}", gateway));
+                                            status_msg = Some(format!(
+                                                "Gateway is already running on http://{}",
+                                                gateway
+                                            ));
                                         } else {
                                             let config = GatewayConfig {
                                                 bind_addr: gateway.to_string(),
-                                                upstream_url: "https://api.openai.com/v1".to_string(),
+                                                upstream_url: "https://api.openai.com/v1"
+                                                    .to_string(),
                                                 upstream_kind: UpstreamKind::OpenAi,
                                                 default_model: None,
                                                 gate_level: CompressionLevel::Balanced,
-                                                api_key: std::env::var("OPENAI_API_KEY").ok(),
+                                                api_key: std::env::var("SYNAPSE_UPSTREAM_API_KEY")
+                                                    .or_else(|_| std::env::var("OPENAI_API_KEY"))
+                                                    .ok(),
                                                 fold_keep_recent: None,
                                             };
                                             let mut srv = GatewayServer::new(config);
@@ -824,7 +886,10 @@ fn run_interactive_hud(
                                                     status_msg = Some(format!("Runtime Gateway launched in background on http://{}", gateway));
                                                 }
                                                 Err(e) => {
-                                                    status_msg = Some(format!("Failed to start gateway: {}", e));
+                                                    status_msg = Some(format!(
+                                                        "Failed to start gateway: {}",
+                                                        e
+                                                    ));
                                                 }
                                             }
                                         }
@@ -834,10 +899,15 @@ fn run_interactive_hud(
                                         gw.stop();
                                         status_msg = Some("Gateway proxy stopped.".to_string());
                                     } else {
-                                        status_msg = Some("No local gateway running in this HUD session.".to_string());
+                                        status_msg = Some(
+                                            "No local gateway running in this HUD session."
+                                                .to_string(),
+                                        );
                                     }
                                 } else if cmd == "s" || cmd == "sync" {
-                                    match perform_sync(brain_root, tool_root) {
+                                    match with_brain_lock(brain_root, || {
+                                        perform_sync(brain_root, tool_root)
+                                    }) {
                                         Ok(SyncOutcome::Applied { changed_paths }) => {
                                             status_msg = Some(format!(
                                                 "Sync: {} applied.",
@@ -845,7 +915,10 @@ fn run_interactive_hud(
                                             ));
                                         }
                                         Ok(SyncOutcome::NoChanges) => {
-                                            status_msg = Some("Sync: Brain is already in sync with every tool.".to_string());
+                                            status_msg = Some(
+                                                "Sync: Brain is already in sync with every tool."
+                                                    .to_string(),
+                                            );
                                         }
                                         Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
                                             status_msg = Some(format!(
@@ -858,21 +931,35 @@ fn run_interactive_hud(
                                         }
                                     }
                                 } else if cmd == "d" || cmd == "doctor" {
-                                    let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
-                                        brain_root.join(".brain/mappings.json")
-                                    } else {
-                                        brain_root.join("mappings.json")
-                                    };
+                                    let mappings_path =
+                                        if brain_root.join(".brain/mappings.json").exists() {
+                                            brain_root.join(".brain/mappings.json")
+                                        } else {
+                                            brain_root.join("mappings.json")
+                                        };
                                     let ctx = synapse_core::doctor::DoctorContext {
                                         brain_root: brain_root.to_path_buf(),
                                         tool_root: tool_root.to_path_buf(),
                                         mappings_path,
                                     };
                                     let diags = synapse_core::doctor::diagnose(&ctx);
-                                    let criticals = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Critical).count();
-                                    let warnings = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Warning).count();
+                                    let criticals = diags
+                                        .iter()
+                                        .filter(|d| {
+                                            d.severity == synapse_core::doctor::Severity::Critical
+                                        })
+                                        .count();
+                                    let warnings = diags
+                                        .iter()
+                                        .filter(|d| {
+                                            d.severity == synapse_core::doctor::Severity::Warning
+                                        })
+                                        .count();
                                     if diags.is_empty() {
-                                        status_msg = Some("Doctor: Clean bill of health. No drift or faults.".to_string());
+                                        status_msg = Some(
+                                            "Doctor: Clean bill of health. No drift or faults."
+                                                .to_string(),
+                                        );
                                     } else {
                                         status_msg = Some(format!(
                                             "Doctor: {} criticals, {} warnings.",
@@ -880,11 +967,12 @@ fn run_interactive_hud(
                                         ));
                                     }
                                 } else if cmd == "fix" || cmd == "doctor --fix" {
-                                    let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
-                                        brain_root.join(".brain/mappings.json")
-                                    } else {
-                                        brain_root.join("mappings.json")
-                                    };
+                                    let mappings_path =
+                                        if brain_root.join(".brain/mappings.json").exists() {
+                                            brain_root.join(".brain/mappings.json")
+                                        } else {
+                                            brain_root.join("mappings.json")
+                                        };
                                     let ctx = synapse_core::doctor::DoctorContext {
                                         brain_root: brain_root.to_path_buf(),
                                         tool_root: tool_root.to_path_buf(),
@@ -892,14 +980,17 @@ fn run_interactive_hud(
                                     };
                                     match synapse_core::doctor::apply_fixes(&ctx) {
                                         Ok(n) => {
-                                            status_msg = Some(format!("Doctor: Fixed {} issues.", n));
+                                            status_msg =
+                                                Some(format!("Doctor: Fixed {} issues.", n));
                                         }
                                         Err(e) => {
                                             status_msg = Some(format!("Doctor fix error: {}", e));
                                         }
                                     }
                                 } else if cmd == "p" || cmd == "project" {
-                                    match perform_project(brain_root, tool_root) {
+                                    match with_brain_lock(brain_root, || {
+                                        perform_project(brain_root, tool_root)
+                                    }) {
                                         Ok(paths) => {
                                             status_msg = Some(format!(
                                                 "Project: {} projected out of the Brain.",
@@ -913,7 +1004,8 @@ fn run_interactive_hud(
                                 } else if let Some(rest) = cmd.strip_prefix("snapshot ") {
                                     match snapshot(brain_root, rest.trim()) {
                                         Ok(sha) => {
-                                            status_msg = Some(format!("Snapshot recorded: {}", sha));
+                                            status_msg =
+                                                Some(format!("Snapshot recorded: {}", sha));
                                         }
                                         Err(e) => {
                                             status_msg = Some(format!("Snapshot failed: {}", e));
@@ -922,7 +1014,8 @@ fn run_interactive_hud(
                                 } else if cmd == "snapshot" {
                                     match snapshot(brain_root, "HUD checkpoint") {
                                         Ok(sha) => {
-                                            status_msg = Some(format!("Snapshot recorded: {}", sha));
+                                            status_msg =
+                                                Some(format!("Snapshot recorded: {}", sha));
                                         }
                                         Err(e) => {
                                             status_msg = Some(format!("Snapshot failed: {}", e));
@@ -931,7 +1024,10 @@ fn run_interactive_hud(
                                 } else if cmd == "help" {
                                     status_msg = Some("Commands: :sync, :doctor, :fix, :project, :serve, :snapshot <msg>, :quit".to_string());
                                 } else {
-                                    status_msg = Some(format!("Unknown command '{}'. Type :help for commands.", cmd));
+                                    status_msg = Some(format!(
+                                        "Unknown command '{}'. Type :help for commands.",
+                                        cmd
+                                    ));
                                 }
 
                                 last_render = Instant::now() - Duration::from_secs(interval + 1);
@@ -945,7 +1041,9 @@ fn run_interactive_hud(
                     } else {
                         match key.code {
                             KeyCode::Char('q') | KeyCode::Esc => break,
-                            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                                break
+                            }
                             KeyCode::Char(':') | KeyCode::Char('/') => {
                                 input_mode = true;
                                 input_buffer.clear();
@@ -956,9 +1054,14 @@ fn run_interactive_hud(
                                     gw.stop();
                                     status_msg = Some("Gateway proxy stopped.".to_string());
                                 } else {
-                                    let is_active = HudSnapshot::collect(gateway, brain_root, tool_root).gateway_active;
+                                    let is_active =
+                                        HudSnapshot::collect(gateway, brain_root, tool_root)
+                                            .gateway_active;
                                     if is_active {
-                                        status_msg = Some(format!("Gateway is already running on http://{}", gateway));
+                                        status_msg = Some(format!(
+                                            "Gateway is already running on http://{}",
+                                            gateway
+                                        ));
                                     } else {
                                         let config = GatewayConfig {
                                             bind_addr: gateway.to_string(),
@@ -966,17 +1069,23 @@ fn run_interactive_hud(
                                             upstream_kind: UpstreamKind::OpenAi,
                                             default_model: None,
                                             gate_level: CompressionLevel::Balanced,
-                                            api_key: std::env::var("OPENAI_API_KEY").ok(),
+                                            api_key: std::env::var("SYNAPSE_UPSTREAM_API_KEY")
+                                                .or_else(|_| std::env::var("OPENAI_API_KEY"))
+                                                .ok(),
                                             fold_keep_recent: None,
                                         };
                                         let mut srv = GatewayServer::new(config);
                                         match srv.start_background() {
                                             Ok(()) => {
                                                 local_gateway = Some(srv);
-                                                status_msg = Some(format!("Runtime Gateway launched on http://{}", gateway));
+                                                status_msg = Some(format!(
+                                                    "Runtime Gateway launched on http://{}",
+                                                    gateway
+                                                ));
                                             }
                                             Err(e) => {
-                                                status_msg = Some(format!("Failed to start gateway: {}", e));
+                                                status_msg =
+                                                    Some(format!("Failed to start gateway: {}", e));
                                             }
                                         }
                                     }
@@ -984,7 +1093,9 @@ fn run_interactive_hud(
                                 last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
                             KeyCode::Char('s') => {
-                                match perform_sync(brain_root, tool_root) {
+                                match with_brain_lock(brain_root, || {
+                                    perform_sync(brain_root, tool_root)
+                                }) {
                                     Ok(SyncOutcome::Applied { changed_paths }) => {
                                         status_msg = Some(format!(
                                             "Sync: {} applied.",
@@ -992,7 +1103,10 @@ fn run_interactive_hud(
                                         ));
                                     }
                                     Ok(SyncOutcome::NoChanges) => {
-                                        status_msg = Some("Sync: Brain is already in sync with every tool.".to_string());
+                                        status_msg = Some(
+                                            "Sync: Brain is already in sync with every tool."
+                                                .to_string(),
+                                        );
                                     }
                                     Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
                                         status_msg = Some(format!(
@@ -1007,21 +1121,35 @@ fn run_interactive_hud(
                                 last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
                             KeyCode::Char('d') => {
-                                let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
-                                    brain_root.join(".brain/mappings.json")
-                                } else {
-                                    brain_root.join("mappings.json")
-                                };
+                                let mappings_path =
+                                    if brain_root.join(".brain/mappings.json").exists() {
+                                        brain_root.join(".brain/mappings.json")
+                                    } else {
+                                        brain_root.join("mappings.json")
+                                    };
                                 let ctx = synapse_core::doctor::DoctorContext {
                                     brain_root: brain_root.to_path_buf(),
                                     tool_root: tool_root.to_path_buf(),
                                     mappings_path,
                                 };
                                 let diags = synapse_core::doctor::diagnose(&ctx);
-                                let criticals = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Critical).count();
-                                let warnings = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Warning).count();
+                                let criticals = diags
+                                    .iter()
+                                    .filter(|d| {
+                                        d.severity == synapse_core::doctor::Severity::Critical
+                                    })
+                                    .count();
+                                let warnings = diags
+                                    .iter()
+                                    .filter(|d| {
+                                        d.severity == synapse_core::doctor::Severity::Warning
+                                    })
+                                    .count();
                                 if diags.is_empty() {
-                                    status_msg = Some("Doctor: Clean bill of health. No drift or faults.".to_string());
+                                    status_msg = Some(
+                                        "Doctor: Clean bill of health. No drift or faults."
+                                            .to_string(),
+                                    );
                                 } else {
                                     status_msg = Some(format!(
                                         "Doctor: {} criticals, {} warnings.",
@@ -1031,7 +1159,9 @@ fn run_interactive_hud(
                                 last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
                             KeyCode::Char('p') => {
-                                match perform_project(brain_root, tool_root) {
+                                match with_brain_lock(brain_root, || {
+                                    perform_project(brain_root, tool_root)
+                                }) {
                                     Ok(paths) => {
                                         status_msg = Some(format!(
                                             "Project: {} projected out of the Brain.",
@@ -1235,6 +1365,25 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     Err("cannot locate a home directory; pass --brain <PATH>".to_string())
 }
 
+/// Runs a Brain-mutating operation under the same lock `synapse sync`
+/// takes, so import/project/rollback and the HUD can't race a sync.
+fn with_brain_lock<T>(
+    brain_root: &Path,
+    f: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let _lock = SyncLock::acquire(brain_root)
+        .map_err(|e| format!("could not acquire the Brain lock: {e}"))?;
+    f()
+}
+
+/// Parses a gating level, rejecting unknown names instead of silently
+/// falling back to Balanced.
+fn parse_level(s: &str) -> Result<CompressionLevel, String> {
+    CompressionLevel::parse(s).ok_or_else(|| {
+        format!("unknown level '{s}' (expected balanced, aggressive, strict, or off)")
+    })
+}
+
 /// Resolves the tool config root that projection paths are relative to.
 /// Precedence: `--tool-root`, then `$SYNAPSE_WORKSPACE_PATH` / `$SYNAPSE_TOOL_ROOT`, then home.
 fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
@@ -1245,9 +1394,6 @@ fn resolve_tool_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
         std::env::var_os("SYNAPSE_WORKSPACE_PATH").or_else(|| std::env::var_os("SYNAPSE_TOOL_ROOT"))
     {
         return Ok(PathBuf::from(env));
-    }
-    if let Ok(cur) = std::env::current_dir() {
-        return Ok(cur);
     }
     dirs::home_dir()
         .ok_or_else(|| "cannot locate a home directory; pass --tool-root <PATH>".to_string())

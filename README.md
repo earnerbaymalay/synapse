@@ -1,5 +1,5 @@
 ```text
-┌─ SYNAPSE // CLINICAL ENGINE · RUNTIME GATEWAY ─────────────────── v1.0.0 ─ 100% LOCAL ─┐
+┌─ SYNAPSE // THE CANONICAL AI BRAIN ────────────────────────────── v1.0.0 ─ 100% LOCAL ─┐
 │                                                                                        │
 │       ●       ●      ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗       │
 │        \     /       ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝       │
@@ -18,20 +18,22 @@
 
 <div align="center">
 
+### Synapse — The Canonical AI Brain
+
+**One Brain. All Models.** Local-first, zero-telemetry, and fully auditable.
+
 [![Live Site](https://img.shields.io/badge/Live_Site-GitHub_Pages-1d9bf0?style=flat-square&logo=github)](https://earnerbaymalay.github.io/synapse/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/earnerbaymalay/synapse/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/earnerbaymalay/synapse/actions)
-[![E2E Vitest](https://img.shields.io/badge/E2E_Tests-160%2F160_Passed-success?style=flat-square&logo=vitest)](packages/e2e/)
-[![Rust Tests](https://img.shields.io/badge/Rust_Tests-258%2F258_Passed-success?style=flat-square&logo=rust)](packages/core/)
 [![GitHub release](https://img.shields.io/github/v/release/earnerbaymalay/synapse?style=flat-square)](https://github.com/earnerbaymalay/synapse/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Open Source](https://img.shields.io/badge/source-100%25_open-1d9bf0?style=flat-square&logo=opensourceinitiative)](https://github.com/earnerbaymalay/synapse)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-3fb950?style=flat-square)](docs/security.md)
 [![Local Only](https://img.shields.io/badge/execution-100%25_local-3fb950?style=flat-square)](docs/security.md)
-[![Rust 1.75+](https://img.shields.io/badge/rust-1.75%2B-dea584?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![Rust 1.97.1](https://img.shields.io/badge/rust-1.97.1_pinned-dea584?style=flat-square&logo=rust)](rust-toolchain.toml)
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-1d9bf0?style=flat-square&logo=tauri)](https://v2.tauri.app/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square)](docs/packaging/RELEASE_PACKAGING.md)
 
-**[Live Site](https://earnerbaymalay.github.io/synapse/)** · **[Privacy & Safety](#privacy--safety-by-design)** · **[Quickstart](#tier-1-day-1--60-second-quickstart)** · **[15 Adapters](#15-verified-tool-adapters)** · **[Architecture](#architecture--mental-model)** · **[The Doctor](#tier-2-day-2--care--maintenance)** · **[Gateway & Sensory Gate](#tier-3-day-3--runtime-gateway-sensory-gating--memory)** · **[Memory (`synapse mem`)](#synaptic-memory-synapse-mem)** · **[HUD](#vital-signs-hud-synapse-hud)** · **[Desktop App](#desktop-gui-application)** · **[Docs Hub](docs/README.md)**
+**[Live Site](https://earnerbaymalay.github.io/synapse/)** · **[Privacy & Safety](#privacy--safety-by-design)** · **[Quickstart](#tier-1-day-1--60-second-quickstart)** · **[15 Adapters](#15-verified-tool-adapters)** · **[Architecture](#architecture--mental-model)** · **[The Doctor](#tier-2-day-2--care--maintenance)** · **[Gateway & Sensory Gate](#tier-3-day-3--runtime-gateway-sensory-gating--memory)** · **[Memory (`synapse mem`)](#synaptic-memory-synapse-mem)** · **[HUD](#vital-signs-hud-synapse-hud)** · **[Desktop App](#desktop-gui-5-screen-studio)** · **[Docs Hub](docs/README.md)**
 
 ---
 
@@ -46,7 +48,7 @@
   - [Terminal Walkthrough](#terminal-walkthrough)
 - [Tier 2: Day 2 — Care & Maintenance](#tier-2-day-2--care--maintenance)
   - [The Doctor: Self-Healing Configurations](#the-doctor-self-healing-configurations)
-  - [Continuous Daemon Sync](#continuous-daemon-sync)
+  - [Scheduled Sync](#scheduled-sync)
   - [Git Time Machine Snapshots & Rollback](#git-time-machine-snapshots--rollback)
 - [Tier 3: Day 3+ — Runtime Gateway, Sensory Gating & Memory](#tier-3-day-3--runtime-gateway-sensory-gating--memory)
   - [The Runtime Gateway (`synapse serve`)](#the-runtime-gateway-synapse-serve)
@@ -56,10 +58,10 @@
 - [15 Verified Tool Adapters](#15-verified-tool-adapters)
 - [Architecture & Mental Model](#architecture--mental-model)
 - [Auto-Bundled Obsidian Session Worklog Skill](#auto-bundled-obsidian-session-worklog-skill)
-- [Desktop GUI Application](#desktop-gui-application)
+- [Desktop GUI 5-Screen Studio](#desktop-gui-5-screen-studio)
 - [Security & Threat Model](#security--threat-model)
 - [Multi-Platform Installation](#multi-platform-installation)
-- [Test & Verification Metrics](#test--verification-metrics)
+- [Tests and Verification](#tests-and-verification)
 - [Documentation Index](#documentation-index)
 - [Contributing & License](#contributing--license)
 
@@ -67,7 +69,7 @@
 
 ## What is SYNAPSE?
 
-**SYNAPSE** is the local-first configuration engine, runtime proxy, and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, AWS Kiro, Trae IDE, and 8+ other AI coding companions in permanent lockstep.
+**SYNAPSE** is the local-first configuration engine, runtime proxy, and synchronizer that keeps Claude Code, Cursor, Gemini CLI, Windsurf, Zed, AWS Kiro, Trae IDE, and eight other AI coding tools (15 adapters in total) in permanent lockstep.
 
 AI coding tools each invent their own idiosyncratic configuration locations and dialects (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.gemini/settings.json`, `.continue/rules/`, `.kiro/steering/`, `.trae/rules/`). When you refine a skill or update an MCP server in one assistant, your other tools fall out of sync.
 
@@ -81,7 +83,7 @@ Your AI tooling config touches every API key and every rule you've written — S
 |---|---|
 | **100% Local Execution** | Every scan, import, and projection runs on-device. No external API calls, no sync servers, no round-trips. |
 | **Zero Telemetry** | No phone-home calls, no usage tracking, no third-party crash reporting — auditable directly in source. |
-| **OS Keychain Secrets** | API keys live in `libsecret` / macOS Keychain / Windows Credential Manager. Projected configs only hold `${ENV_VAR}` references — raw secrets are never written to plaintext. |
+| **OS Keychain Secrets** | Opt-in: with a build that enables `--features synapse-core/os-keychain`, API keys live in `libsecret` / macOS Keychain / Windows Credential Manager. Projected configs only hold `${ENV_VAR}` references — raw secrets are never written to plaintext. |
 | **Fully Open Source** | MIT licensed, every line of the Rust core and every adapter auditable on GitHub. |
 | **Pre-op Snapshots & Rollback** | Nothing is written without a dry-run preview first, and every change ships with an instant Git undo path. |
 
@@ -96,7 +98,7 @@ A developer's AI tooling environment is treated like a vital clinical system:
 | **The Organ** | `~/AIBrain` | The single, Git-backed canonical source of truth holding every skill, rule, agent, and MCP server. |
 | **The Grafts** | **15 Adapters** | Lossless bi-directional translators projecting canonical rules into each tool's native dialect. |
 | **The Surgeon** | `synapse` | Accountable for every modification — with dry-run verification, pre-op snapshots, and instant rollbacks. |
-| **The Doctor** | `synapse doctor` | Continuous diagnostic self-healing to detect configuration drift and heal broken symlinks. |
+| **The Doctor** | `synapse doctor` | Diagnoses configuration drift and broken projections; `--fix` applies the suggested repairs. |
 | **The Gate** | `synapse serve` | Local runtime reverse proxy stabilizing tool-calls and executing live Sensory Gating token compression. |
 | **The Memory** | `synapse mem` | 3-layer progressive retrieval engine (search index, timeline context, full detail) and agent hooks. |
 | **The Cockpit** | `synapse hud` | Zero-RAM terminal cockpit monitoring live token burn, latency, and Brain lockstep. |
@@ -179,11 +181,11 @@ $ synapse project
   Brain  ~/Desktop/AI BRAIN
   Tools  ~
 
-  ●  claude-code           CLAUDE.md stamped · .claude/ linked
+  ●  claude-code           CLAUDE.md stamped · .claude/ written
   ●  cursor                .cursor/rules/ 14 MDC rules projected
   ●  gemini-cli            GEMINI.md stamped
-  ●  zed                   .rules stamped · AGENTS.md linked
-  ●  agy-cli               AGENTS.md stamped · .agy/skills/ linked
+  ●  zed                   .rules stamped · AGENTS.md written
+  ●  agy-cli               AGENTS.md stamped · .agents/skills/ written
   ──────────────────────────────────────────────────────────────────────────
   All tools synchronized in 14ms.
   Next  synapse doctor
@@ -216,17 +218,21 @@ flowchart LR
     E --> C
 ```
 
-### Continuous Daemon Sync
+### Scheduled Sync
 
-Keep all tools permanently synchronized as you code. The background daemon watches the Brain and all tool configuration directories, resolving drift with a 3-way merge in real time:
+`synapse sync` runs one pass and then exits. It imports changes from the tools into the Brain, projects Brain changes out to the tools, and, when both sides changed the same file, runs a three-way merge. Conflicts that cannot be merged are queued in `<brain>/.brain/conflicts.json`. A lock file prevents two passes from running at once.
+
+Nothing runs in the background by itself. To keep tools in step, run `synapse sync` on a schedule or from an agent hook:
 
 ```bash
-# Run one-time sync check
+# One pass, now
 synapse sync --once
 
-# Launch background file watcher daemon
-synapse sync --daemon
+# Every five minutes, via crontab (-e)
+*/5 * * * * /usr/local/bin/synapse sync >> "$HOME/.synapse-sync.log" 2>&1
 ```
+
+A systemd timer on Linux or a launchd agent on macOS works the same way. Scheduled jobs do not inherit your shell profile, so set `SYNAPSE_BRAIN_PATH` (and `SYNAPSE_TOOL_ROOT`, if you use one) in the job's environment.
 
 ### Git Time Machine Snapshots & Rollback
 
@@ -271,9 +277,9 @@ AI coding agents frequently execute verbose CLI commands (`cargo test`, `vitest`
 Synapse Sensory Gating eliminates noise while strictly preserving 100% of errors, stack traces, and compiler diagnostics:
 
 ```bash
-# Execute arbitrary agent commands with real-time semantic compression
+# Execute agent commands with semantic compression of their output
 synapse exec -- cargo test --workspace
-synapse exec -- pnpm test:e2e
+synapse exec -- pnpm --filter @synapse/e2e test
 synapse exec -- npm run build
 
 # Stream stdin through the compression filter
@@ -286,8 +292,8 @@ synapse spool show <id> --grep "error"
 
 | Execution Type | Raw Context | Synapse Context | Token Reduction | Preserved Information |
 |---|---|---|---|---|
-| `cargo test --workspace` (237 tests) | ~8,400 tokens | **~240 tokens** | **97.1%** | All failure assertions, panic traces, summary line |
-| `vitest run` (160 tests) | ~6,800 tokens | **~210 tokens** | **96.9%** | Failed test names, code frame diffs, runtime stats |
+| `cargo test --workspace` | ~8,400 tokens | **~240 tokens** | **97.1%** | All failure assertions, panic traces, summary line |
+| `vitest run` (`@synapse/e2e`) | ~6,800 tokens | **~210 tokens** | **96.9%** | Failed test names, code frame diffs, runtime stats |
 | `npm install / build` | ~4,500 tokens | **~140 tokens** | **96.8%** | Audit warnings, build errors, asset sizes |
 | `docker build` | ~12,000 tokens | **~420 tokens** | **96.5%** | Step statuses, layer caching flags, compilation errors |
 
@@ -302,7 +308,7 @@ Synaptic Memory gives both agents and humans 3-tier progressive context retrieva
 
 ```bash
 # Layer 1: Search index for relevant context
-synapse mem "database migration sqlite"
+synapse mem search database migration sqlite
 
 # Layer 2: View chronological timeline around a specific observation
 synapse mem timeline 42 --before 3 --after 3
@@ -374,7 +380,7 @@ Every adapter is verified with boundary, stress, and roundtrip tests in our CI m
 | **Zed** | [Spec](docs/adapters/zed.md) | `.rules`, `.zed/settings.json`, `AGENTS.md` | Text, JSON, MD | Settings & Rules | `.rules` + `AGENTS.md` |
 | **OpenAI Codex CLI** | [Spec](docs/adapters/openai-codex.md) | `.codex/config.toml`, `.codex/instructions.md` | TOML, Markdown | Rules, Config | `AGENTS.md` + `.codex/` |
 | **OpenCode** | [Spec](docs/adapters/opencode.md) | `AGENTS.md` | Markdown | Multi-Agent Rules | Stamped `AGENTS.md` |
-| **Antigravity CLI (AGY)** | [Spec](docs/adapters/antigravity.md) | `AGENTS.md`, `.agy/skills/`, `.gemini/` | Markdown, YAML | Skills & Settings | `AGENTS.md` + `.agy/skills/` |
+| **Antigravity CLI (AGY)** | [Spec](docs/adapters/antigravity.md) | `AGENTS.md`, `.agents/skills/`, `.agents/mcp_config.json`, `.gemini/config/` | Markdown, JSON | Skills & MCP | `AGENTS.md` + `.agents/skills/` |
 | **AWS Kiro IDE** | [Spec](docs/adapters/kiro.md) | `.kiro/steering/*.md`, `.kiro/settings/mcp.json` | Frontmatter, JSONC | Steering Rules & MCP | `.kiro/steering/` + `.kiro/settings/` |
 | **Trae IDE** | [Spec](docs/adapters/trae.md) | `.trae/rules/*.md`, `.trae/mcp.json` | MDC Frontmatter, JSONC | Scoped Rules & MCP | `.trae/rules/` + `.trae/mcp.json` |
 
@@ -410,7 +416,7 @@ flowchart TD
         GM["Gemini CLI (GEMINI.md)"]
         WS["Windsurf (.windsurfrules)"]
         ZD["Zed (.rules & AGENTS.md)"]
-        AGY["Antigravity CLI (.agy/ & AGENTS.md)"]
+        AGY["Antigravity CLI (.agents/ & AGENTS.md)"]
         KI["AWS Kiro (.kiro/steering/)"]
         TR["Trae IDE (.trae/rules/)"]
         OTH["Cline · Roo · Aider · Copilot · Codex · OpenCode · Continue"]
@@ -434,7 +440,7 @@ Every install of SYNAPSE comes with the canonical **Obsidian Session Worklog Ski
 
 ## Desktop GUI 5-Screen Studio
 
-In addition to the high-speed CLI, SYNAPSE includes a cross-platform desktop application built with **Tauri v2 + React 18 + Three.js WebGL** and styled with the **SYNAPSE Dark Precision Design System** (`#020408` ground, `#00F0FF` cyan accent, sharp geometric borders, zero emojis).
+In addition to the high-speed CLI, SYNAPSE includes a cross-platform desktop application built with **Tauri v2 + React 18 + Three.js WebGL** and styled with the **SYNAPSE Dark Precision Design System** (`#0b0e13` ground, `#1d9bf0` accent, sharp geometric borders, zero emojis).
 
 The desktop app implements a 5-screen clinical studio backed directly by `synapse-core` native bindings:
 - **Intake**: Interactive elicitation wizard for stack selection, architectural principles, agent demeanor, and canonical Brain status.
@@ -471,7 +477,7 @@ pnpm --filter desktop-app tauri dev
 SYNAPSE is built from the ground up for strict local isolation and zero data leakage:
 
 - **Zero Telemetry**: SYNAPSE performs **zero** phone-home calls, usage tracking, or cloud uploads. Everything executes 100% locally.
-- **OS Keychain Integration**: API keys and tokens are stored in the OS Keychain (`libsecret` on Linux, Keychain on macOS, Credential Manager on Windows). Projected configs only use `${ENV_VAR}` references—**raw secrets are never written to plaintext files**.
+- **OS Keychain Integration** (opt-in, built with `--features synapse-core/os-keychain`): API keys and tokens are stored in the OS Keychain (`libsecret` on Linux, Keychain on macOS, Credential Manager on Windows). Projected configs only use `${ENV_VAR}` references—**raw secrets are never written to plaintext files**.
 - **Path Traversal Defense**: All adapter write paths are strictly bounded inside designated workspace/brain directories to prevent directory traversal attacks (CWE-22/59/61/74/94/116/367).
 
 Read the full **[Security & Threat Model Audit](docs/security.md)** for details.
@@ -493,7 +499,7 @@ Download verified release binaries for your operating system from the **[GitHub 
 ### 2. Building From Source (Cargo)
 
 ```bash
-# Install Rust toolchain (1.75+)
+# Install rustup. rust-toolchain.toml pins Rust 1.97.1; rustup installs it on the first build.
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone repository & build
@@ -507,25 +513,16 @@ cargo build --release -p synapse
 
 ---
 
-## Test & Verification Metrics
+## Tests and Verification
 
-SYNAPSE enforces a 100% test pass requirement across all CI tiers:
+Run the full suites before opening a pull request:
 
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│  TEST SUITE EXECUTION SUMMARY                                          │
-├───────────────────────────────────────────────────┬────────────────────┤
-│  Rust Workspace Unit, Security & Stress (Cargo)   │  237/237 PASSED    │
-│  Sanity Vitest Suite                              │    4/4   PASSED    │
-│  Tier 1: Happy-Path Feature Coverage Vitest Suite │   60/60  PASSED    │
-│  Tier 2: Boundary & Corner Cases Vitest Suite     │   60/60  PASSED    │
-│  Tier 3: Combinations & State Transitions Suite   │   24/24  PASSED    │
-│  Tier 4: Real-World Workloads & E2E Scenarios     │   12/12  PASSED    │
-├───────────────────────────────────────────────────┼────────────────────┤
-│  TOTAL COMBINED PASS RATE                         │  397/397 (100%)    │
-│  Clippy Warnings & Lints                          │  0 Warnings        │
-└───────────────────────────────────────────────────┴────────────────────┘
+```bash
+cargo test --workspace
+pnpm --filter @synapse/e2e test
 ```
+
+Test counts change with the codebase, so this page does not list them. CI runs both commands.
 
 ---
 
@@ -535,7 +532,7 @@ SYNAPSE enforces a 100% test pass requirement across all CI tiers:
 |---|---|---|
 | **[Docs Hub](docs/README.md)** | Centralized documentation navigation & command index | All users & contributors |
 | **[Quickstart Guide](docs/QUICKSTART.md)** | Step-by-step setup in under 60 seconds | First-time evaluators |
-| **[User Guide](docs/USER_GUIDE.md)** | Day-to-day workflow, daemon sync, memory, and doctor | Daily development |
+| **[User Guide](docs/USER_GUIDE.md)** | Day-to-day workflow, scheduled sync, memory, and doctor | Daily development |
 | **[Onboarding Journey](docs/ONBOARDING.md)** | 4-phase journey from fragmented configs to permanent lockstep | Getting started |
 | **[Architecture Blueprint](docs/ARCHITECTURE.md)** | 3-way merge engine, file system watcher & monorepo layout | Core engine developers |
 | **[Adapters Hub](docs/adapters/README.md)** | Complete 15-tool matrix and individual adapter specifications | Tool dialect reference |
@@ -552,7 +549,7 @@ Contributions are warmly welcomed! To get started:
 
 1. Fork the repository on [GitHub](https://github.com/earnerbaymalay/synapse).
 2. Read the **[Contributing Guidelines](docs/development/CONTRIBUTING.md)** and **[Adapter Authoring Guide](docs/ADAPTER_AUTHORING_GUIDE.md)**.
-3. Run `cargo test --workspace` and `pnpm test` to ensure all tests pass.
+3. Run `cargo test --workspace` and `pnpm --filter @synapse/e2e test` to ensure all tests pass.
 4. Submit a Pull Request.
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.

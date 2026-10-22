@@ -34,7 +34,7 @@ Total: 8 screens for ASCII wireframes
 #### Screen 1: Main Dashboard
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                         LLM-NEURON                     │
+│             SYNAPSE · The Canonical AI Brain            │
 │                                                         │
 │  ┌─────────────────────┐ ┌─────────────────────┐       │
 │  │  📊 12 Adapters    │ │  🛡️  Gate-Status    │       │

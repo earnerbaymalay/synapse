@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Synapse is currently pre-release software. Security fixes are applied to the latest commit on the `main` branch. Published releases will receive an explicit support table once the first release candidate is available.
+Synapse 1.0.0 is released. Security fixes are applied to the latest commit on the `main` branch and released in the next version. Older 0.x releases are not supported.
 
 ## Reporting a vulnerability
 
@@ -24,7 +24,7 @@ Do not include real API keys, credentials, private configuration files, or perso
 
 ## Response process
 
-The maintainer will acknowledge a complete report, validate its impact, prepare a fix, and coordinate disclosure through a GitHub Security Advisory when appropriate. Exact response times are not guaranteed while the project is pre-release.
+The maintainer will acknowledge a complete report, validate its impact, prepare a fix, and coordinate disclosure through a GitHub Security Advisory when appropriate. Response times are not guaranteed.
 
 ## Scope
 
