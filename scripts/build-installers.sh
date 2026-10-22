@@ -1,20 +1,23 @@
 #!/bin/sh
 #
-# build-installers.sh — Build all Synapse installers
+# build-installers.sh — Build Synapse release artifacts locally
 #
-# Generates:
-#   - CLI binary  (target/release/synapse)
-#   - Desktop app (Tauri bundle: .deb, .AppImage, etc.)
+# Mirrors the per-target steps of .github/workflows/build.yml so a local
+# build produces the same files the release pipeline publishes:
+#
+#   target/release-assets/synapse-<host-triple>.tar.gz   CLI archive
+#   target/release-assets/*.deb *.AppImage *.dmg *.msi   desktop installers
+#   target/release-assets/SHA256SUMS                     checksums
+#
+# Both the CLI and the desktop app are built with the `os-keychain` feature,
+# exactly like the release workflow.
 #
 # Usage:
-#   ./scripts/build-installers.sh            # full build
-#   ./scripts/build-installers.sh --help     # this message
-#   ./scripts/build-installers.sh --skip-cli # skip CLI build
-#   ./scripts/build-installers.sh --skip-desktop # skip desktop build
-#
-# Environment variables:
-#   CARGO_PROFILE  — Cargo profile (default: release)
-#   JOBS           — parallel build jobs (default: number of CPUs)
+#   ./scripts/build-installers.sh                 # full build
+#   ./scripts/build-installers.sh --help          # this message
+#   ./scripts/build-installers.sh --skip-cli      # skip CLI build
+#   ./scripts/build-installers.sh --skip-desktop  # skip desktop build
+#   ./scripts/build-installers.sh --regen-icons   # regenerate app icons first
 #
 
 set -eu
@@ -22,20 +25,25 @@ set -eu
 # ── Paths ──────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CLI_CRATE="${PROJECT_ROOT}/apps/cli"
 DESKTOP_DIR="${PROJECT_ROOT}/apps/desktop"
 TAURI_DIR="${DESKTOP_DIR}/src-tauri"
+# The root Cargo workspace includes apps/desktop/src-tauri, so every binary
+# and every Tauri bundle lands in the workspace target directory.
+RELEASE_DIR="${PROJECT_ROOT}/target/release"
+BUNDLE_DIR="${RELEASE_DIR}/bundle"
+STAGE_DIR="${PROJECT_ROOT}/target/release-assets"
 
-# ── Defaults ───────────────────────────────────────────────────────────────────
-CARGO_PROFILE="${CARGO_PROFILE:-release}"
-JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
+# Same pins as CI (.github/workflows/*.yml).
+EXPECTED_PNPM_VERSION="8.15.9"
+
 BUILD_CLI=1
 BUILD_DESKTOP=1
+REGEN_ICONS=0
 
 # ── Help ───────────────────────────────────────────────────────────────────────
 show_help() {
     cat <<'EOF'
-build-installers.sh — Build all Synapse installers
+build-installers.sh — Build Synapse release artifacts locally
 
 USAGE:
     ./scripts/build-installers.sh [OPTIONS]
@@ -43,24 +51,21 @@ USAGE:
 OPTIONS:
     --help           Show this help message and exit
     --skip-cli       Skip building the CLI binary
-    --skip-desktop   Skip building the desktop app and Tauri bundles
+    --skip-desktop   Skip building the desktop frontend and Tauri bundles
+    --regen-icons    Regenerate icons with build-icons.py before bundling
+                     (the committed icons are used otherwise, as in CI)
 
-WHAT IT BUILDS:
-  1. CLI binary          — cargo build -p synapse --release
-  2. Desktop frontend    — pnpm install && pnpm build (in apps/desktop)
-  3. App icons           — python3 build-icons.py (in apps/desktop/src-tauri)
-  4. Tauri desktop app   — cargo build --release (in apps/desktop)
-  5. Tauri bundles       — pnpm tauri build (in apps/desktop)
+WHAT IT BUILDS (all cargo invocations use --locked):
+  1. CLI binary        cargo build --release -p synapse --features synapse-core/os-keychain
+  2. Desktop frontend  pnpm install --frozen-lockfile && pnpm --filter desktop-app build
+  3. Tauri bundles     pnpm --filter desktop-app exec tauri build --features os-keychain
+  4. Stage assets      target/release-assets/ + SHA256SUMS
 
 OUTPUT LOCATIONS:
-  CLI binary:       target/release/synapse
-  Desktop frontend: apps/desktop/dist/
-  Tauri binary:     apps/desktop/src-tauri/target/release/desktop-app
-  Tauri bundles:    apps/desktop/src-tauri/target/release/bundle/
-
-ENVIRONMENT:
-  CARGO_PROFILE    Cargo build profile (default: release)
-  JOBS             Parallel build jobs (default: number of CPUs)
+  CLI binary:     target/release/synapse
+  Tauri binary:   target/release/desktop-app
+  Tauri bundles:  target/release/bundle/{deb,appimage,dmg,msi}/
+  Staged assets:  target/release-assets/
 EOF
     exit 0
 }
@@ -71,6 +76,7 @@ for arg in "$@"; do
         --help) show_help ;;
         --skip-cli) BUILD_CLI=0 ;;
         --skip-desktop) BUILD_DESKTOP=0 ;;
+        --regen-icons) REGEN_ICONS=1 ;;
         *)
             echo "ERROR: Unknown option: ${arg}"
             echo "Run with --help for usage."
@@ -81,12 +87,12 @@ done
 
 # ── Color helpers (POSIX-safe, no tput dependency) ────────────────────────────
 if [ -t 1 ]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    CYAN='\033[0;36m'
-    BOLD='\033[1m'
-    NC='\033[0m' # No Color
+    RED=$(printf '\033[0;31m')
+    GREEN=$(printf '\033[0;32m')
+    YELLOW=$(printf '\033[1;33m')
+    CYAN=$(printf '\033[0;36m')
+    BOLD=$(printf '\033[1m')
+    NC=$(printf '\033[0m')
 else
     RED=''
     GREEN=''
@@ -96,11 +102,13 @@ else
     NC=''
 fi
 
-info()   { printf "${CYAN}[INFO]${NC}  %s\n" "$*"; }
-ok()     { printf "${GREEN}[OK]${NC}    %s\n" "$*"; }
-warn()   { printf "${YELLOW}[WARN]${NC}  %s\n" "$*"; }
-err()    { printf "${RED}[ERROR]${NC} %s\n" "$*"; }
-header() { printf "\n${BOLD}━━━ %s ━━━${NC}\n" "$*"; }
+info()   { printf '%s[INFO]%s  %s\n' "${CYAN}" "${NC}" "$*"; }
+ok()     { printf '%s[OK]%s    %s\n' "${GREEN}" "${NC}" "$*"; }
+warn()   { printf '%s[WARN]%s  %s\n' "${YELLOW}" "${NC}" "$*"; }
+err()    { printf '%s[ERROR]%s %s\n' "${RED}" "${NC}" "$*"; }
+header() { printf '\n%s━━━ %s ━━━%s\n' "${BOLD}" "$*" "${NC}"; }
+
+file_size() { du -h "$1" 2>/dev/null | cut -f1; }
 
 # ── Dependency checks ─────────────────────────────────────────────────────────
 
@@ -110,18 +118,10 @@ check_cmd() {
     if ! command -v "${cmd}" >/dev/null 2>&1; then
         err "'${cmd}' not found. Please install ${pkg}."
         case "${cmd}" in
-            cargo)
-                echo "  → https://rustup.rs/"
-                ;;
-            node)
-                echo "  → https://nodejs.org/ (v18 or later)"
-                ;;
-            pnpm)
-                echo "  → npm install -g pnpm  or  https://pnpm.io/installation"
-                ;;
-            python3)
-                echo "  → https://www.python.org/downloads/"
-                ;;
+            cargo)   echo "  → https://rustup.rs/" ;;
+            node)    echo "  → https://nodejs.org/ (v20 or later)" ;;
+            pnpm)    echo "  → npm install -g pnpm@${EXPECTED_PNPM_VERSION}" ;;
+            python3) echo "  → https://www.python.org/downloads/" ;;
         esac
         return 1
     fi
@@ -144,14 +144,15 @@ check_system_libs() {
             echo ""
             echo "  On Debian/Ubuntu, install:"
             echo "    sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev \\"
-            echo "      libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev"
+            echo "      libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev \\"
+            echo "      libjavascriptcoregtk-4.1-dev libsoup-3.0-dev patchelf"
             echo ""
             echo "  On Fedora, install:"
             echo "    sudo dnf install gtk3-devel webkit2gtk4.1-devel \\"
-            echo "      libappindicator-gtk3-devel librsvg2-devel"
+            echo "      libappindicator-gtk3-devel librsvg2-devel dbus-devel patchelf"
             echo ""
             echo "  On Arch, install:"
-            echo "    sudo pacman -S gtk3 webkit2gtk-4.1 libappindicator-gtk3 librsvg"
+            echo "    sudo pacman -S gtk3 webkit2gtk-4.1 libappindicator-gtk3 librsvg patchelf"
             echo ""
             echo "  (Continuing anyway — the build may fail if these are truly missing.)"
         fi
@@ -168,91 +169,54 @@ check_system_libs() {
 }
 
 check_versions() {
-    # Rust / Cargo
     if command -v cargo >/dev/null 2>&1; then
-        rust_ver=$(cargo --version 2>/dev/null | awk '{print $2}' || echo "unknown")
-        info "Rust version: ${rust_ver}"
+        info "Rust version: $(cargo --version 2>/dev/null | awk '{print $2}')"
     fi
 
-    # Node.js
     if command -v node >/dev/null 2>&1; then
-        node_ver=$(node --version 2>/dev/null || echo "unknown")
-        info "Node.js version: ${node_ver}"
+        info "Node.js version: $(node --version 2>/dev/null || echo unknown)"
     fi
 
-    # pnpm
     if command -v pnpm >/dev/null 2>&1; then
-        pnpm_ver=$(pnpm --version 2>/dev/null || echo "unknown")
+        pnpm_ver=$(pnpm --version 2>/dev/null || echo unknown)
         info "pnpm version: ${pnpm_ver}"
+        if [ "${pnpm_ver}" != "${EXPECTED_PNPM_VERSION}" ]; then
+            warn "CI uses pnpm ${EXPECTED_PNPM_VERSION}; --frozen-lockfile may behave differently on ${pnpm_ver}."
+        fi
     fi
+}
 
-    # Python 3
-    if command -v python3 >/dev/null 2>&1; then
-        py_ver=$(python3 --version 2>/dev/null || echo "unknown")
-        info "Python3 version: ${py_ver}"
-    fi
+host_triple() {
+    rustc -vV | sed -n 's/^host: //p'
 }
 
 # ── Build steps ────────────────────────────────────────────────────────────────
 
 build_cli() {
-    header "Step 1/5: Building CLI binary (synapse)"
-
+    header "Building CLI binary (synapse, os-keychain)"
     cd "${PROJECT_ROOT}"
 
-    info "Running: cargo build -p synapse --${CARGO_PROFILE} -j${JOBS}"
-    cargo build -p synapse --"${CARGO_PROFILE}" -j"${JOBS}"
+    info "Running: cargo build --release --locked -p synapse --features synapse-core/os-keychain"
+    cargo build --release --locked -p synapse --features synapse-core/os-keychain
 
-    echo ""
-    ok "CLI binary built successfully!"
-
-    # Determine the output path
-    if [ "${CARGO_PROFILE}" = "release" ]; then
-        cli_binary="${PROJECT_ROOT}/target/release/synapse"
-    else
-        cli_binary="${PROJECT_ROOT}/target/${CARGO_PROFILE}/synapse"
-    fi
-
-    if [ -f "${cli_binary}" ]; then
-        file_size=$(ls -lh "${cli_binary}" 2>/dev/null | awk '{print $5}')
-        info "Output: ${cli_binary} (${file_size})"
-    else
-        warn "Expected binary not found at: ${cli_binary}"
-        warn "It may have been placed elsewhere depending on your Cargo configuration."
-    fi
+    ok "CLI binary built: ${RELEASE_DIR}/synapse ($(file_size "${RELEASE_DIR}/synapse"))"
 }
 
 build_desktop_frontend() {
-    header "Step 2/5: Building desktop frontend (Vite + React)"
+    header "Building desktop frontend (Vite + React)"
+    cd "${PROJECT_ROOT}"
 
-    if [ ! -d "${DESKTOP_DIR}" ]; then
-        err "Desktop directory not found: ${DESKTOP_DIR}"
-        return 1
-    fi
+    info "Running: pnpm install --frozen-lockfile"
+    pnpm install --frozen-lockfile
 
-    cd "${DESKTOP_DIR}"
+    info "Running: pnpm --filter desktop-app build"
+    pnpm --filter desktop-app --fail-if-no-match build
 
-    info "Running: pnpm install"
-    pnpm install --frozen-lockfile 2>/dev/null || pnpm install
-
-    info "Running: pnpm build"
-    pnpm build
-
-    echo ""
-    ok "Desktop frontend built successfully!"
-
-    if [ -d "${DESKTOP_DIR}/dist" ]; then
-        info "Output: ${DESKTOP_DIR}/dist/"
-    fi
+    ok "Desktop frontend built: ${DESKTOP_DIR}/dist/"
 }
 
 generate_icons() {
-    header "Step 3/5: Generating application icons"
-
-    if [ ! -f "${TAURI_DIR}/build-icons.py" ]; then
-        err "Icon build script not found: ${TAURI_DIR}/build-icons.py"
-        return 1
-    fi
+    header "Regenerating application icons"
 
     if [ ! -f "${TAURI_DIR}/icons/icon.png" ]; then
         err "Source icon not found: ${TAURI_DIR}/icons/icon.png"
@@ -261,165 +225,90 @@ generate_icons() {
     fi
 
     cd "${TAURI_DIR}"
-
     info "Running: python3 build-icons.py"
     python3 build-icons.py
-
-    echo ""
-    ok "Icons generated successfully!"
-    info "Output: ${TAURI_DIR}/icons/"
-}
-
-build_tauri_app() {
-    header "Step 4/5: Building Tauri desktop app (Rust)"
-
-    if [ ! -d "${TAURI_DIR}" ]; then
-        err "Tauri directory not found: ${TAURI_DIR}"
-        return 1
-    fi
-
-    cd "${TAURI_DIR}"
-
-    info "Running: cargo build --${CARGO_PROFILE} -j${JOBS}"
-    cargo build --"${CARGO_PROFILE}" -j"${JOBS}"
-
-    echo ""
-    ok "Tauri desktop app built successfully!"
-
-    # Determine the output path
-    if [ "${CARGO_PROFILE}" = "release" ]; then
-        tauri_binary="${TAURI_DIR}/target/release/desktop-app"
-    else
-        tauri_binary="${TAURI_DIR}/target/${CARGO_PROFILE}/desktop-app"
-    fi
-
-    if [ -f "${tauri_binary}" ]; then
-        file_size=$(ls -lh "${tauri_binary}" 2>/dev/null | awk '{print $5}')
-        info "Output: ${tauri_binary} (${file_size})"
-    else
-        warn "Expected binary not found at: ${tauri_binary}"
-    fi
+    ok "Icons regenerated in ${TAURI_DIR}/icons/"
 }
 
 build_tauri_bundles() {
-    header "Step 5/5: Building Tauri bundles (.deb, .AppImage, etc.)"
+    header "Building Tauri desktop app + bundles (os-keychain)"
+    cd "${PROJECT_ROOT}"
 
-    if [ ! -d "${DESKTOP_DIR}" ]; then
-        err "Desktop directory not found: ${DESKTOP_DIR}"
-        return 1
-    fi
+    # `tauri build` compiles the desktop-app crate itself, so no separate
+    # cargo build is needed. `os-keychain` is a passthrough feature defined in
+    # apps/desktop/src-tauri/Cargo.toml.
+    info "Running: pnpm --filter desktop-app exec tauri build --features os-keychain"
+    pnpm --filter desktop-app --fail-if-no-match exec tauri build --features os-keychain
 
-    cd "${DESKTOP_DIR}"
-
-    info "Running: pnpm tauri build"
-    pnpm tauri build
-
-    echo ""
-    ok "Tauri bundles built successfully!"
-
-    # Report bundle output
-    bundle_dir="${TAURI_DIR}/target/release/bundle"
-    if [ -d "${bundle_dir}" ]; then
-        info "Bundle output directory: ${bundle_dir}"
-        echo ""
-        for fmt_dir in "${bundle_dir}"/*/; do
-            if [ -d "${fmt_dir}" ]; then
-                fmt_name=$(basename "${fmt_dir}")
-                info "  ${fmt_name}:"
-                for artifact in "${fmt_dir}"/*; do
-                    if [ -f "${artifact}" ]; then
-                        artifact_size=$(ls -lh "${artifact}" 2>/dev/null | awk '{print $5}')
-                        info "    $(basename "${artifact}") (${artifact_size})"
-                    fi
-                done
-            fi
-        done
-    fi
+    ok "Tauri bundles built in ${BUNDLE_DIR}/"
 }
 
-print_summary() {
-    header "Build Summary"
+stage_assets() {
+    header "Staging release assets"
+    triple="$(host_triple)"
+
+    rm -rf "${STAGE_DIR}"
+    mkdir -p "${STAGE_DIR}"
 
     if [ "${BUILD_CLI}" -eq 1 ]; then
-        if [ "${CARGO_PROFILE}" = "release" ]; then
-            cli_path="${PROJECT_ROOT}/target/release/synapse"
+        if [ -f "${RELEASE_DIR}/synapse.exe" ]; then
+            warn "Windows host: create synapse-${triple}.zip containing synapse.exe manually (CI uses 7z)."
         else
-            cli_path="${PROJECT_ROOT}/target/${CARGO_PROFILE}/synapse"
+            tar -C "${RELEASE_DIR}" -czf "${STAGE_DIR}/synapse-${triple}.tar.gz" synapse
         fi
-        if [ -f "${cli_path}" ]; then
-            ok "CLI binary:       ${cli_path}"
-        else
-            warn "CLI binary:       NOT BUILT (or not at expected path)"
-        fi
-    else
-        info "CLI binary:       skipped"
     fi
 
     if [ "${BUILD_DESKTOP}" -eq 1 ]; then
-        if [ -d "${DESKTOP_DIR}/dist" ]; then
-            ok "Desktop frontend: ${DESKTOP_DIR}/dist/"
-        else
-            warn "Desktop frontend: NOT BUILT"
-        fi
-
-        tauri_bin="${TAURI_DIR}/target/release/desktop-app"
-        if [ -f "${tauri_bin}" ]; then
-            ok "Tauri binary:     ${tauri_bin}"
-        else
-            warn "Tauri binary:     NOT BUILT (or not at expected path)"
-        fi
-
-        bundle_dir="${TAURI_DIR}/target/release/bundle"
-        if [ -d "${bundle_dir}" ]; then
-            ok "Tauri bundles:    ${bundle_dir}/"
-        else
-            warn "Tauri bundles:    NOT BUILT"
-        fi
-    else
-        info "Desktop app:      skipped"
+        for f in "${BUNDLE_DIR}"/deb/*.deb "${BUNDLE_DIR}"/appimage/*.AppImage \
+                 "${BUNDLE_DIR}"/dmg/*.dmg "${BUNDLE_DIR}"/msi/*.msi; do
+            if [ -f "${f}" ]; then
+                cp "${f}" "${STAGE_DIR}/"
+            fi
+        done
     fi
 
-    echo ""
-    info "All done! Install the CLI with:"
-    echo "  sudo cp target/release/synapse /usr/local/bin/"
-    echo ""
-    info "Install the desktop app via the bundle in:"
-    echo "  ${TAURI_DIR}/target/release/bundle/"
+    cd "${STAGE_DIR}"
+    if [ -z "$(ls -A .)" ]; then
+        warn "Nothing to stage."
+        return 0
+    fi
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum -- * > ../SHA256SUMS
+    else
+        shasum -a 256 -- * > ../SHA256SUMS
+    fi
+    mv ../SHA256SUMS SHA256SUMS
+
+    for f in "${STAGE_DIR}"/*; do
+        ok "$(basename "${f}") ($(file_size "${f}"))"
+    done
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 main() {
-    echo ""
-    echo "${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo "${BOLD}║       Synapse — Build & Installer Generator    ║${NC}"
-    echo "${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
-    echo ""
+    printf '\n%sSynapse — Build & Installer Generator%s\n\n' "${BOLD}" "${NC}"
 
-    # ── Check dependencies ────────────────────────────────────────────────────
     header "Checking system dependencies"
-
     all_ok=1
-
     check_cmd cargo "Rust (rustup)" || all_ok=0
-    check_cmd node "Node.js" || all_ok=0
-    check_cmd pnpm "pnpm" || all_ok=0
-    check_cmd python3 "Python 3" || all_ok=0
-
-    check_system_libs
+    if [ "${BUILD_DESKTOP}" -eq 1 ]; then
+        check_cmd node "Node.js" || all_ok=0
+        check_cmd pnpm "pnpm" || all_ok=0
+        check_system_libs
+    fi
+    if [ "${REGEN_ICONS}" -eq 1 ]; then
+        check_cmd python3 "Python 3" || all_ok=0
+    fi
     check_versions
 
     if [ "${all_ok}" -eq 0 ]; then
         echo ""
         err "One or more required dependencies are missing."
-        err "Install them and re-run this script."
         exit 1
     fi
-
-    echo ""
     ok "All required dependencies found."
 
-    # ── Build steps ───────────────────────────────────────────────────────────
     if [ "${BUILD_CLI}" -eq 1 ]; then
         build_cli
     else
@@ -428,15 +317,19 @@ main() {
 
     if [ "${BUILD_DESKTOP}" -eq 1 ]; then
         build_desktop_frontend
-        generate_icons
-        build_tauri_app
+        if [ "${REGEN_ICONS}" -eq 1 ]; then
+            generate_icons
+        fi
         build_tauri_bundles
     else
         info "Skipping desktop build (--skip-desktop)"
     fi
 
-    # ── Summary ───────────────────────────────────────────────────────────────
-    print_summary
+    stage_assets
+
+    echo ""
+    info "Install the CLI with:"
+    echo "  sudo install -m 0755 target/release/synapse /usr/local/bin/synapse"
 }
 
 main "$@"
