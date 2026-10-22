@@ -10,14 +10,165 @@
 //!   Trojan Source bidirectional override characters, invisible Unicode Tag smuggling
 //!   (`U+E0000`..=`U+E007F`), zero-width character smuggling, and system-instruction
 //!   override delimiters in imported `SKILL.md`, `.cursorrules`, and rule files.
+//! - **CWE-312 / CWE-532**: Cleartext credentials persisted to memory, spool
+//!   logs, or the git-backed Brain ([`redact_secrets`]).
 
 use crate::adapter::AdapterError;
+use regex::{Captures, Regex};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::LazyLock;
 
 static ATOMIC_WRITE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Replacement text used by [`redact_secrets`].
+pub const REDACTED: &str = "[REDACTED]";
+
+/// One secret-shaped pattern. `group` is the capture holding the secret
+/// itself; everything else in the match (key names, `Bearer `, URL scheme
+/// and user) is kept so the redacted text stays readable.
+struct SecretRule {
+    re: Regex,
+    group: usize,
+    /// Extra veto on a match (false = leave it alone).
+    accept: fn(&Captures) -> bool,
+}
+
+fn always(_: &Captures) -> bool {
+    true
+}
+
+/// `max_tokens: 4096` and friends are config, not credentials; `$VAR`,
+/// `${VAR}` and `%VAR%` are references to a secret, not the secret itself.
+fn plausible_assignment(c: &Captures) -> bool {
+    let name = c[1].to_ascii_lowercase();
+    let value = &c[3];
+    let short_number = value.len() < 12 && value.chars().all(|ch| ch.is_ascii_digit());
+    let reference = value.starts_with('$') || value.starts_with('%') || value.starts_with('[');
+    !(name.ends_with("tokens") || short_number || reference)
+}
+
+/// A bare 40-char base64 run is only an AWS secret if it is mixed-case
+/// alphanumeric — this keeps SHA-1 hex digests, lowercase slugs and
+/// filesystem paths intact.
+fn plausible_aws_secret(c: &Captures) -> bool {
+    let s = &c[1];
+    !s.starts_with('/')
+        && s.matches('/').count() <= 4
+        && s.chars().any(|ch| ch.is_ascii_uppercase())
+        && s.chars().any(|ch| ch.is_ascii_lowercase())
+        && s.chars().any(|ch| ch.is_ascii_digit())
+}
+
+static SECRET_RULES: LazyLock<Vec<SecretRule>> = LazyLock::new(|| {
+    let rule = |pattern: &str, group: usize, accept: fn(&Captures) -> bool| SecretRule {
+        re: Regex::new(pattern).expect("secret pattern compiles"),
+        group,
+        accept,
+    };
+    vec![
+        // PEM private key blocks (an unterminated block runs to end of text).
+        rule(
+            r"(?s)(-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|\z))",
+            1,
+            always,
+        ),
+        // Authorization: Bearer/Basic/Token <credential>
+        rule(
+            r#"(?i)(authorization["']?\s*[:=]\s*["']?(?:bearer|basic|token)\s+)([^\s"',]+)"#,
+            2,
+            always,
+        ),
+        // key/token/secret/password assignments: `KEY=…`, `"api_key":"…"`,
+        // `token: …`, `?access_token=…`. Runs before the URL rule so
+        // `DB_PASSWORD=postgres://u:p@h` is redacted as one value.
+        rule(
+            r#"(?i)\b([A-Za-z0-9_.\-]*(?:api[_\-]?key|apikey|token|secret|passwd|password|pwd|access[_\-]?key|private[_\-]?key|credentials?)[A-Za-z0-9_.\-]*)(["']?\s*[:=]\s*["']?)([^\s"'&,;}\]]{4,})"#,
+            3,
+            plausible_assignment,
+        ),
+        // URL userinfo: scheme://user:password@host
+        rule(
+            r"([A-Za-z][A-Za-z0-9+.\-]*://[^/\s:@]*:)([^/\s@]+)(@)",
+            2,
+            |c| !matches!(c[2].chars().next(), Some('$' | '%' | '[')),
+        ),
+        // Well-known provider prefixes, anywhere in the text.
+        rule(
+            r"\b((?:sk|rk)[\-_][A-Za-z0-9_\-]{16,}|gh[opsur]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_\-]{20,}|xox[abprs]-[A-Za-z0-9\-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}|AIza[0-9A-Za-z_\-]{35})",
+            1,
+            always,
+        ),
+        // Bare AWS secret access keys (40 chars of base64 alphabet).
+        rule(
+            r"(?:^|[^A-Za-z0-9/+=])([A-Za-z0-9/+]{40})(?:$|[^A-Za-z0-9/+=])",
+            1,
+            plausible_aws_secret,
+        ),
+    ]
+});
+
+/// Replaces every credential-shaped substring of `text` with the string
+/// returned by `replacement` (called once per secret, in order). Returns the
+/// rewritten text and how many secrets were replaced.
+pub fn redact_secrets_with(text: &str, mut replacement: impl FnMut() -> String) -> (String, usize) {
+    let mut out = text.to_string();
+    let mut count = 0;
+    for rule in SECRET_RULES.iter() {
+        if !rule.re.is_match(&out) {
+            continue;
+        }
+        out = rule
+            .re
+            .replace_all(&out, |c: &Captures| {
+                let whole = c.get(0).expect("match");
+                if !(rule.accept)(c) {
+                    return whole.as_str().to_string();
+                }
+                let secret = c.get(rule.group).expect("secret group");
+                count += 1;
+                let (start, end) = (secret.start() - whole.start(), secret.end() - whole.start());
+                format!(
+                    "{}{}{}",
+                    &whole.as_str()[..start],
+                    replacement(),
+                    &whole.as_str()[end..]
+                )
+            })
+            .into_owned();
+    }
+    (out, count)
+}
+
+/// Redacts API keys, bearer tokens, `KEY=value` credentials, URL passwords,
+/// and PEM private keys, replacing each secret with [`REDACTED`].
+pub fn redact_secrets(text: &str) -> String {
+    redact_secrets_with(text, || REDACTED.to_string()).0
+}
+
+/// Compares two byte strings in time independent of where they differ
+/// (length is not secret). Used for gateway bearer tokens.
+pub fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+/// Creates `dir` (and parents) with owner-only permissions (0700 on unix)
+/// for directories this call creates. Existing directories are left as-is.
+pub fn create_private_dir_all(dir: &Path) -> io::Result<()> {
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(dir)
+}
 
 /// Categories of security threats detected in imported configurations or prompt files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -317,7 +468,18 @@ pub fn read_regular_file_to_string(path: &Path) -> Result<String, AdapterError> 
 /// 2. Respects read-only file permissions on an existing `path` (since `rename(2)`
 ///    on Unix only checks parent directory permissions, not target file permissions).
 pub fn write_atomic(path: &Path, content: impl AsRef<[u8]>) -> io::Result<()> {
-    let content = content.as_ref();
+    write_atomic_impl(path, content.as_ref(), None)
+}
+
+/// [`write_atomic`] for files that may hold sensitive data: the result is
+/// always owner-only (0600 on unix), whatever the previous mode was.
+pub fn write_private_atomic(path: &Path, content: impl AsRef<[u8]>) -> io::Result<()> {
+    write_atomic_impl(path, content.as_ref(), Some(0o600))
+}
+
+fn write_atomic_impl(path: &Path, content: &[u8], force_mode: Option<u32>) -> io::Result<()> {
+    #[cfg(not(unix))]
+    let _ = force_mode;
     let mut existing_mode: Option<fs::Permissions> = None;
 
     if let Ok(meta) = fs::symlink_metadata(path) {
@@ -384,6 +546,11 @@ pub fn write_atomic(path: &Path, content: impl AsRef<[u8]>) -> io::Result<()> {
     }
     drop(file);
 
+    #[cfg(unix)]
+    if let Some(mode) = force_mode {
+        use std::os::unix::fs::PermissionsExt;
+        existing_mode = Some(fs::Permissions::from_mode(mode));
+    }
     if let Some(perms) = existing_mode {
         let _ = fs::set_permissions(&tmp_path, perms);
     } else {
@@ -544,5 +711,130 @@ mod tests {
         #[allow(clippy::permissions_set_readonly_false)]
         perms.set_readonly(false);
         fs::set_permissions(&ro_path, perms).unwrap();
+    }
+
+    #[test]
+    fn redact_secrets_catches_credentials_the_old_word_splitter_missed() {
+        let cases = [
+            (
+                "OPENAI_API_KEY=sk-proj-abcdefghijklmnop1234",
+                "sk-proj-abcdefghijklmnop1234",
+            ),
+            (
+                r#"{"api_key":"sk-abcdefghijklmnopqrstuv"}"#,
+                "sk-abcdefghijklmnopqrstuv",
+            ),
+            (
+                "token:ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123",
+                "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123",
+            ),
+            (
+                "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig",
+                "eyJhbGciOiJIUzI1NiJ9",
+            ),
+            (
+                "connect postgres://admin:hunter2pw@db.internal:5432/app",
+                "hunter2pw",
+            ),
+            (
+                "stripe sk_live_51HabcdefghijklmnopQRST",
+                "sk_live_51HabcdefghijklmnopQRST",
+            ),
+            (
+                "glpat-abcdefghijklmnopqrstu in ci",
+                "glpat-abcdefghijklmnopqrstu",
+            ),
+            (
+                "ghs_abcdefghijklmnopqrstuvwxyz0123 action",
+                "ghs_abcdefghijklmnopqrstuvwxyz0123",
+            ),
+            ("id AKIAIOSFODNN7EXAMPLE ok", "AKIAIOSFODNN7EXAMPLE"),
+            (
+                "aws wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY end",
+                "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            ),
+            ("password = hunter22", "hunter22"),
+            (
+                "https://api.example.com/v1?access_token=abc123def456&x=1",
+                "abc123def456",
+            ),
+        ];
+        for (input, secret) in cases {
+            let out = redact_secrets(input);
+            assert!(!out.contains(secret), "{input:?} -> {out:?}");
+            assert!(out.contains(REDACTED), "{input:?} -> {out:?}");
+        }
+    }
+
+    #[test]
+    fn redact_secrets_removes_pem_private_key_blocks() {
+        let pem = "key:\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH PRIVATE KEY-----\ndone";
+        let out = redact_secrets(pem);
+        assert!(!out.contains("b3BlbnNzaC1rZXktdjEAAAAA"));
+        assert!(out.starts_with("key:\n") && out.ends_with("\ndone"));
+    }
+
+    #[test]
+    fn redact_secrets_leaves_ordinary_text_alone() {
+        for benign in [
+            "max_tokens: 4096 and 1200 tokens saved",
+            "commit 3f786850e387550fdab836ed7e6dc881de23001b landed",
+            "run the task-runner and the risk-assessment tool",
+            "author: Jane, url https://example.com:8080/path",
+            "--token=${GITHUB_TOKEN} stays a reference",
+            "/home/user/Projects/MyApp2/src/components",
+        ] {
+            assert_eq!(redact_secrets(benign), benign);
+        }
+    }
+
+    #[test]
+    fn redact_secrets_with_numbers_each_secret() {
+        let mut n = 0;
+        let (out, count) =
+            redact_secrets_with("postgresql://u:pw1234@h --api-key=abcd1234efgh", || {
+                n += 1;
+                format!("${{X{n}}}")
+            });
+        assert_eq!(count, 2);
+        assert_eq!(out, "postgresql://u:${X2}@h --api-key=${X1}");
+        // Already-redacted output is a fixed point.
+        assert_eq!(redact_secrets_with(&out, || unreachable!()).1, 0);
+    }
+
+    #[test]
+    fn constant_time_eq_matches_only_identical_inputs() {
+        assert!(constant_time_eq(b"abc", b"abc"));
+        assert!(!constant_time_eq(b"abc", b"abd"));
+        assert!(!constant_time_eq(b"abc", b"abcd"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn private_writes_and_dirs_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempdir().unwrap();
+        let dir = root.path().join("a/b");
+        create_private_dir_all(&dir).unwrap();
+        assert_eq!(
+            fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+
+        let file = dir.join("f.log");
+        fs::write(&file, "old").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+        write_private_atomic(&file, "new").unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), "new");
+        assert_eq!(
+            fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+
+        let outside = root.path().join("victim");
+        fs::write(&outside, "keep").unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("link.log")).unwrap();
+        assert!(write_private_atomic(&dir.join("link.log"), "x").is_err());
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "keep");
     }
 }
