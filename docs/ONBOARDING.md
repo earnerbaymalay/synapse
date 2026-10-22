@@ -1,5 +1,5 @@
 # Onboarding Guide — SYNAPSE
-### The Clinical Engine for AI Context — Four-Phase Journey
+### The Canonical AI Brain — Four-Phase Journey
 
 Welcome to **SYNAPSE**. This guide walks you through the four phases of setting up and taking complete control of your AI tool configurations.
 

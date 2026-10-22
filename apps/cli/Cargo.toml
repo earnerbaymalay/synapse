@@ -2,7 +2,7 @@
 name = "synapse"
 version = "1.0.0"
 edition = "2021"
-description = "SYNAPSE CLI — scan, import, project, sync, doctor, snapshot, and rollback AI tool configs"
+description = "Synapse — The Canonical AI Brain. Scan, import, project, sync, doctor, snapshot, and roll back AI tool configs"
 default-run = "synapse"
 
 [[bin]]

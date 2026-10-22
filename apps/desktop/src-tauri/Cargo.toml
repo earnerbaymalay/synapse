@@ -2,7 +2,7 @@
 name = "desktop-app"
 version = "1.0.0"
 edition = "2021"
-description = "Synapse desktop application (Tauri core)"
+description = "Synapse — The Canonical AI Brain (desktop app)"
 
 
 [[bin]]

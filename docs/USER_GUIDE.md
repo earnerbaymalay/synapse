@@ -1,5 +1,5 @@
 # SYNAPSE User Guide
-### The Clinical Engine for AI Context — One Brain. All Models.
+### The Canonical AI Brain — One Brain. All Models.
 
 Welcome to the **SYNAPSE** User Guide. This document provides a complete reference for managing your AI coding tool configurations using the `synapse` CLI and the React desktop application.
 
@@ -266,7 +266,7 @@ The desktop app has five screens, each backed by `synapse-core`:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE // CLINICAL ENGINE FOR AI CONTEXT                     v1.0.0  │
+│  SYNAPSE // THE CANONICAL AI BRAIN                             v1.0.0  │
 ├───────────────┬────────────────────────────────────────────────────────┤
 │ Intake        │  INTAKE REPORT                                         │
 │ Examination   │  Canonical Brain: ~/Desktop/AI BRAIN                   │

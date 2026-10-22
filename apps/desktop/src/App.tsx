@@ -80,7 +80,7 @@ function App() {
             Synapse
           </p>
           <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft">
-            Clinical Engine for AI Context
+            The Canonical AI Brain
           </p>
           <p className="mt-1 font-mono text-xs text-ink-soft">
             {version ? `v${version}` : 'v1.0.0'}

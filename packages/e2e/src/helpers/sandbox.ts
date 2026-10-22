@@ -15,7 +15,7 @@ export interface Sandbox {
 export function createSandbox(testName: string): Sandbox {
   // Replace unsafe chars in testName for directory naming
   const safeName = testName.replace(/[^a-zA-Z0-9-_]/g, '_');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `neuro-e2e-${safeName}-`));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `synapse-e2e-${safeName}-`));
   const workspaceDir = path.join(tmpDir, 'workspace');
   const brainDir = path.join(tmpDir, 'AIBrain');
   const mockHome = path.join(tmpDir, 'home');

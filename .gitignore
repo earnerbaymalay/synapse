@@ -9,3 +9,6 @@ apps/desktop/src-tauri/gen/
 bin/
 release-artifacts/
 transperth_*.svg
+
+# Agent worktrees (local only)
+.claude/worktrees/
