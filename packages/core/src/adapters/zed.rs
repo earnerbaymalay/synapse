@@ -1,4 +1,6 @@
-use super::{compute_sha256, has_path_traversal, strip_provenance, write_if_changed};
+use super::{
+    compute_sha256, has_path_traversal, redact_mcp_secrets, strip_provenance, write_if_changed,
+};
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, HealthStatus, McpServer, Skill};
 use serde_json::{json, Value};
@@ -145,11 +147,12 @@ impl Adapter for ZedAdapter {
                                     env_placeholders.push(key.clone());
                                 }
                             }
+                            let url = redact_mcp_secrets(id, url, &mut env_placeholders);
                             env_placeholders.sort();
                             mcp_servers.push(McpServer {
                                 id: id.clone(),
                                 transport: "http".to_string(),
-                                command_or_url: url.to_string(),
+                                command_or_url: url,
                                 env_placeholders,
                                 targets: vec!["zed".to_string()],
                                 health: HealthStatus::Unknown,
@@ -191,6 +194,8 @@ impl Adapter for ZedAdapter {
                             env_placeholders.push(key.clone());
                         }
                     }
+                    let command_or_url =
+                        redact_mcp_secrets(id, &command_or_url, &mut env_placeholders);
                     env_placeholders.sort();
 
                     mcp_servers.push(McpServer {
@@ -241,16 +246,11 @@ impl Adapter for ZedAdapter {
                 .map_err(|e| AdapterError::Io(format!("Failed to write .rules: {}", e)))?;
             written.push(".rules".to_string());
 
-            let config_zed = root.join(".config/zed");
-            let target_config_zed = if config_zed.exists() || root.join(".config").exists() {
-                Some(config_zed)
-            } else {
-                std::env::var_os("HOME")
-                    .map(PathBuf::from)
-                    .map(|home| home.join(".config/zed"))
-            };
-
-            if let Some(dir) = target_config_zed {
+            // Only ever write under `root`. A root without `.config` (a
+            // project checkout, a test sandbox) gets `.rules` alone rather
+            // than a write into the real `$HOME/.config/zed`.
+            if root.join(".config").is_dir() {
+                let dir = root.join(".config/zed");
                 fs::create_dir_all(&dir).map_err(|e| {
                     AdapterError::Io(format!("Failed to create .config/zed directory: {}", e))
                 })?;
@@ -432,5 +432,49 @@ mod tests {
         fs::write(dir.path().join(".zed/settings.json"), "{ broken").unwrap();
         let res = adapter.import(dir.path());
         assert!(matches!(res, Err(AdapterError::Malformed(_))));
+    }
+
+    #[test]
+    fn project_never_writes_outside_root() {
+        let home = tempdir().unwrap();
+        let _home = HomeGuard::set(home.path());
+        let root = tempdir().unwrap();
+        let skill = Skill {
+            id: "zed-rules".into(),
+            version: "1.0.0".into(),
+            triggers: vec!["*".into()],
+            targets: vec!["zed".into()],
+            source: "be kind".into(),
+            sha256: compute_sha256("be kind"),
+        };
+        let res = ZedAdapter
+            .project(root.path(), std::slice::from_ref(&skill), &[], &[])
+            .unwrap();
+        assert_eq!(res.written, vec![".rules".to_string()]);
+        assert!(!home.path().join(".config/zed/AGENTS.md").exists());
+
+        // A root that has `.config` (e.g. the home directory) still gets it.
+        fs::create_dir_all(root.path().join(".config")).unwrap();
+        ZedAdapter
+            .project(root.path(), &[skill], &[], &[])
+            .unwrap();
+        assert!(root.path().join(".config/zed/AGENTS.md").exists());
+    }
+
+    #[test]
+    fn import_redacts_credentials_in_context_server_args() {
+        let home = tempdir().unwrap();
+        let _home = HomeGuard::set(home.path());
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join(".zed")).unwrap();
+        fs::write(
+            dir.path().join(".zed/settings.json"),
+            r#"{"context_servers": {"pg": {"command": "uvx", "args": ["mcp-pg", "postgres://u:hunter22@h/db"]}}}"#,
+        )
+        .unwrap();
+        let imported = ZedAdapter.import(dir.path()).unwrap();
+        let server = &imported.mcp_servers[0];
+        assert_eq!(server.command_or_url, "uvx mcp-pg postgres://u:${SYNAPSE_REDACTED_1}@h/db");
+        assert_eq!(server.env_placeholders, vec!["SYNAPSE_REDACTED_1"]);
     }
 }
