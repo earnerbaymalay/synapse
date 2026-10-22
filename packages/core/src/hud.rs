@@ -92,6 +92,13 @@ impl HudSnapshot {
     }
 }
 
+fn render_gauge(percent: u64, width: usize) -> String {
+    let percent = percent.min(100);
+    let filled = ((percent as usize * width) + 50) / 100;
+    let empty = width.saturating_sub(filled);
+    format!("{}{}", "▰".repeat(filled), "▱".repeat(empty))
+}
+
 /// Formats the complete HUD display into an ANSI clinical terminal view
 pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
     let cyan = if use_color { "\x1b[1;36m" } else { "" };
@@ -104,90 +111,100 @@ pub fn format_hud(snap: &HudSnapshot, use_color: bool) -> String {
 
     let mut out = String::new();
 
-    // Header
+    // Top Header Banner
     out.push_str(&format!(
-        "{cyan}┌──────────────────────────────────────────────────────────────────────────┐{reset}\n"
+        "{cyan}┌─ CYBERDECK // SYNAPSE VITAL SIGNS HUD · RUNTIME COCKPIT ─────────────── v1.0.0 ─┐{reset}\n"
     ));
     out.push_str(&format!(
-        "{cyan}│{reset}  {bold}SYNAPSE VITAL SIGNS HUD // RUNTIME COCKPIT{reset}                     {dim}v1.0.0{reset}  {cyan}│{reset}\n"
+        "{cyan}│{reset}  {dim}Dual-Zone Architecture · 15-Tool Star-Topology · Zero-Drift Telemetry{reset}           {cyan}│{reset}\n"
     ));
     out.push_str(&format!(
-        "{cyan}└──────────────────────────────────────────────────────────────────────────┘{reset}\n\n"
+        "{cyan}└──────────────────────────────────────────────────────────────────────────────────┘{reset}\n\n"
     ));
 
     // Gateway Section
     let gw_status = if snap.gateway_active {
         format!(
-            "{green}● ONLINE{reset} (Listening on {})",
+            "{green}● ONLINE{reset} (Listening on {}) {dim}[Press 'g' to halt]{reset}",
             snap.gateway_bind
         )
     } else {
-        format!("{red}○ OFFLINE{reset} (Run `synapse serve` to activate)")
+        format!("{red}○ OFFLINE{reset} {yellow}[Press 'g' to start runtime gateway]{reset}")
     };
 
-    out.push_str(&format!("{bold}🩺 RUNTIME GATEWAY{reset}\n"));
-    out.push_str(&format!("  Status:   {}\n", gw_status));
-    out.push_str(&format!("  Upstream: {cyan}{}{reset}\n", snap.upstream_url));
+    out.push_str(&format!("{bold}{cyan}╭── RUNTIME GATEWAY (LOCAL PROXY){reset}\n"));
+    out.push_str(&format!("│  Status:   {}\n", gw_status));
+    out.push_str(&format!("│  Upstream: {cyan}{}{reset}\n", snap.upstream_url));
     if !snap.stats.last_model.is_empty() {
         out.push_str(&format!(
-            "  Model:    {bold}{}{reset} ({dim}{}ms latency{reset})\n",
+            "│  Model:    {bold}{}{reset} ({dim}{}ms latency{reset})\n",
             snap.stats.last_model, snap.stats.last_latency_ms
         ));
     }
-    out.push('\n');
+    out.push_str(&format!("{bold}{cyan}╰──────────────────────────────────────────────────────────────────────────────────{reset}\n\n"));
 
     // Sensory Gating & Token Metrics
+    let red_pct = snap.stats.avg_reduction_percent;
+    let gauge = render_gauge(red_pct as u64, 12);
     out.push_str(&format!(
-        "{bold}⚡ SYNAPTIC SENSORY GATING & TOKEN METRICS{reset}\n"
+        "{bold}{cyan}╭── SYNAPTIC SENSORY GATING & TOKEN METRICS{reset}\n"
     ));
     out.push_str(&format!(
-        "  Requests Handled:     {bold}{}{reset}\n",
+        "│  Requests Handled:     {bold}{}{reset}\n",
         snap.stats.total_requests
     ));
     out.push_str(&format!(
-        "  Raw Prompt Tokens:    {dim}{}{reset}\n",
+        "│  Raw Prompt Tokens:    {dim}{}{reset}\n",
         snap.stats.prompt_tokens_raw
     ));
     out.push_str(&format!(
-        "  Gated Prompt Tokens:  {cyan}{}{reset}\n",
+        "│  Gated Prompt Tokens:  {cyan}{}{reset}\n",
         snap.stats.prompt_tokens_gated
     ));
     out.push_str(&format!(
-        "  Tokens Pruned/Saved:  {green}{}{reset} ({bold}{}% reduction{reset})\n\n",
-        snap.stats.tokens_saved, snap.stats.avg_reduction_percent
+        "│  Compression Ratio:    {green}[{}]{reset} {bold}{}% reduction{reset} ({dim}{} saved{reset})\n",
+        gauge, red_pct, snap.stats.tokens_saved
     ));
+    out.push_str(&format!("{bold}{cyan}╰──────────────────────────────────────────────────────────────────────────────────{reset}\n\n"));
 
     // Canonical Brain & Doctor Status
-    let brain_status = if snap.doctor_healthy {
+    let (brain_status, brain_gauge) = if snap.doctor_healthy {
         if snap.doctor_warnings > 0 {
-            format!(
-                "{yellow}⚠ ATTENTION REQUIRED{reset} ({} warnings)",
-                snap.doctor_warnings
+            (
+                format!("{yellow}⚠ ATTENTION REQUIRED{reset} ({} warnings)", snap.doctor_warnings),
+                format!("{yellow}[{}]{reset}", render_gauge(85, 12))
             )
         } else {
-            format!("{green}✔ LOCKSTEP SYNCED{reset} (0 faults)",)
+            (
+                format!("{green}✔ LOCKSTEP SYNCED{reset} (0 faults)"),
+                format!("{green}[{}]{reset}", render_gauge(100, 12))
+            )
         }
     } else {
-        format!(
-            "{red}✖ CORRUPTED / DRIFTED{reset} ({} criticals, run `synapse doctor --fix`)",
-            snap.doctor_criticals
+        (
+            format!(
+                "{red}✖ CORRUPTED / DRIFTED{reset} ({} criticals, press ':' then type 'doctor --fix')",
+                snap.doctor_criticals
+            ),
+            format!("{red}[{}]{reset}", render_gauge(30, 12))
         )
     };
 
-    out.push_str(&format!("{bold}🏛️ CANONICAL BRAIN (THE ORGAN){reset}\n"));
-    out.push_str(&format!("  Path:      {dim}{}{reset}\n", snap.brain_path));
+    out.push_str(&format!("{bold}{cyan}╭── CANONICAL BRAIN (THE ORGAN){reset}\n"));
+    out.push_str(&format!("│  Path:      {dim}{}{reset}\n", snap.brain_path));
     out.push_str(&format!(
-        "  Adapters:  {bold}{} verified tools{reset}\n",
+        "│  Adapters:  {bold}{} verified tools{reset}\n",
         snap.total_adapters
     ));
-    out.push_str(&format!("  Doctor:    {}\n\n", brain_status));
+    out.push_str(&format!("│  Integrity: {} {}\n", brain_gauge, brain_status));
+    out.push_str(&format!("{bold}{cyan}╰──────────────────────────────────────────────────────────────────────────────────{reset}\n\n"));
 
     // Command Bar
     out.push_str(&format!(
-        "{dim}────────────────────────────────────────────────────────────────────────────{reset}\n"
+        "{dim}────────────────────────────────────────────────────────────────────────────────────{reset}\n"
     ));
     out.push_str(&format!(
-        "  {bold}Shortcuts:{reset} [s] Sync Brain  •  [d] Doctor Diagnostic  •  [p] Project  •  [q] Quit\n"
+        "  {bold}Shortcuts:{reset} [s] Sync  •  [d] Doctor  •  [p] Project  •  [g] Toggle Gateway  •  [:] Console  •  [q] Quit\n"
     ));
 
     out
