@@ -16,9 +16,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Rubik+Mono+One&display=swap" rel="stylesheet">
   
   <!-- Markdown & Code Highlighting -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js" integrity="sha384-QsSpx6a0USazT7nK7w8qXDgpSAPhFsb2XtpoLFQ5+X2yFN6hvCKnwEzN8M5FWaJb" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" integrity="sha384-PiLidnnRuzFgp4qiN8oGNmktrV8ETL+6a8heAxljUX4A+3XWlocwaMn9duBUepfK" crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp" crossorigin="anonymous"></script>
 
   <script>
     tailwind.config = {
@@ -329,7 +329,7 @@
       const editBtn = document.getElementById('github-edit-btn');
       
       breadcrumb.innerText = docPath;
-      editBtn.href = 'https://github.com/earnerbaymalay/synapse/blob/main/docs/' + docPath;
+      editBtn.href = 'https://github.com/earnerbaymalay/synapse/blob/main/docs/' + encodeURI(docPath);
 
       // Update Active Navigation Item
       document.querySelectorAll('.doc-nav-item').forEach(el => {
@@ -340,29 +340,21 @@
         }
       });
 
-      // Try Local Embedded Fallback First for zero latency / offline support
-      let rawMarkdown = window.SYNAPSE_DOCS[docPath];
-
-      // If not in dictionary, try dynamic fetch
-      if (!rawMarkdown) {
-        try {
-          const res = await fetch(docPath);
-          if (res.ok) {
-            rawMarkdown = await res.text();
-          }
-        } catch (err) {
-          console.warn('Fetch failed for', docPath, err);
-        }
-      }
+      // Only bundled docs are served: `docPath` comes from the URL, so it is
+      // never fetched or written into the page as HTML.
+      const rawMarkdown = Object.prototype.hasOwnProperty.call(window.SYNAPSE_DOCS, docPath)
+        ? window.SYNAPSE_DOCS[docPath]
+        : null;
 
       if (!rawMarkdown) {
         viewport.innerHTML = `
           <div class="p-6 border border-synapse-error/40 bg-synapse-error/10 text-synapse-error font-mono text-sm">
             <h3 class="font-bold mb-2">■ SPECIFICATION NOT FOUND</h3>
-            <p>Could not locate <code>${docPath}</code> in the Synapse clinical documentation tree.</p>
+            <p>Could not locate <code id="missing-doc"></code> in the Synapse documentation.</p>
             <p class="mt-4"><a href="docs.html?doc=README.md" class="underline">Return to Docs Hub</a></p>
           </div>
         `;
+        document.getElementById('missing-doc').textContent = docPath;
         return;
       }
 
