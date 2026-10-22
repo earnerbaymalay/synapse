@@ -8,7 +8,7 @@ Get up and running with **Synapse** in under 60 seconds.
 
 ## 📦 1. Prerequisites
 
-* **Rust**: `1.75+` ([rustup.rs](https://rustup.rs))
+* **Rust**: install [rustup](https://rustup.rs). `rust-toolchain.toml` pins Rust 1.97.1, and rustup installs that toolchain on the first build.
 * **Node.js**: `v20+` & `pnpm` (required for Desktop GUI development)
 
 ### Linux (Ubuntu/Debian) System Dependencies
@@ -19,25 +19,42 @@ sudo apt-get update && sudo apt-get install -y \
 
 ---
 
-## 🚀 2. Three-Step Launch
+## 🚀 2. Four-Step Launch
+
+### Step 0: Install the CLI
+```bash
+cargo install --path apps/cli --locked
+synapse --version
+```
+*To run without installing, replace `synapse` with `cargo run -p synapse --` in every command below.*
 
 ### Step 1: Detect Active AI Tools
 ```bash
-cargo run -p synapse -- scan
+synapse scan
 ```
-*Output lists all discovered tools (Claude, Cursor, Gemini, Windsurf, Zed, etc.).*
+*Output lists the AI tools found in your home directory.*
 
-### Step 2: Ingest Configurations
+### Step 2: Import Configurations
 ```bash
-cargo run -p synapse -- import --dry-run
-cargo run -p synapse -- import
+synapse import --dry-run
+synapse import
 ```
-*Creates `~/AIBrain` as a local Git repository and snapshots all existing prompt files.*
+*Imports the detected configs into the Brain, a local Git repository, and commits a snapshot. The Brain is `~/AIBrain` by default, or `~/Desktop/AI BRAIN` when that directory exists and `~/AIBrain` does not. Set `SYNAPSE_BRAIN_PATH` to use another location.*
 
-### Step 3: Run the Auto-Sync Watcher
+### Step 3: Project and Keep Tools in Step
 ```bash
-cargo run -p synapse -- sync --daemon
+synapse project --dry-run
+synapse project
+synapse sync --once
 ```
+*`sync` runs one pass and exits. It does not watch files in the background. To keep tools current, schedule it, for example with `crontab -e`:*
+
+```bash
+*/5 * * * * /usr/local/bin/synapse sync >> "$HOME/.synapse-sync.log" 2>&1
+```
+
+> [!TIP]
+> **Per-project runs:** the default tool root is your home directory. To project into the current project instead, set `SYNAPSE_TOOL_ROOT=. synapse scan`. `doctor` and `onboard` also accept `--tool-root <PATH>`.
 
 ### ⚡ Bonus: Synaptic Auto-Compression for Agent Commands
 ```bash
