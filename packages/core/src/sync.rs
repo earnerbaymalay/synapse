@@ -335,12 +335,15 @@ pub fn perform_import(root: &Path, brain_root: &Path) -> Result<Vec<String>, Str
     }
 
     mappings_file.mappings.sort_by(|a, b| {
-        (&a.tool_id, &a.canonical_path, &a.projection_path)
-            .cmp(&(&b.tool_id, &b.canonical_path, &b.projection_path))
+        (&a.tool_id, &a.canonical_path, &a.projection_path).cmp(&(
+            &b.tool_id,
+            &b.canonical_path,
+            &b.projection_path,
+        ))
     });
-    mappings_file.mappings.dedup_by(|a, b| {
-        a.tool_id == b.tool_id && a.canonical_path == b.canonical_path
-    });
+    mappings_file
+        .mappings
+        .dedup_by(|a, b| a.tool_id == b.tool_id && a.canonical_path == b.canonical_path);
 
     let _ = mappings_file.save(&mappings_path);
 
