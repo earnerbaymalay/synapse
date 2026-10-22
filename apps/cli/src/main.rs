@@ -741,20 +741,36 @@ fn run_interactive_hud(
     }
     let _guard = RawModeGuard;
 
+    let mut local_gateway: Option<GatewayServer> = None;
     let mut status_msg: Option<String> = None;
+    let mut input_mode = false;
+    let mut input_buffer = String::new();
     let mut last_render = Instant::now() - Duration::from_secs(interval + 1);
-    let poll_interval = Duration::from_millis(100);
+    let poll_interval = Duration::from_millis(50);
 
     loop {
-        if last_render.elapsed() >= Duration::from_secs(interval) {
+        if last_render.elapsed() >= Duration::from_secs(interval) || input_mode {
             let snap = HudSnapshot::collect(gateway, brain_root, tool_root);
             let mut rendered = format_hud(&snap, use_color);
             rendered = rendered.replace('\n', "\r\n");
             print!("\x1b[2J\x1b[1;1H{}", rendered);
+
             if let Some(msg) = &status_msg {
                 let bullet = if use_color { "\x1b[1;32m●\x1b[0m" } else { "●" };
                 print!("  {} {}\r\n", bullet, msg);
             }
+
+            if input_mode {
+                let cyan = if use_color { "\x1b[1;36m" } else { "" };
+                let reset = if use_color { "\x1b[0m" } else { "" };
+                let blink = if use_color { "\x1b[5m" } else { "" };
+                print!("  {cyan}COMMAND ❯{reset} {}{blink}█{reset}\r\n", input_buffer);
+            } else {
+                let dim = if use_color { "\x1b[2m" } else { "" };
+                let reset = if use_color { "\x1b[0m" } else { "" };
+                print!("  {dim}Console: Press ':' to enter a command (e.g. :serve, :doctor --fix, :snapshot <msg>){reset}\r\n");
+            }
+
             let _ = std::io::stdout().flush();
             last_render = Instant::now();
         }
@@ -762,75 +778,282 @@ fn run_interactive_hud(
         if event::poll(poll_interval).unwrap_or(false) {
             if let Ok(Event::Key(key)) = event::read() {
                 if key.kind == crossterm::event::KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => break,
-                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
-                        KeyCode::Char('s') => {
-                            match perform_sync(brain_root, tool_root) {
-                                Ok(SyncOutcome::Applied { changed_paths }) => {
+                    if input_mode {
+                        match key.code {
+                            KeyCode::Esc => {
+                                input_mode = false;
+                                input_buffer.clear();
+                                status_msg = Some("Command canceled.".to_string());
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            KeyCode::Backspace => {
+                                input_buffer.pop();
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            KeyCode::Enter => {
+                                input_mode = false;
+                                let cmd = input_buffer.trim().to_string();
+                                input_buffer.clear();
+
+                                if cmd.is_empty() {
+                                    // no-op
+                                } else if cmd == "q" || cmd == "quit" || cmd == "exit" {
+                                    break;
+                                } else if cmd == "g" || cmd == "serve" || cmd == "gateway" || cmd == "start" {
+                                    if let Some(mut gw) = local_gateway.take() {
+                                        gw.stop();
+                                        status_msg = Some("Gateway proxy stopped.".to_string());
+                                    } else {
+                                        let is_active = HudSnapshot::collect(gateway, brain_root, tool_root).gateway_active;
+                                        if is_active {
+                                            status_msg = Some(format!("Gateway is already running on http://{}", gateway));
+                                        } else {
+                                            let config = GatewayConfig {
+                                                bind_addr: gateway.to_string(),
+                                                upstream_url: "https://api.openai.com/v1".to_string(),
+                                                upstream_kind: UpstreamKind::OpenAi,
+                                                default_model: None,
+                                                gate_level: CompressionLevel::Balanced,
+                                                api_key: std::env::var("OPENAI_API_KEY").ok(),
+                                                fold_keep_recent: None,
+                                            };
+                                            let mut srv = GatewayServer::new(config);
+                                            match srv.start_background() {
+                                                Ok(()) => {
+                                                    local_gateway = Some(srv);
+                                                    status_msg = Some(format!("Runtime Gateway launched in background on http://{}", gateway));
+                                                }
+                                                Err(e) => {
+                                                    status_msg = Some(format!("Failed to start gateway: {}", e));
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else if cmd == "stop" {
+                                    if let Some(mut gw) = local_gateway.take() {
+                                        gw.stop();
+                                        status_msg = Some("Gateway proxy stopped.".to_string());
+                                    } else {
+                                        status_msg = Some("No local gateway running in this HUD session.".to_string());
+                                    }
+                                } else if cmd == "s" || cmd == "sync" {
+                                    match perform_sync(brain_root, tool_root) {
+                                        Ok(SyncOutcome::Applied { changed_paths }) => {
+                                            status_msg = Some(format!(
+                                                "Sync: {} applied.",
+                                                chart::plural(changed_paths.len(), "change")
+                                            ));
+                                        }
+                                        Ok(SyncOutcome::NoChanges) => {
+                                            status_msg = Some("Sync: Brain is already in sync with every tool.".to_string());
+                                        }
+                                        Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
+                                            status_msg = Some(format!(
+                                                "Sync: {} need human resolution.",
+                                                chart::plural(conflict_ids.len(), "conflict")
+                                            ));
+                                        }
+                                        Err(e) => {
+                                            status_msg = Some(format!("Sync failed: {}", e));
+                                        }
+                                    }
+                                } else if cmd == "d" || cmd == "doctor" {
+                                    let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
+                                        brain_root.join(".brain/mappings.json")
+                                    } else {
+                                        brain_root.join("mappings.json")
+                                    };
+                                    let ctx = synapse_core::doctor::DoctorContext {
+                                        brain_root: brain_root.to_path_buf(),
+                                        tool_root: tool_root.to_path_buf(),
+                                        mappings_path,
+                                    };
+                                    let diags = synapse_core::doctor::diagnose(&ctx);
+                                    let criticals = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Critical).count();
+                                    let warnings = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Warning).count();
+                                    if diags.is_empty() {
+                                        status_msg = Some("Doctor: Clean bill of health. No drift or faults.".to_string());
+                                    } else {
+                                        status_msg = Some(format!(
+                                            "Doctor: {} criticals, {} warnings.",
+                                            criticals, warnings
+                                        ));
+                                    }
+                                } else if cmd == "fix" || cmd == "doctor --fix" {
+                                    let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
+                                        brain_root.join(".brain/mappings.json")
+                                    } else {
+                                        brain_root.join("mappings.json")
+                                    };
+                                    let ctx = synapse_core::doctor::DoctorContext {
+                                        brain_root: brain_root.to_path_buf(),
+                                        tool_root: tool_root.to_path_buf(),
+                                        mappings_path,
+                                    };
+                                    match synapse_core::doctor::apply_fixes(&ctx) {
+                                        Ok(n) => {
+                                            status_msg = Some(format!("Doctor: Fixed {} issues.", n));
+                                        }
+                                        Err(e) => {
+                                            status_msg = Some(format!("Doctor fix error: {}", e));
+                                        }
+                                    }
+                                } else if cmd == "p" || cmd == "project" {
+                                    match perform_project(brain_root, tool_root) {
+                                        Ok(paths) => {
+                                            status_msg = Some(format!(
+                                                "Project: {} projected out of the Brain.",
+                                                chart::plural(paths.len(), "file")
+                                            ));
+                                        }
+                                        Err(e) => {
+                                            status_msg = Some(format!("Project failed: {}", e));
+                                        }
+                                    }
+                                } else if let Some(rest) = cmd.strip_prefix("snapshot ") {
+                                    match snapshot(brain_root, rest.trim()) {
+                                        Ok(sha) => {
+                                            status_msg = Some(format!("Snapshot recorded: {}", sha));
+                                        }
+                                        Err(e) => {
+                                            status_msg = Some(format!("Snapshot failed: {}", e));
+                                        }
+                                    }
+                                } else if cmd == "snapshot" {
+                                    match snapshot(brain_root, "HUD checkpoint") {
+                                        Ok(sha) => {
+                                            status_msg = Some(format!("Snapshot recorded: {}", sha));
+                                        }
+                                        Err(e) => {
+                                            status_msg = Some(format!("Snapshot failed: {}", e));
+                                        }
+                                    }
+                                } else if cmd == "help" {
+                                    status_msg = Some("Commands: :sync, :doctor, :fix, :project, :serve, :snapshot <msg>, :quit".to_string());
+                                } else {
+                                    status_msg = Some(format!("Unknown command '{}'. Type :help for commands.", cmd));
+                                }
+
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            KeyCode::Char(c) => {
+                                input_buffer.push(c);
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => break,
+                            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                            KeyCode::Char(':') | KeyCode::Char('/') => {
+                                input_mode = true;
+                                input_buffer.clear();
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            KeyCode::Char('g') => {
+                                if let Some(mut gw) = local_gateway.take() {
+                                    gw.stop();
+                                    status_msg = Some("Gateway proxy stopped.".to_string());
+                                } else {
+                                    let is_active = HudSnapshot::collect(gateway, brain_root, tool_root).gateway_active;
+                                    if is_active {
+                                        status_msg = Some(format!("Gateway is already running on http://{}", gateway));
+                                    } else {
+                                        let config = GatewayConfig {
+                                            bind_addr: gateway.to_string(),
+                                            upstream_url: "https://api.openai.com/v1".to_string(),
+                                            upstream_kind: UpstreamKind::OpenAi,
+                                            default_model: None,
+                                            gate_level: CompressionLevel::Balanced,
+                                            api_key: std::env::var("OPENAI_API_KEY").ok(),
+                                            fold_keep_recent: None,
+                                        };
+                                        let mut srv = GatewayServer::new(config);
+                                        match srv.start_background() {
+                                            Ok(()) => {
+                                                local_gateway = Some(srv);
+                                                status_msg = Some(format!("Runtime Gateway launched on http://{}", gateway));
+                                            }
+                                            Err(e) => {
+                                                status_msg = Some(format!("Failed to start gateway: {}", e));
+                                            }
+                                        }
+                                    }
+                                }
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            KeyCode::Char('s') => {
+                                match perform_sync(brain_root, tool_root) {
+                                    Ok(SyncOutcome::Applied { changed_paths }) => {
+                                        status_msg = Some(format!(
+                                            "Sync: {} applied.",
+                                            chart::plural(changed_paths.len(), "change")
+                                        ));
+                                    }
+                                    Ok(SyncOutcome::NoChanges) => {
+                                        status_msg = Some("Sync: Brain is already in sync with every tool.".to_string());
+                                    }
+                                    Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
+                                        status_msg = Some(format!(
+                                            "Sync: {} need human resolution.",
+                                            chart::plural(conflict_ids.len(), "conflict")
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        status_msg = Some(format!("Sync failed: {}", e));
+                                    }
+                                }
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            }
+                            KeyCode::Char('d') => {
+                                let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
+                                    brain_root.join(".brain/mappings.json")
+                                } else {
+                                    brain_root.join("mappings.json")
+                                };
+                                let ctx = synapse_core::doctor::DoctorContext {
+                                    brain_root: brain_root.to_path_buf(),
+                                    tool_root: tool_root.to_path_buf(),
+                                    mappings_path,
+                                };
+                                let diags = synapse_core::doctor::diagnose(&ctx);
+                                let criticals = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Critical).count();
+                                let warnings = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Warning).count();
+                                if diags.is_empty() {
+                                    status_msg = Some("Doctor: Clean bill of health. No drift or faults.".to_string());
+                                } else {
                                     status_msg = Some(format!(
-                                        "Sync: {} applied.",
-                                        chart::plural(changed_paths.len(), "change")
+                                        "Doctor: {} criticals, {} warnings.",
+                                        criticals, warnings
                                     ));
                                 }
-                                Ok(SyncOutcome::NoChanges) => {
-                                    status_msg = Some("Sync: Brain is already in sync with every tool.".to_string());
-                                }
-                                Ok(SyncOutcome::ConflictQueued { conflict_ids }) => {
-                                    status_msg = Some(format!(
-                                        "Sync: {} need human resolution.",
-                                        chart::plural(conflict_ids.len(), "conflict")
-                                    ));
-                                }
-                                Err(e) => {
-                                    status_msg = Some(format!("Sync failed: {}", e));
-                                }
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
-                            last_render = Instant::now() - Duration::from_secs(interval + 1);
-                        }
-                        KeyCode::Char('d') => {
-                            let mappings_path = if brain_root.join(".brain/mappings.json").exists() {
-                                brain_root.join(".brain/mappings.json")
-                            } else {
-                                brain_root.join("mappings.json")
-                            };
-                            let ctx = synapse_core::doctor::DoctorContext {
-                                brain_root: brain_root.to_path_buf(),
-                                tool_root: tool_root.to_path_buf(),
-                                mappings_path,
-                            };
-                            let diags = synapse_core::doctor::diagnose(&ctx);
-                            let criticals = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Critical).count();
-                            let warnings = diags.iter().filter(|d| d.severity == synapse_core::doctor::Severity::Warning).count();
-                            if diags.is_empty() {
-                                status_msg = Some("Doctor: Clean bill of health. No drift or faults.".to_string());
-                            } else {
-                                status_msg = Some(format!(
-                                    "Doctor: {} criticals, {} warnings.",
-                                    criticals, warnings
-                                ));
-                            }
-                            last_render = Instant::now() - Duration::from_secs(interval + 1);
-                        }
-                        KeyCode::Char('p') => {
-                            match perform_project(brain_root, tool_root) {
-                                Ok(paths) => {
-                                    status_msg = Some(format!(
-                                        "Project: {} projected out of the Brain.",
-                                        chart::plural(paths.len(), "file")
-                                    ));
+                            KeyCode::Char('p') => {
+                                match perform_project(brain_root, tool_root) {
+                                    Ok(paths) => {
+                                        status_msg = Some(format!(
+                                            "Project: {} projected out of the Brain.",
+                                            chart::plural(paths.len(), "file")
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        status_msg = Some(format!("Project failed: {}", e));
+                                    }
                                 }
-                                Err(e) => {
-                                    status_msg = Some(format!("Project failed: {}", e));
-                                }
+                                last_render = Instant::now() - Duration::from_secs(interval + 1);
                             }
-                            last_render = Instant::now() - Duration::from_secs(interval + 1);
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
         }
+    }
+
+    if let Some(mut gw) = local_gateway {
+        gw.stop();
     }
 
     ExitCode::SUCCESS
