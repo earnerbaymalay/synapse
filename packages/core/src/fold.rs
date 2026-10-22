@@ -9,8 +9,8 @@
 //!
 //! Folding is a pure function of message content, so a folded message looks
 //! byte-identical on every later request and prefix caching keeps working.
-
-use std::fs;
+//! The spooled copy is secret-redacted before it touches disk; its id is
+//! still derived from the original text so stubs stay stable.
 
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -96,10 +96,8 @@ fn fold_text(text: &str, spool: &SpoolManager, report: &mut FoldReport) -> Optio
         return None;
     }
     let id = content_id(text);
-    spool.ensure_dir().ok()?;
-    let path = spool_path(spool, &id);
-    if !path.exists() {
-        fs::write(&path, text).ok()?;
+    if !spool_path(spool, &id).exists() {
+        spool.write_entry(&id, text).ok()?;
     }
     let (digest, ..) = compress_text(text, CompressionLevel::Aggressive);
     let stub = format!(
@@ -174,6 +172,22 @@ mod tests {
             .next()
             .unwrap();
         assert_eq!(sp.read_log(id, None, None).unwrap(), raw);
+    }
+
+    #[test]
+    fn spooled_original_is_redacted_but_id_tracks_the_original() {
+        let (_d, sp) = spool();
+        let raw = big("f") + "\nGITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123";
+        let mut msgs = vec![
+            json!({"role":"tool","content": raw}),
+            json!({"role":"user","content":"x"}),
+        ];
+        fold_messages(&mut msgs, 1, &sp);
+        let stub = msgs[0]["content"].as_str().unwrap();
+        let id = content_id(&raw);
+        assert!(stub.contains(&id));
+        let stored = sp.read_log(&id, None, None).unwrap();
+        assert!(!stored.contains("ghp_ABCDEF") && stored.contains("[REDACTED]"));
     }
 
     #[test]
