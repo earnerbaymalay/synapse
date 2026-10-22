@@ -1,9 +1,9 @@
 # 🔌 Tool Adapters Overview
-### Synapse — 13 Verified Adapters
+### Synapse — 15 Verified Adapters
 
 [Docs Hub](../README.md) > **Adapters**
 
-Synapse includes 13 verified tool adapters, each purpose-built for bi-directional configuration translation.
+Synapse includes 15 verified tool adapters, each purpose-built for bi-directional configuration translation.
 
 ---
 
@@ -24,6 +24,8 @@ Synapse includes 13 verified tool adapters, each purpose-built for bi-directiona
 | **Zed** | [Spec](zed.md) | `.rules`, `.zed/settings.json`, `AGENTS.md` | Text, JSON, Markdown | Settings & Rules | `.rules` + `AGENTS.md` |
 | **OpenCode** | [Spec](opencode.md) | `AGENTS.md` | Markdown | Multi-Agent Rules | `AGENTS.md` |
 | **Antigravity CLI** | [Spec](antigravity.md) | `AGENTS.md`, `.agy/skills/`, `.gemini/settings.json` | Markdown, YAML | Skills & Settings | `AGENTS.md` + `.agy/skills/` |
+| **AWS Kiro IDE** | [Spec](kiro.md) | `.kiro/steering/*.md`, `.kiro/settings/mcp.json` | Frontmatter, JSONC | Steering Rules & MCP | `.kiro/steering/` + `.kiro/settings/` |
+| **Trae IDE** | [Spec](trae.md) | `.trae/rules/*.md`, `.trae/mcp.json` | MDC Frontmatter, JSONC | Scoped Rules & MCP | `.trae/rules/` + `.trae/mcp.json` |
 
 ---
 

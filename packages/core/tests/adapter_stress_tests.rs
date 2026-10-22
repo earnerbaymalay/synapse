@@ -1,11 +1,11 @@
+use std::fs;
+use std::sync::Mutex;
 use synapse_core::adapter::{Adapter, AdapterError};
 use synapse_core::adapters::{
     cline::ClineAdapter, github_copilot::GitHubCopilotAdapter, opencode::OpenCodeAdapter,
     windsurf::WindsurfAdapter, zed::ZedAdapter,
 };
 use synapse_core::model::Skill;
-use std::fs;
-use std::sync::Mutex;
 use tempfile::tempdir;
 
 /// `cargo test` runs tests in this file concurrently by default, but
@@ -455,4 +455,145 @@ fn test_zed_adapter_boundary_cases() {
         adapter.import(dir.path()),
         Err(AdapterError::Malformed(_))
     ));
+}
+
+#[test]
+fn test_cwe74_cwe94_cwe116_indirect_prompt_injection_stripped_on_import() {
+    use synapse_core::adapters::{
+        agy_cli::AgyCliAdapter, claude_code::ClaudeCodeAdapter, cursor::CursorAdapter,
+        kiro::KiroAdapter, trae::TraeAdapter,
+    };
+
+    let dir = tempdir().unwrap();
+
+    // 1. Cursor .cursorrules with Unicode Tag smuggling (U+E0001..U+E007F) + Bidi override (CVE-2021-42574) + Zero-width chars
+    let smuggled_cursor =
+        "Always use snake_case.\u{200B}\u{202E}HIDDEN\u{202C}\u{E0001}\u{E0049}\u{E0067}\u{E007F}";
+    fs::write(dir.path().join(".cursorrules"), smuggled_cursor).unwrap();
+
+    let cursor_imported = CursorAdapter.import(dir.path()).unwrap();
+    assert_eq!(cursor_imported.skills.len(), 1);
+    let clean_source = &cursor_imported.skills[0].source;
+    assert!(!clean_source.contains('\u{200B}'));
+    assert!(!clean_source.contains('\u{202E}'));
+    assert!(!clean_source.contains('\u{E0049}'));
+    assert_eq!(clean_source, "Always use snake_case.HIDDEN");
+
+    // 2. Claude Code SKILL.md with zero-width joiners and bidi isolate markers
+    let skill_dir = dir.path().join(".claude/skills/audit-skill");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "Run cargo test\u{200D}\u{2066}\u{FEFF} before commit.",
+    )
+    .unwrap();
+    let claude_imported = ClaudeCodeAdapter.import(dir.path()).unwrap();
+    let claude_skill = claude_imported
+        .skills
+        .iter()
+        .find(|s| s.id.ends_with("audit-skill"))
+        .unwrap();
+    assert_eq!(claude_skill.source, "Run cargo test before commit.");
+
+    // 3. AGY CLI SKILL.md with invisible tag characters
+    let agy_skill_dir = dir.path().join(".agents/skills/sec-skill");
+    fs::create_dir_all(&agy_skill_dir).unwrap();
+    fs::write(
+        agy_skill_dir.join("SKILL.md"),
+        "---\ntriggers: [\"*.rs\"]\n---\nEnforce memory safety\u{E0020}\u{200C}.",
+    )
+    .unwrap();
+    let agy_imported = AgyCliAdapter.import(dir.path()).unwrap();
+    let agy_skill = agy_imported
+        .skills
+        .iter()
+        .find(|s| s.id.ends_with("sec-skill"))
+        .unwrap();
+    assert_eq!(
+        agy_skill.source,
+        "---\ntriggers: [\"*.rs\"]\n---\nEnforce memory safety."
+    );
+
+    // 4. Kiro and Trae steering/rule files with invisible Unicode
+    let kiro_dir = dir.path().join(".kiro/steering");
+    fs::create_dir_all(&kiro_dir).unwrap();
+    fs::write(
+        kiro_dir.join("security.md"),
+        "Validate all inputs\u{200B}\u{2067}.",
+    )
+    .unwrap();
+    let kiro_imported = KiroAdapter.import(dir.path()).unwrap();
+    assert_eq!(kiro_imported.skills[0].source, "Validate all inputs.");
+
+    let trae_dir = dir.path().join(".trae/rules");
+    fs::create_dir_all(&trae_dir).unwrap();
+    fs::write(
+        trae_dir.join("guidelines.md"),
+        "No unsafe blocks\u{FEFF}\u{202D}.",
+    )
+    .unwrap();
+    let trae_imported = TraeAdapter.import(dir.path()).unwrap();
+    assert_eq!(trae_imported.skills[0].source, "No unsafe blocks.");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_cwe59_cwe61_symlink_escape_blocked_across_projection_and_sync() {
+    use synapse_core::adapters::cursor::CursorAdapter;
+    use synapse_core::sync::SyncLock;
+
+    let workspace = tempdir().unwrap();
+    let outside = tempdir().unwrap();
+    let victim = outside.path().join("victim.txt");
+    fs::write(&victim, "original victim content").unwrap();
+
+    // 1. Symlinked parent directory `.cursor/rules` -> outside
+    fs::create_dir_all(workspace.path().join(".cursor")).unwrap();
+    std::os::unix::fs::symlink(outside.path(), workspace.path().join(".cursor/rules")).unwrap();
+
+    let skill = Skill {
+        id: "cursor-rule-exploit".to_string(),
+        version: "1.0.0".to_string(),
+        triggers: vec!["*.rs".to_string()],
+        targets: vec!["cursor".to_string()],
+        source: "overwritten".to_string(),
+        sha256: "hash".to_string(),
+    };
+
+    let res = CursorAdapter.project(workspace.path(), &[skill], &[], &[]);
+    assert!(
+        res.is_err(),
+        "Projecting through a symlinked ancestor directory must fail (CWE-59)"
+    );
+    assert!(!outside.path().join("exploit.mdc").exists());
+
+    // 2. Symlinked `.cursorrules` target file -> victim
+    let workspace2 = tempdir().unwrap();
+    std::os::unix::fs::symlink(&victim, workspace2.path().join(".cursorrules")).unwrap();
+    let legacy_skill = Skill {
+        id: "cursor-legacy-rules".to_string(),
+        version: "1.0.0".to_string(),
+        triggers: vec!["*".to_string()],
+        targets: vec!["cursor".to_string()],
+        source: "clobbered".to_string(),
+        sha256: "hash".to_string(),
+    };
+    let res2 = CursorAdapter.project(workspace2.path(), &[legacy_skill], &[], &[]);
+    assert!(
+        res2.is_err(),
+        "Projecting onto a symlinked target file must fail (CWE-61)"
+    );
+    assert_eq!(
+        fs::read_to_string(&victim).unwrap(),
+        "original victim content"
+    );
+
+    // 3. Symlinked `.lock` in Brain directory must be rejected by SyncLock (CWE-367 / CWE-59)
+    let brain = tempdir().unwrap();
+    std::os::unix::fs::symlink(&victim, brain.path().join(".lock")).unwrap();
+    let lock_res = SyncLock::acquire(brain.path());
+    assert!(
+        lock_res.is_err(),
+        "SyncLock must refuse to acquire a symlinked .lock file"
+    );
 }

@@ -33,10 +33,7 @@ pub fn run() {
 
             let _config = config::load_config()?;
 
-            log::info!(
-                "Synapse Desktop v{} initialized",
-                env!("CARGO_PKG_VERSION")
-            );
+            log::info!("Synapse Desktop v{} initialized", env!("CARGO_PKG_VERSION"));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -44,6 +41,9 @@ pub fn run() {
             commands::check_for_update,
             commands::intake,
             commands::examine,
+            commands::heal_vitals,
+            commands::get_memory_graph,
+            commands::get_cockpit_telemetry,
             dry_run::scan_dry_run,
         ])
         .run(tauri::generate_context!())

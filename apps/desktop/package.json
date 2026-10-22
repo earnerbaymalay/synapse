@@ -17,7 +17,8 @@
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "tailwind-merge": "^1.14.0"
+    "tailwind-merge": "^1.14.0",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
@@ -26,6 +27,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.2.14",
     "@types/react-dom": "^18.2.14",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.15",
     "jsdom": "^24.1.0",

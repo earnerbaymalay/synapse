@@ -1,6 +1,7 @@
 use super::{
     compute_sha256, parse_and_validate_mcp_server, parse_mdc_frontmatter, safe_join,
-    serialize_mdc_frontmatter, split_frontmatter, strip_provenance, MdcFrontmatter,
+    serialize_mdc_frontmatter, split_frontmatter, strip_provenance, write_if_changed,
+    MdcFrontmatter,
 };
 use crate::adapter::{Adapter, AdapterError, ImportResult, ProjectResult};
 use crate::model::{Agent, McpServer, Skill};
@@ -186,7 +187,7 @@ impl Adapter for ContinueAdapter {
 
             let pretty = serde_json::to_string_pretty(&current_json)
                 .map_err(|e| AdapterError::Malformed(format!("Failed to serialize JSON: {}", e)))?;
-            fs::write(&config_path, pretty).map_err(|e| {
+            write_if_changed(&config_path, pretty).map_err(|e| {
                 AdapterError::Io(format!("Failed to write .continue/config.json: {}", e))
             })?;
             written.push(".continue/config.json".to_string());
@@ -216,7 +217,7 @@ impl Adapter for ContinueAdapter {
                 );
                 let rel_path = format!(".continue/rules/{}.md", slug);
                 let target_path = safe_join(root, &rel_path)?;
-                fs::write(&target_path, output).map_err(|e| {
+                write_if_changed(&target_path, output).map_err(|e| {
                     AdapterError::Io(format!("Failed to write {}: {}", rel_path, e))
                 })?;
                 written.push(rel_path);

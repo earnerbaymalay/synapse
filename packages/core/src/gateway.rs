@@ -17,8 +17,8 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tiny_http::{Header, Response, Server, StatusCode};
 use sha2::Digest;
+use tiny_http::{Header, Response, Server, StatusCode};
 
 use crate::compression::{compress_text, estimate_tokens, CompressionLevel, SpoolManager};
 
@@ -298,8 +298,8 @@ pub fn process_chat_request(
     body: &str,
     config: &GatewayConfig,
 ) -> Result<(Value, usize, usize, usize, String), String> {
-    let mut payload: Value = serde_json::from_str(body)
-        .map_err(|e| format!("Malformed JSON request payload: {}", e))?;
+    let mut payload: Value =
+        serde_json::from_str(body).map_err(|e| format!("Malformed JSON request payload: {}", e))?;
 
     let model_name = payload["model"]
         .as_str()
@@ -311,7 +311,9 @@ pub fn process_chat_request(
     let mut gated_prompt_tokens = 0;
 
     // 0. Reversible folding of stale tool results (opt-in)
-    if let (Some(keep), Some(messages)) = (config.fold_keep_recent, payload["messages"].as_array_mut()) {
+    if let (Some(keep), Some(messages)) =
+        (config.fold_keep_recent, payload["messages"].as_array_mut())
+    {
         let spool = SpoolManager::new(SpoolManager::default_dir());
         raw_prompt_tokens += crate::fold::fold_messages(messages, keep, &spool).saved();
     }
@@ -325,8 +327,7 @@ pub fn process_chat_request(
 
                 // Compress large blocks (terminal outputs, giant source files)
                 if content.len() > 120 {
-                    let (compressed, _, comp_tokens, _) =
-                        compress_text(content, config.gate_level);
+                    let (compressed, _, comp_tokens, _) = compress_text(content, config.gate_level);
                     if !compressed.is_empty() && comp_tokens < initial_tokens {
                         *msg = json!({
                             "role": msg["role"].as_str().unwrap_or("user"),
@@ -344,8 +345,15 @@ pub fn process_chat_request(
     }
 
     // 2. Local Model Tool Calling Schema Normalization
-    let has_tools = payload.get("tools").and_then(|t| t.as_array()).map(|a| !a.is_empty()).unwrap_or(false);
-    if has_tools && (config.upstream_kind == UpstreamKind::Ollama || config.upstream_kind == UpstreamKind::LlamaCpp) {
+    let has_tools = payload
+        .get("tools")
+        .and_then(|t| t.as_array())
+        .map(|a| !a.is_empty())
+        .unwrap_or(false);
+    if has_tools
+        && (config.upstream_kind == UpstreamKind::Ollama
+            || config.upstream_kind == UpstreamKind::LlamaCpp)
+    {
         inject_tool_calling_instructions(&mut payload);
     }
 
@@ -355,7 +363,10 @@ pub fn process_chat_request(
             if config.upstream_url.ends_with("/v1") {
                 format!("{}/chat/completions", config.upstream_url)
             } else {
-                format!("{}/v1/chat/completions", config.upstream_url.trim_end_matches('/'))
+                format!(
+                    "{}/v1/chat/completions",
+                    config.upstream_url.trim_end_matches('/')
+                )
             }
         }
         UpstreamKind::Anthropic => {
@@ -369,13 +380,15 @@ pub fn process_chat_request(
             if config.upstream_url.ends_with("/chat/completions") {
                 config.upstream_url.clone()
             } else {
-                format!("{}/v1/chat/completions", config.upstream_url.trim_end_matches('/'))
+                format!(
+                    "{}/v1/chat/completions",
+                    config.upstream_url.trim_end_matches('/')
+                )
             }
         }
     };
 
-    let mut req = ureq::post(&upstream_target)
-        .set("Content-Type", "application/json");
+    let mut req = ureq::post(&upstream_target).set("Content-Type", "application/json");
 
     if let Some(ref key) = config.api_key {
         req = req.set("Authorization", &format!("Bearer {}", key));
@@ -384,15 +397,20 @@ pub fn process_chat_request(
     let upstream_res = req.send_json(&payload);
 
     let res_val: Value = match upstream_res {
-        Ok(response) => {
-            response.into_json::<Value>().map_err(|e| format!("Failed to parse upstream response JSON: {}", e))?
-        }
+        Ok(response) => response
+            .into_json::<Value>()
+            .map_err(|e| format!("Failed to parse upstream response JSON: {}", e))?,
         Err(ureq::Error::Status(code, response)) => {
-            let err_text = response.into_string().unwrap_or_else(|_| "Unknown upstream error".to_string());
+            let err_text = response
+                .into_string()
+                .unwrap_or_else(|_| "Unknown upstream error".to_string());
             return Err(format!("Upstream returned HTTP {}: {}", code, err_text));
         }
         Err(e) => {
-            return Err(format!("Failed to connect to upstream at {}: {}", upstream_target, e));
+            return Err(format!(
+                "Failed to connect to upstream at {}: {}",
+                upstream_target, e
+            ));
         }
     };
 
@@ -454,7 +472,10 @@ pub fn sanitize_tool_calling_response(mut res: Value) -> Value {
                 // Check if message content contains an embedded JSON tool call
                 if let Some(content) = message["content"].as_str() {
                     if let Some(parsed_tool) = extract_json_tool_call(content) {
-                        let tool_id = format!("call_{}", hex::encode(&sha2::Sha256::digest(content.as_bytes())[..4]));
+                        let tool_id = format!(
+                            "call_{}",
+                            hex::encode(&sha2::Sha256::digest(content.as_bytes())[..4])
+                        );
                         message["tool_calls"] = json!([
                             {
                                 "id": tool_id,

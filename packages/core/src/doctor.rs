@@ -194,6 +194,24 @@ pub fn diagnose(ctx: &DoctorContext) -> Vec<Diagnosis> {
                 });
             }
         }
+
+        // Rule 14: indirect prompt injection or invisible Unicode smuggling in canonical source.
+        if let Ok(canonical_content) = fs::read_to_string(&canonical_full) {
+            let audit = crate::security::audit_prompt_content(&canonical_content);
+            if !audit.is_clean() {
+                out.push(Diagnosis {
+                    rule_id: "prompt-injection-suspect",
+                    severity: Severity::Critical,
+                    message: format!(
+                        "'{}' contains suspected indirect prompt injection or invisible Unicode markers ({} finding(s)). Review and sanitize.",
+                        mapping.canonical_path,
+                        audit.findings.len()
+                    ),
+                    subject: Some(mapping.canonical_path.clone()),
+                    auto_fixable: false,
+                });
+            }
+        }
     }
 
     // Rule 10: two mappings claiming the same canonical source.
@@ -252,6 +270,31 @@ pub fn diagnose(ctx: &DoctorContext) -> Vec<Diagnosis> {
         });
     }
 
+    // Rule 15: SYNAPSE.md master prompt integrity (Zone 1 non-negotiable harness)
+    match crate::master_prompt::verify_master_prompt_integrity(&ctx.brain_root) {
+        crate::master_prompt::MasterPromptStatus::Valid => {}
+        crate::master_prompt::MasterPromptStatus::Missing => {
+            out.push(Diagnosis {
+                rule_id: "master-prompt-missing",
+                severity: Severity::Warning,
+                message: "SYNAPSE.md master prompt is missing from the Brain. Generate default clinical harness?".into(),
+                subject: Some("SYNAPSE.md".into()),
+                auto_fixable: true,
+            });
+        }
+        crate::master_prompt::MasterPromptStatus::Corrupted(reason) => {
+            out.push(Diagnosis {
+                rule_id: "master-prompt-tampered",
+                severity: Severity::Critical,
+                message: format!(
+                    "SYNAPSE.md Clinical Operating Core (Zone 1) has been tampered with or corrupted ({reason}). Auto-heal Zone 1?",
+                ),
+                subject: Some("SYNAPSE.md".into()),
+                auto_fixable: true,
+            });
+        }
+    }
+
     sort_by_severity(&mut out);
     out
 }
@@ -285,6 +328,11 @@ pub fn apply_fixes(ctx: &DoctorContext) -> Result<usize, DoctorError> {
             "mappings-file-missing" => {
                 MappingsFile::default()
                     .save(&ctx.mappings_path)
+                    .map_err(|e| DoctorError::Io(e.to_string()))?;
+                fixed += 1;
+            }
+            "master-prompt-missing" | "master-prompt-tampered" => {
+                crate::master_prompt::heal_master_prompt(&ctx.brain_root)
                     .map_err(|e| DoctorError::Io(e.to_string()))?;
                 fixed += 1;
             }
@@ -337,7 +385,8 @@ fn reproject(ctx: &DoctorContext, subject: &str) -> Result<(), DoctorError> {
             let output = format!("{PROVENANCE_HEADER}\n{canonical}");
             // Remove first in case a symlink is sitting where a file should be.
             let _ = fs::remove_file(&full_projection);
-            fs::write(&full_projection, &output).map_err(|e| DoctorError::Io(e.to_string()))?;
+            crate::security::write_atomic(&full_projection, &output)
+                .map_err(|e| DoctorError::Io(e.to_string()))?;
             // Heal the record: drift for a Generate mapping is a content hash
             // comparison, so the recorded checksum must reflect what we wrote.
             mapping.content_sha256 = crate::adapters::compute_sha256(&output);

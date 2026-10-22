@@ -1,7 +1,7 @@
 # SYNAPSE User Guide
-### Synapse — One Brain. All Models.
+### The Clinical Engine for AI Context — One Brain. All Models.
 
-Welcome to the **SYNAPSE** User Guide. This document provides a complete reference for managing your AI coding tool configurations using the `synapse` (or `synapse`) CLI and the React desktop application.
+Welcome to the **SYNAPSE** User Guide. This document provides a complete reference for managing your AI coding tool configurations using the `synapse` CLI and the React desktop application.
 
 ---
 
@@ -18,8 +18,9 @@ Welcome to the **SYNAPSE** User Guide. This document provides a complete referen
    - [synapse exec & filter](#synapse-exec--filter-synaptic-auto-compression)
    - [synapse spool](#synapse-spool)
    - [synapse serve](#synapse-serve-runtime-gateway)
+   - [synapse mem](#synapse-mem-3-layer-context-retrieval)
    - [synapse hud](#synapse-hud-vital-signs-cockpit)
-3. [Supported Tool Adapters (13/13)](#3-supported-tool-adapters-1313)
+3. [Supported Tool Adapters (15/15)](#3-supported-tool-adapters-1515)
 4. [Desktop GUI Application](#4-desktop-gui-application)
 5. [MCP Hub & OS Keychain Integration](#5-mcp-hub--os-keychain-integration)
 6. [Doctor Diagnostic Engine](#6-doctor-diagnostic-engine)
@@ -177,6 +178,28 @@ synapse serve --port 8088 --upstream http://localhost:11434 --model qwen2.5-code
 synapse serve --gate-level aggressive
 ```
 
+### `synapse mem` (3-Layer Context Retrieval)
+Synaptic Memory gives agents and humans 3-tier progressive context retrieval without blowing up prompt context windows:
+
+* **Layer 1 (`synapse mem search <query>`)**: Compact, token-costed index of past observations, decisions, and files.
+* **Layer 2 (`synapse mem timeline <id>`)**: Chronological surrounding context (before/after) for an observation.
+* **Layer 3 (`synapse mem get <id...>`)**: Full high-fidelity details, code diffs, and notes.
+* **Agent Lifecycle Hooks (`synapse mem hook <event>`)**: Seamless hooks for `session-start`, `prompt`, `post-tool`, and `stop` events.
+
+```bash
+# Layer 1: Search index for relevant context
+synapse mem "database migration sqlite"
+
+# Layer 2: View chronological timeline around a specific observation
+synapse mem timeline 42 --before 3 --after 3
+
+# Layer 3: Retrieve full detail for specific IDs
+synapse mem get 42 43
+
+# Record manual observation
+synapse mem observe "Migrated to 15 adapters" --file packages/core/src/adapters/mod.rs
+```
+
 ### `synapse hud` (Vital Signs Cockpit)
 Launches the zero-RAM terminal cockpit HUD displaying live gateway connectivity, token burn rate, Sensory Gating compression percentages, upstream latency, and canonical `~/AIBrain` doctor health diagnostics.
 
@@ -190,7 +213,7 @@ synapse hud --once
 
 ---
 
-## 3. Supported Tool Adapters (13/13)
+## 3. Supported Tool Adapters (15/15)
 
 | Adapter | Native Config Locations | Import Strategy | Projection Output |
 |---|---|---|---|
@@ -207,25 +230,27 @@ synapse hud --once
 | **Zed** | `.rules`, `.zed/settings.json`, `AGENTS.md` | Settings & rules | `.rules` + `AGENTS.md` |
 | **OpenCode** | `AGENTS.md` | Multi-agent rules | `AGENTS.md` |
 | **Antigravity CLI** | `AGENTS.md`, `.agy/skills/`, `.gemini/settings.json` | Skills & settings | `AGENTS.md` + `.agy/skills/` |
+| **AWS Kiro IDE** | `.kiro/steering/*.md`, `.kiro/settings/mcp.json` | Steering rules & MCP | `.kiro/steering/` + `.kiro/settings/` |
+| **Trae IDE** | `.trae/rules/*.md`, `.trae/mcp.json` | Scoped rules & MCP | `.trae/rules/` + `.trae/mcp.json` |
 
 ---
 
 ## 4. Desktop GUI Application
 
-The React Desktop GUI provides an 8-screen dashboard built with the **SYNAPSE Dark Precision Design System** (`bg-ink-950`, Synapse Blue accent `#1d9bf0`, square corner cards, zero emojis).
+The Tauri v2 Desktop GUI provides a clinical operating console built with the **SYNAPSE Dark Precision Design System** (`#06080b` ground, `#1d9bf0` synapse accent, sharp geometric borders, zero emojis).
+
+The desktop app implements two measured screens backed directly by `synapse-core` native bindings:
+- **Intake**: Live inspection of discovered AI tools, installed rules, active skills, and canonical Brain status.
+- **Examination**: Clinical examination identifying configuration drift, broken projection symlinks, and fault diagnosis.
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│  SYNAPSE                             v1.0.0      │
+│  SYNAPSE // CLINICAL ENGINE FOR AI CONTEXT                     v1.0.0  │
 ├───────────────┬────────────────────────────────────────────────────────┤
-│ [Dashboard]   │  SYNAPSE DASHBOARD — One Brain. All Models.             │
-│ [Config]      │  ┌──────────────────┐ ┌────────────────┐ ┌────────────┐ │
-│ [Adapters]    │  │ 13 Adapters      │ │ ~/AIBrain      │ │ Status: OK │ │
-│ [Vitals]      │  └──────────────────┘ └────────────────┘ └────────────┘ │
-│ [CLI & Debug] │  Active Brain Targets:                                  │
-│ [Onboarding]  │  • Synapse               [SYNAPSE IN SYNC]   │
-│ [Marketplace] │  • anthropics-skills-bundle       [13 SKILLS LOADED]  │
-│ [MCP Hub]     │                                                        │
+│ Intake        │  INTAKE REPORT                                         │
+│ Examination   │  Canonical Brain: ~/Desktop/AI BRAIN                   │
+│               │  Adapters Discovered: 15 active targets                │
+│ [re-read]     │  Lockstep Health:     ● SYNCHRONIZED (0 faults)        │
 └───────────────┴────────────────────────────────────────────────────────┘
 ```
 

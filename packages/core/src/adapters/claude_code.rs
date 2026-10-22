@@ -111,7 +111,10 @@ impl Adapter for ClaudeCodeAdapter {
             for entry in entries {
                 let slug = entry.file_name().to_string_lossy().into_owned();
                 let skill_md = entry.path().join("SKILL.md");
-                if !skill_md.exists() {
+                if !fs::symlink_metadata(&skill_md)
+                    .map(|m| m.file_type().is_file())
+                    .unwrap_or(false)
+                {
                     continue;
                 }
                 let raw = fs::read_to_string(&skill_md).map_err(|e| {
@@ -267,10 +270,7 @@ impl Adapter for ClaudeCodeAdapter {
             .iter()
             .filter(|s| s.id.starts_with(SKILL_ID_PREFIX) || s.id == "obsidian-session-worklog")
         {
-            let slug = skill
-                .id
-                .strip_prefix(SKILL_ID_PREFIX)
-                .unwrap_or(&skill.id);
+            let slug = skill.id.strip_prefix(SKILL_ID_PREFIX).unwrap_or(&skill.id);
             let rel_path = format!(".claude/skills/{}/SKILL.md", slug);
             let target_path = safe_join(root, &rel_path)?;
             if let Some(dir) = target_path.parent() {
