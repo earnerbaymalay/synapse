@@ -9,9 +9,21 @@
 //! - Tool-Calling Normalization: validates and repairs local model tool calls (GBNF / JSON schema)
 //! - Upstream Routing: connects to local Ollama (11434), llama.cpp (8080), or BYOK endpoints
 //! - Zero-telemetry audit logging of token savings
+//!
+//! Security model: the gateway attaches the *user's* upstream API key, so
+//! it must only serve the user's own agents.
+//! - No CORS headers: browsers cannot read responses or send preflighted
+//!   JSON/auth requests cross-origin.
+//! - Host allowlist when bound to loopback: defeats DNS rebinding.
+//! - Per-launch bearer token on `/v1/*` (`Authorization: Bearer <t>` or
+//!   `x-api-key: <t>`), generated at start. `SYNAPSE_GATEWAY_TOKEN` pins
+//!   it; `SYNAPSE_GATEWAY_NO_TOKEN=1` disables it.
+//! - The client's credentials are never forwarded; only `config.api_key` is.
 
+use std::io::Read;
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -21,6 +33,17 @@ use sha2::Digest;
 use tiny_http::{Header, Response, Server, StatusCode};
 
 use crate::compression::{compress_text, estimate_tokens, CompressionLevel, SpoolManager};
+use crate::security::constant_time_eq;
+
+/// Largest request body accepted (413 above this).
+pub const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
+/// Fixed handler pool size: bounds concurrent upstream calls and threads.
+const WORKER_THREADS: usize = 16;
+const ANTHROPIC_VERSION: &str = "2023-06-01";
+/// Env var that pins the gateway token instead of generating one.
+pub const TOKEN_ENV: &str = "SYNAPSE_GATEWAY_TOKEN";
+/// Env var that, set to `1`/`true`, disables the gateway token.
+pub const NO_TOKEN_ENV: &str = "SYNAPSE_GATEWAY_NO_TOKEN";
 
 /// Upstream provider backend type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,22 +114,83 @@ pub struct GatewayStats {
     pub last_latency_ms: u64,
 }
 
+/// How the `/v1/*` bearer token is chosen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenPolicy {
+    /// No token required (explicit opt-out).
+    Disabled,
+    /// Use this exact token.
+    Fixed(String),
+    /// Generate a fresh random token at start (default).
+    Generate,
+}
+
+impl TokenPolicy {
+    /// Resolves the policy from the values of [`NO_TOKEN_ENV`] and
+    /// [`TOKEN_ENV`] (opt-out wins).
+    pub fn from_values(no_token: Option<&str>, fixed: Option<&str>) -> Self {
+        if no_token.is_some_and(|v| matches!(v.trim(), "1" | "true" | "yes")) {
+            Self::Disabled
+        } else if let Some(t) = fixed.map(str::trim).filter(|t| !t.is_empty()) {
+            Self::Fixed(t.to_string())
+        } else {
+            Self::Generate
+        }
+    }
+
+    pub fn from_env() -> Self {
+        Self::from_values(
+            std::env::var(NO_TOKEN_ENV).ok().as_deref(),
+            std::env::var(TOKEN_ENV).ok().as_deref(),
+        )
+    }
+}
+
+/// 32 random bytes from the OS CSPRNG, hex-encoded.
+pub fn generate_token() -> Result<String, String> {
+    let mut buf = [0u8; 32];
+    getrandom::getrandom(&mut buf)
+        .map_err(|e| format!("cannot generate gateway token from the OS RNG: {e}"))?;
+    Ok(hex::encode(buf))
+}
+
+/// Per-server state shared by the worker pool.
+struct RequestContext {
+    config: GatewayConfig,
+    token: Option<String>,
+    /// `Host` values accepted; `None` when bound to a non-loopback address.
+    allowed_hosts: Option<Vec<String>>,
+}
+
 /// Gateway runtime handle
 pub struct GatewayServer {
     config: GatewayConfig,
     stats: Arc<RwLock<GatewayStats>>,
     running: Arc<AtomicBool>,
-    handle: Option<JoinHandle<()>>,
+    token_policy: TokenPolicy,
+    token: Option<String>,
+    local_addr: Option<SocketAddr>,
+    handles: Vec<JoinHandle<()>>,
 }
 
 impl GatewayServer {
+    /// Token policy comes from the environment ([`TokenPolicy::from_env`]).
     pub fn new(config: GatewayConfig) -> Self {
         Self {
             config,
             stats: Arc::new(RwLock::new(GatewayStats::default())),
             running: Arc::new(AtomicBool::new(false)),
-            handle: None,
+            token_policy: TokenPolicy::from_env(),
+            token: None,
+            local_addr: None,
+            handles: Vec::new(),
         }
+    }
+
+    /// Overrides the environment-derived token policy (call before start).
+    pub fn with_token_policy(mut self, policy: TokenPolicy) -> Self {
+        self.token_policy = policy;
+        self
     }
 
     pub fn stats(&self) -> GatewayStats {
@@ -117,103 +201,165 @@ impl GatewayServer {
         &self.config
     }
 
+    /// The bearer token clients must send on `/v1/*`; `None` before start
+    /// or when the token is disabled.
+    pub fn token(&self) -> Option<&str> {
+        self.token.as_deref()
+    }
+
+    /// The address actually bound (useful with port 0).
+    pub fn local_addr(&self) -> Option<SocketAddr> {
+        self.local_addr
+    }
+
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }
 
-    /// Starts the gateway server loop (blocking or background)
+    /// Starts the gateway on a fixed pool of worker threads.
     pub fn start_background(&mut self) -> Result<(), String> {
         if self.is_running() {
             return Err("Gateway is already running".to_string());
         }
 
+        let token = match &self.token_policy {
+            TokenPolicy::Disabled => None,
+            TokenPolicy::Fixed(t) => Some(t.clone()),
+            TokenPolicy::Generate => Some(generate_token()?),
+        };
+
         let server = Server::http(&self.config.bind_addr)
             .map_err(|e| format!("Failed to bind to {}: {}", self.config.bind_addr, e))?;
+        let local_addr = server.server_addr().to_ip();
+        let allowed_hosts = local_addr.and_then(loopback_hosts);
 
-        let running = Arc::clone(&self.running);
-        let stats = Arc::clone(&self.stats);
-        let config = self.config.clone();
-
-        running.store(true, Ordering::SeqCst);
-
-        let handle = thread::spawn(move || {
-            while running.load(Ordering::SeqCst) {
-                match server.recv_timeout(Duration::from_millis(200)) {
-                    Ok(Some(request)) => {
-                        let stats_clone = Arc::clone(&stats);
-                        let config_clone = config.clone();
-                        thread::spawn(move || {
-                            handle_request(request, &config_clone, &stats_clone);
-                        });
-                    }
-                    Ok(None) => {}
-                    Err(_) => break,
-                }
-            }
+        let ctx = Arc::new(RequestContext {
+            config: self.config.clone(),
+            token: token.clone(),
+            allowed_hosts,
         });
+        let server = Arc::new(server);
+        self.running.store(true, Ordering::SeqCst);
 
-        self.handle = Some(handle);
+        for _ in 0..WORKER_THREADS {
+            let server = Arc::clone(&server);
+            let running = Arc::clone(&self.running);
+            let stats = Arc::clone(&self.stats);
+            let ctx = Arc::clone(&ctx);
+            self.handles.push(thread::spawn(move || {
+                while running.load(Ordering::SeqCst) {
+                    match server.recv_timeout(Duration::from_millis(200)) {
+                        Ok(Some(request)) => handle_request(request, &ctx, &stats),
+                        Ok(None) => {}
+                        Err(_) => break,
+                    }
+                }
+            }));
+        }
+
+        self.token = token;
+        self.local_addr = local_addr;
         Ok(())
     }
 
     /// Stops the background gateway server
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
-        if let Some(handle) = self.handle.take() {
+        for handle in self.handles.drain(..) {
             let _ = handle.join();
         }
     }
 }
 
+/// `Host` header values accepted for a loopback bind; `None` (no check)
+/// for any other bind address, where the token is the only gate.
+fn loopback_hosts(addr: SocketAddr) -> Option<Vec<String>> {
+    if !addr.ip().is_loopback() {
+        return None;
+    }
+    let port = addr.port();
+    let mut hosts = vec![
+        format!("127.0.0.1:{port}"),
+        format!("localhost:{port}"),
+        format!("[::1]:{port}"),
+    ];
+    if port == 80 {
+        hosts.extend(["127.0.0.1", "localhost", "[::1]"].map(String::from));
+    }
+    Some(hosts)
+}
+
+/// Shared upstream client: connection reuse plus bounded connect/read waits.
+fn upstream_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout_connect(Duration::from_secs(10))
+            .timeout_read(Duration::from_secs(300))
+            .build()
+    })
+}
+
+fn header<'a>(request: &'a tiny_http::Request, name: &'static str) -> Option<&'a str> {
+    request
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv(name))
+        .map(|h| h.value.as_str())
+}
+
+/// True if the request carries `token` as `Authorization: Bearer` or
+/// `x-api-key` (constant-time comparison).
+fn has_valid_token(request: &tiny_http::Request, token: &str) -> bool {
+    let bearer = header(request, "Authorization").and_then(|v| {
+        let (scheme, rest) = v.trim().split_once(' ')?;
+        scheme.eq_ignore_ascii_case("bearer").then_some(rest.trim())
+    });
+    [bearer, header(request, "x-api-key").map(str::trim)]
+        .into_iter()
+        .flatten()
+        .any(|presented| constant_time_eq(presented.as_bytes(), token.as_bytes()))
+}
+
 fn send_json<T: ToString>(request: tiny_http::Request, status: u16, body: T) {
-    let cors = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap();
     let ctype = Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap();
     let res = Response::from_string(body.to_string())
         .with_status_code(StatusCode(status))
-        .with_header(cors)
         .with_header(ctype);
     let _ = request.respond(res);
 }
 
 /// Dispatches and processes an incoming HTTP request
-pub fn handle_request(
+fn handle_request(
     mut request: tiny_http::Request,
-    config: &GatewayConfig,
+    ctx: &RequestContext,
     stats: &Arc<RwLock<GatewayStats>>,
 ) {
+    let config = &ctx.config;
     let url = request.url().to_string();
     let method = request.method().as_str().to_string();
 
-    if method == "OPTIONS" {
-        let cors = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap();
-        let methods = Header::from_bytes(
-            &b"Access-Control-Allow-Methods"[..],
-            &b"GET, POST, OPTIONS"[..],
-        )
-        .unwrap();
-        let headers = Header::from_bytes(
-            &b"Access-Control-Allow-Headers"[..],
-            &b"Content-Type, Authorization"[..],
-        )
-        .unwrap();
-        let res = Response::empty(StatusCode(200))
-            .with_header(cors)
-            .with_header(methods)
-            .with_header(headers);
-        let _ = request.respond(res);
-        return;
+    // DNS rebinding: a page on evil.example resolving to 127.0.0.1 still
+    // sends `Host: evil.example`.
+    if let Some(allowed) = &ctx.allowed_hosts {
+        let host_ok = header(&request, "Host")
+            .is_some_and(|h| allowed.iter().any(|a| a.eq_ignore_ascii_case(h.trim())));
+        if !host_ok {
+            send_json(request, 403, json!({ "error": "Forbidden Host header" }));
+            return;
+        }
     }
 
-    // Health & Info endpoints
+    // Health & Info endpoints (no secrets: the upstream URL is not disclosed)
     if (url == "/health" || url == "/" || url == "/api/status") && method == "GET" {
         let current_stats = stats.read().unwrap().clone();
         let payload = json!({
             "status": "healthy",
             "service": "SYNAPSE Runtime Gateway",
             "version": "1.0.0",
-            "upstream": config.upstream_url,
             "bind_addr": config.bind_addr,
             "gate_level": format!("{:?}", config.gate_level),
+            "auth": if ctx.token.is_some() { "token" } else { "none" },
             "stats": current_stats
         });
         send_json(request, 200, payload.to_string());
@@ -224,6 +370,19 @@ pub fn handle_request(
         let current_stats = stats.read().unwrap().clone();
         send_json(request, 200, serde_json::to_string(&current_stats).unwrap());
         return;
+    }
+
+    if url.starts_with("/v1/") {
+        if let Some(token) = &ctx.token {
+            if !has_valid_token(&request, token) {
+                send_json(
+                    request,
+                    401,
+                    json!({ "error": "Missing or invalid gateway token (send `Authorization: Bearer <token>` or `x-api-key: <token>`; printed by `synapse serve`)" }),
+                );
+                return;
+            }
+        }
     }
 
     // Model list endpoint
@@ -247,8 +406,18 @@ pub fn handle_request(
     if (url.starts_with("/v1/chat/completions") || url.starts_with("/v1/messages"))
         && method == "POST"
     {
-        let mut body = String::new();
-        if let Err(e) = request.as_reader().read_to_string(&mut body) {
+        let too_large =
+            json!({ "error": format!("Request body exceeds {} bytes", MAX_BODY_BYTES) });
+        if request.body_length().is_some_and(|n| n > MAX_BODY_BYTES) {
+            send_json(request, 413, too_large);
+            return;
+        }
+        let mut raw = Vec::new();
+        if let Err(e) = request
+            .as_reader()
+            .take(MAX_BODY_BYTES as u64 + 1)
+            .read_to_end(&mut raw)
+        {
             send_json(
                 request,
                 400,
@@ -256,6 +425,18 @@ pub fn handle_request(
             );
             return;
         }
+        if raw.len() > MAX_BODY_BYTES {
+            send_json(request, 413, too_large);
+            return;
+        }
+        let Ok(body) = String::from_utf8(raw) else {
+            send_json(
+                request,
+                400,
+                json!({ "error": "Request body is not UTF-8" }),
+            );
+            return;
+        };
 
         let start_time = std::time::Instant::now();
         match process_chat_request(&body, config) {
@@ -282,9 +463,7 @@ pub fn handle_request(
 
                 send_json(request, 200, response_json.to_string());
             }
-            Err(err_msg) => {
-                send_json(request, 502, json!({ "error": err_msg }).to_string());
-            }
+            Err(err) => send_json(request, err.status, err.body.to_string()),
         }
         return;
     }
@@ -293,7 +472,29 @@ pub fn handle_request(
     send_json(request, 404, json!({ "error": "Not Found" }).to_string());
 }
 
-/// Applies Sensory Gating and tool-call normalization, then executes upstream request
+/// A failed chat request: the HTTP status to return and its JSON body.
+/// Upstream HTTP errors (429, 401, 400…) keep their status and body.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GatewayError {
+    pub status: u16,
+    pub body: Value,
+}
+
+impl GatewayError {
+    fn new(status: u16, message: impl Into<String>) -> Self {
+        Self {
+            status,
+            body: json!({ "error": message.into() }),
+        }
+    }
+}
+
+impl std::fmt::Display for GatewayError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HTTP {}: {}", self.status, self.body)
+    }
+}
+
 /// Applies Sensory Gating to each message's string `content` in place,
 /// leaving every other field untouched. Returns `(raw_tokens, gated_tokens)`.
 pub fn gate_messages(messages: &mut [Value], level: CompressionLevel) -> (usize, usize) {
@@ -323,12 +524,24 @@ pub fn gate_messages(messages: &mut [Value], level: CompressionLevel) -> (usize,
     (raw_tokens, gated_tokens)
 }
 
+/// Applies Sensory Gating and tool-call normalization, then executes the
+/// upstream request.
 pub fn process_chat_request(
     body: &str,
     config: &GatewayConfig,
-) -> Result<(Value, usize, usize, usize, String), String> {
-    let mut payload: Value =
-        serde_json::from_str(body).map_err(|e| format!("Malformed JSON request payload: {}", e))?;
+) -> Result<(Value, usize, usize, usize, String), GatewayError> {
+    let mut payload: Value = serde_json::from_str(body)
+        .map_err(|e| GatewayError::new(400, format!("Malformed JSON request payload: {}", e)))?;
+
+    // Responses are rewritten as whole JSON documents (tool-call repair,
+    // usage accounting), which an SSE stream cannot be. Refuse clearly
+    // rather than buffer a stream and hand back the wrong shape.
+    if payload.get("stream").and_then(Value::as_bool) == Some(true) {
+        return Err(GatewayError::new(
+            400,
+            "streaming not supported by synapse gateway yet; send \"stream\": false",
+        ));
+    }
 
     let model_name = payload["model"]
         .as_str()
@@ -398,28 +611,45 @@ pub fn process_chat_request(
         }
     };
 
-    let mut req = ureq::post(&upstream_target).set("Content-Type", "application/json");
+    // A fresh request: none of the client's headers (notably its gateway
+    // token) are forwarded. Only the configured upstream key is attached.
+    let mut req = upstream_agent()
+        .post(&upstream_target)
+        .set("Content-Type", "application/json");
 
-    if let Some(ref key) = config.api_key {
+    if config.upstream_kind == UpstreamKind::Anthropic {
+        req = req.set("anthropic-version", ANTHROPIC_VERSION);
+        if let Some(ref key) = config.api_key {
+            req = req.set("x-api-key", key);
+        }
+    } else if let Some(ref key) = config.api_key {
         req = req.set("Authorization", &format!("Bearer {}", key));
     }
 
     let upstream_res = req.send_json(&payload);
 
     let res_val: Value = match upstream_res {
-        Ok(response) => response
-            .into_json::<Value>()
-            .map_err(|e| format!("Failed to parse upstream response JSON: {}", e))?,
+        Ok(response) => response.into_json::<Value>().map_err(|e| {
+            GatewayError::new(
+                502,
+                format!("Failed to parse upstream response JSON: {}", e),
+            )
+        })?,
         Err(ureq::Error::Status(code, response)) => {
             let err_text = response
                 .into_string()
                 .unwrap_or_else(|_| "Unknown upstream error".to_string());
-            return Err(format!("Upstream returned HTTP {}: {}", code, err_text));
+            let body = serde_json::from_str::<Value>(&err_text)
+                .unwrap_or_else(|_| json!({ "error": err_text }));
+            return Err(GatewayError { status: code, body });
         }
         Err(e) => {
-            return Err(format!(
-                "Failed to connect to upstream at {}: {}",
-                upstream_target, e
+            return Err(GatewayError::new(
+                502,
+                format!(
+                    "Failed to connect to upstream at {}: {}",
+                    upstream_target, e
+                ),
             ));
         }
     };
@@ -530,4 +760,38 @@ fn extract_json_tool_call(text: &str) -> Option<Value> {
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_policy_from_env_values() {
+        assert_eq!(TokenPolicy::from_values(None, None), TokenPolicy::Generate);
+        assert_eq!(
+            TokenPolicy::from_values(None, Some(" fixed ")),
+            TokenPolicy::Fixed("fixed".into())
+        );
+        assert_eq!(
+            TokenPolicy::from_values(None, Some("")),
+            TokenPolicy::Generate
+        );
+        assert_eq!(
+            TokenPolicy::from_values(Some("1"), Some("fixed")),
+            TokenPolicy::Disabled
+        );
+        assert_eq!(
+            TokenPolicy::from_values(Some("0"), None),
+            TokenPolicy::Generate
+        );
+    }
+
+    #[test]
+    fn loopback_binds_get_a_host_allowlist() {
+        let hosts = loopback_hosts("127.0.0.1:9000".parse().unwrap()).unwrap();
+        assert!(hosts.contains(&"localhost:9000".to_string()));
+        assert!(hosts.contains(&"[::1]:9000".to_string()));
+        assert!(loopback_hosts("0.0.0.0:9000".parse().unwrap()).is_none());
+    }
 }

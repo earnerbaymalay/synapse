@@ -109,8 +109,8 @@ enum Command {
         /// Sensory Gating compression level: balanced (default), aggressive, strict, or off
         #[arg(short, long, default_value = "balanced")]
         gate_level: String,
-        /// Optional upstream API key (or set via environment/keychain)
-        #[arg(long)]
+        /// Optional upstream API key (prefer the env var: argv is visible to other users)
+        #[arg(long, env = "SYNAPSE_UPSTREAM_API_KEY", hide_env_values = true)]
         api_key: Option<String>,
         /// Fold tool results older than the newest N messages into stubs restorable
         /// via `synapse spool show <id>` (off unless set; try 8)
@@ -656,6 +656,12 @@ fn main() -> ExitCode {
                 chart::fault("gateway", &e, None);
                 return ExitCode::FAILURE;
             }
+            // Clients authenticate /v1/* with this per-launch token
+            // (Authorization: Bearer <token> or x-api-key: <token>).
+            match server.token() {
+                Some(token) => println!("Gateway token: {token}"),
+                None => println!("Gateway token: disabled (SYNAPSE_GATEWAY_NO_TOKEN)"),
+            }
 
             while server.is_running() {
                 std::thread::sleep(std::time::Duration::from_millis(500));
@@ -846,7 +852,9 @@ fn run_interactive_hud(
                                                 upstream_kind: UpstreamKind::OpenAi,
                                                 default_model: None,
                                                 gate_level: CompressionLevel::Balanced,
-                                                api_key: std::env::var("OPENAI_API_KEY").ok(),
+                                                api_key: std::env::var("SYNAPSE_UPSTREAM_API_KEY")
+                                                    .or_else(|_| std::env::var("OPENAI_API_KEY"))
+                                                    .ok(),
                                                 fold_keep_recent: None,
                                             };
                                             let mut srv = GatewayServer::new(config);
@@ -1035,7 +1043,9 @@ fn run_interactive_hud(
                                             upstream_kind: UpstreamKind::OpenAi,
                                             default_model: None,
                                             gate_level: CompressionLevel::Balanced,
-                                            api_key: std::env::var("OPENAI_API_KEY").ok(),
+                                            api_key: std::env::var("SYNAPSE_UPSTREAM_API_KEY")
+                                                .or_else(|_| std::env::var("OPENAI_API_KEY"))
+                                                .ok(),
                                             fold_keep_recent: None,
                                         };
                                         let mut srv = GatewayServer::new(config);
@@ -1328,8 +1338,9 @@ fn resolve_brain_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 /// Parses a gating level, rejecting unknown names instead of silently
 /// falling back to Balanced.
 fn parse_level(s: &str) -> Result<CompressionLevel, String> {
-    CompressionLevel::parse(s)
-        .ok_or_else(|| format!("unknown level '{s}' (expected balanced, aggressive, strict, or off)"))
+    CompressionLevel::parse(s).ok_or_else(|| {
+        format!("unknown level '{s}' (expected balanced, aggressive, strict, or off)")
+    })
 }
 
 /// Resolves the tool config root that projection paths are relative to.
