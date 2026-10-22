@@ -778,8 +778,14 @@ mod tests {
                 std::thread::spawn(move || {
                     let s = MemoryStore::new(dir);
                     for i in 0..10 {
-                        s.add(note(&format!("s{t}"), "p", "note", &format!("t{t} n{i}"), ""))
-                            .unwrap();
+                        s.add(note(
+                            &format!("s{t}"),
+                            "p",
+                            "note",
+                            &format!("t{t} n{i}"),
+                            "",
+                        ))
+                        .unwrap();
                     }
                 })
             })
@@ -814,21 +820,31 @@ mod tests {
         fs::write(d.path().join("observations.jsonl"), raw).unwrap();
         let t = std::time::Instant::now();
         let hits = s.search("common cargo module5 crate3", None, 10).unwrap();
-        assert!(t.elapsed() < std::time::Duration::from_secs(2), "{:?}", t.elapsed());
+        assert!(
+            t.elapsed() < std::time::Duration::from_secs(2),
+            "{:?}",
+            t.elapsed()
+        );
         assert_eq!(hits.len(), 10);
         assert!(hits[0].title.contains("module5 "));
         // Appending is a tail read, not a full parse: the next id follows on.
-        let added = s.add(note("s", "p", "note", "tail id", "")).unwrap().unwrap();
+        let added = s
+            .add(note("s", "p", "note", "tail id", ""))
+            .unwrap()
+            .unwrap();
         assert_eq!(added.id, 5001);
     }
 
     #[test]
     fn only_the_latest_summary_per_session_is_visible() {
         let (_d, s) = store();
-        s.add(note("s", "p", "summary", "Session: a", "stalewombat")).unwrap();
+        s.add(note("s", "p", "summary", "Session: a", "stalewombat"))
+            .unwrap();
         s.add(note("s", "p", "change", "Edited a.rs", "")).unwrap();
-        s.add(note("s", "p", "summary", "Session: a", "second")).unwrap();
-        s.add(note("t", "p", "summary", "Session: b", "other")).unwrap();
+        s.add(note("s", "p", "summary", "Session: a", "second"))
+            .unwrap();
+        s.add(note("t", "p", "summary", "Session: b", "other"))
+            .unwrap();
         let summaries: Vec<String> = s
             .all()
             .unwrap()

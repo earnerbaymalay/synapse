@@ -529,7 +529,10 @@ mod mcp_redaction_tests {
             out[0].command_or_url,
             "npx -y @mcp/postgres postgresql://admin:${SYNAPSE_REDACTED_1}@db:5432/app"
         );
-        assert_eq!(out[0].env_placeholders, vec!["PGSSLMODE", "SYNAPSE_REDACTED_1"]);
+        assert_eq!(
+            out[0].env_placeholders,
+            vec!["PGSSLMODE", "SYNAPSE_REDACTED_1"]
+        );
         assert_eq!(
             out[1].command_or_url,
             "https://mcp.example.com/sse?token=${SYNAPSE_REDACTED_1}"

@@ -455,9 +455,7 @@ mod tests {
 
         // A root that has `.config` (e.g. the home directory) still gets it.
         fs::create_dir_all(root.path().join(".config")).unwrap();
-        ZedAdapter
-            .project(root.path(), &[skill], &[], &[])
-            .unwrap();
+        ZedAdapter.project(root.path(), &[skill], &[], &[]).unwrap();
         assert!(root.path().join(".config/zed/AGENTS.md").exists());
     }
 
@@ -474,7 +472,10 @@ mod tests {
         .unwrap();
         let imported = ZedAdapter.import(dir.path()).unwrap();
         let server = &imported.mcp_servers[0];
-        assert_eq!(server.command_or_url, "uvx mcp-pg postgres://u:${SYNAPSE_REDACTED_1}@h/db");
+        assert_eq!(
+            server.command_or_url,
+            "uvx mcp-pg postgres://u:${SYNAPSE_REDACTED_1}@h/db"
+        );
         assert_eq!(server.env_placeholders, vec!["SYNAPSE_REDACTED_1"]);
     }
 }
