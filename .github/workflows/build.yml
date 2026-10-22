@@ -1,10 +1,22 @@
 name: Desktop build
 
-# Cross-platform build matrix for the Tauri v2 desktop app. Produces the
-# unsigned release binaries; signing/notarization is layered on per
-# docs/packaging/RELEASE_PACKAGING.md. Release builds enable the
-# `os-keychain` feature so secrets land in the OS keychain by default —
-# the in-memory store is a dev/test fixture only (docs/security.md).
+# Cross-platform release pipeline for the CLI and the Tauri v2 desktop app.
+#
+#   verify-version -> build (4 targets) -> release (tags only)
+#
+# Every target produces uniquely named assets so nothing collides when the
+# release job merges them:
+#   synapse-<target>.tar.gz   (synapse-<target>.zip on Windows)  CLI archive
+#   *.deb / *.AppImage / *.dmg / *.msi                          desktop installers
+#   SHA256SUMS                                                  checksums (release job)
+#
+# Release builds enable the `os-keychain` feature for both the CLI and the
+# desktop bundles so secrets land in the OS keychain by default -- the
+# in-memory store is a dev/test fixture only (docs/security.md). Signing and
+# notarization are layered on per docs/packaging/RELEASE_PACKAGING.md.
+#
+# A tag containing '-' (e.g. v1.1.0-rc.1) publishes a GitHub prerelease; use
+# one to rehearse the pipeline before cutting a final tag.
 
 on:
   workflow_dispatch:
@@ -12,20 +24,84 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  verify-version:
+    name: Verify tag matches manifests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lockfile is up to date
+        run: cargo metadata --locked --format-version 1 > /dev/null
+      - name: Tag version == Cargo package versions == tauri.conf.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          want="${TAG#v}"
+          echo "Tag version: ${want}"
+          fail=0
+          while read -r name ver; do
+            if [ "${ver}" = "${want}" ]; then
+              echo "OK    ${name} ${ver}"
+            else
+              echo "::error::Cargo package ${name} is ${ver}, tag is ${want}"
+              fail=1
+            fi
+          done < <(cargo metadata --locked --no-deps --format-version 1 \
+                    | jq -r '.packages[] | "\(.name) \(.version)"')
+          tauri_ver=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          if [ "${tauri_ver}" = "${want}" ]; then
+            echo "OK    tauri.conf.json ${tauri_ver}"
+          else
+            echo "::error::tauri.conf.json version is ${tauri_ver}, tag is ${want}"
+            fail=1
+          fi
+          exit "${fail}"
+
   build:
-    name: build (${{ matrix.os }})
+    name: build (${{ matrix.target }})
+    needs: verify-version
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          # macos-13 is retired; macos-15-intel is the remaining standard
+          # x86_64 macOS image (actions/runner-images README).
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
 
       # Toolchain version comes from rust-toolchain.toml at the repo root.
+      # Builds are native (no --target) so outputs land in target/release;
+      # guard that the runner's host triple is the one we name the assets after.
+      - name: Verify runner host triple
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          host=$(rustc -vV | sed -n 's/^host: //p')
+          echo "rustc host: ${host}"
+          if [ "${host}" != "${TARGET}" ]; then
+            echo "::error::runner host ${host} does not match matrix target ${TARGET}"
+            exit 1
+          fi
 
       - uses: pnpm/action-setup@v6
         with:
@@ -35,10 +111,10 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      # Tauri v2 system dependencies (Linux only) + libdbus for the
+      # Tauri v2 system dependencies + patchelf (AppImage) + libdbus for the
       # keyring secret-service backend.
       - name: Install Linux system deps
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -48,58 +124,118 @@ jobs:
             librsvg2-dev \
             libxdo-dev \
             libdbus-1-dev \
+            patchelf \
             build-essential \
             curl wget file libssl-dev pkg-config
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
 
       - name: Build desktop frontend
         run: |
           pnpm install --frozen-lockfile
-          pnpm --filter desktop-app build
+          pnpm --filter desktop-app --fail-if-no-match build
 
       - name: cargo build --release (CLI, keychain on)
-        run: cargo build --release -p synapse --features synapse-core/os-keychain
+        run: cargo build --release --locked -p synapse --features synapse-core/os-keychain
 
-      - name: cargo build --release (desktop, keychain on)
-        run: cargo build --release -p desktop-app --features synapse-core/os-keychain
-
-      - name: Build Tauri Desktop Package & Platform Installers
+      # `tauri build --features` takes features of the app crate; `os-keychain`
+      # in apps/desktop/src-tauri/Cargo.toml forwards to synapse-core. The
+      # lockfile was verified with --locked above; the diff check below makes
+      # sure the Tauri-driven cargo invocation did not rewrite it.
+      - name: Build Tauri bundles (keychain on)
         run: |
-          pnpm --filter desktop-app tauri build || true
+          pnpm --filter desktop-app --fail-if-no-match exec tauri build --ci --features os-keychain
+          git diff --exit-code -- Cargo.lock
 
-      - name: Upload binaries and platform bundles
+      - name: Stage release assets
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            7z a -tzip "dist/synapse-${TARGET}.zip" ./target/release/synapse.exe
+          else
+            tar -C target/release -czf "dist/synapse-${TARGET}.tar.gz" synapse
+          fi
+
+          bundle=target/release/bundle
+          case "${RUNNER_OS}" in
+            Linux)   patterns="deb/*.deb appimage/*.AppImage" ;;
+            macOS)   patterns="dmg/*.dmg" ;;
+            Windows) patterns="msi/*.msi" ;;
+          esac
+          for p in ${patterns}; do
+            # shellcheck disable=SC2086
+            set -- ${bundle}/${p}
+            if [ ! -f "$1" ]; then
+              echo "::error::expected bundle ${bundle}/${p} was not produced"
+              exit 1
+            fi
+            cp "$@" dist/
+          done
+          ls -la dist
+
+      - name: Upload release assets
         uses: actions/upload-artifact@v7
         with:
-          name: synapse-${{ matrix.os }}
-          path: |
-            target/release/synapse
-            target/release/synapse.exe
-            target/release/desktop-app
-            target/release/desktop-app.exe
-            apps/desktop/src-tauri/target/release/bundle/**/*
-          if-no-files-found: warn
+          name: synapse-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
 
   release:
-    name: Create GitHub Release & Platform Bundles
+    name: Create GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
       - name: Download all build artifacts
         uses: actions/download-artifact@v7
         with:
-          path: release-artifacts
-      - name: Generate SHA-256 Checksums
+          pattern: synapse-*
+          path: dist
+          merge-multiple: true
+
+      # merge-multiple silently overwrites same-named files, so assert the
+      # full expected asset set is present before publishing.
+      - name: Verify asset set
+        working-directory: dist
         run: |
-          cd release-artifacts
-          find . -type f ! -name "SHA256SUMS.txt" -exec sha256sum {} + > SHA256SUMS.txt
+          set -euo pipefail
+          ls -la
+          fail=0
+          for f in \
+            synapse-x86_64-unknown-linux-gnu.tar.gz \
+            synapse-aarch64-apple-darwin.tar.gz \
+            synapse-x86_64-apple-darwin.tar.gz \
+            synapse-x86_64-pc-windows-msvc.zip; do
+            [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
+          done
+          check() { # <glob> <expected count>
+            n=$(find . -maxdepth 1 -type f -name "$1" | wc -l)
+            [ "$n" -eq "$2" ] || { echo "::error::expected $2 x $1, found $n"; fail=1; }
+          }
+          check '*.deb' 1
+          check '*.AppImage' 1
+          check '*.dmg' 2
+          check '*.msi' 1
+          exit "${fail}"
+
+      - name: Generate SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum -- * > ../SHA256SUMS
+          mv ../SHA256SUMS SHA256SUMS
+          cat SHA256SUMS
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release-artifacts/**/*
+          files: dist/*
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true

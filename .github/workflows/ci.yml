@@ -1,13 +1,16 @@
 name: CI
 
-# Fast, always-verifiable checks that run on every push and pull request.
-# The heavier cross-platform Tauri build lives in build.yml and is opt-in
-# (workflow_dispatch) until the desktop app compiles end-to-end — see
-# docs/CODE_REVIEW.md for the remaining Phase 2 work.
+# Fast, always-verifiable checks that run on pushes to main and on every
+# pull request (feature branches are covered by their PR run, so they are
+# not also built on push). The heavier cross-platform release build lives in
+# build.yml (tags + workflow_dispatch).
+#
+# Runners are pinned to ubuntu-24.04 rather than ubuntu-latest so an image
+# migration cannot silently change system libraries under the Tauri build.
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -16,12 +19,13 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Supersede stale PR runs; never cancel a main-branch run mid-flight.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust-fmt:
     name: Rust formatting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Install rustfmt
@@ -31,7 +35,7 @@ jobs:
 
   rust-test:
     name: Rust tests (workspace)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Install Tauri system dependencies
@@ -55,9 +59,39 @@ jobs:
       - name: cargo test --workspace
         run: cargo test --workspace --locked
 
+  rust-clippy:
+    name: Rust clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # src-tauri's build script needs the system libs and a built frontend
+      # (dist/) exactly like rust-test, so clippy mirrors that setup.
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Build desktop frontend (required before cargo clippy)
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter desktop-app build
+      - name: Install clippy
+        run: rustup component add clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
   javascript-test:
     name: JavaScript tests & desktop build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -78,7 +112,7 @@ jobs:
 
   e2e-test:
     name: End-to-end suite
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -92,23 +126,27 @@ jobs:
         run: pnpm install --frozen-lockfile
       - uses: Swatinem/rust-cache@v2
       - name: Build CLI for E2E
-        run: cargo build --package synapse
+        run: cargo build --package synapse --locked
       - name: End-to-end tests
         run: pnpm --filter @synapse/e2e --fail-if-no-match test
 
   shell:
     name: Shell lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Syntax check
-        run: bash -n ralph.sh
+        run: |
+          for f in ralph.sh scripts/*.sh; do
+            echo "bash -n ${f}"
+            bash -n "${f}"
+          done
       - name: shellcheck
-        run: shellcheck ralph.sh
+        run: shellcheck ralph.sh scripts/*.sh
 
   html:
     name: Brand mock HTML
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Validate brand mocks parse
@@ -131,7 +169,7 @@ jobs:
 
   docs:
     name: Docs & state files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Required project files present
