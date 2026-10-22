@@ -1027,9 +1027,12 @@ describe('Tier 1: Happy-path Feature Coverage', () => {
         const result = await runCLI(['project'], { sandbox, reject: false });
         expect(result.exitCode).toBe(0);
 
-        const rulePath = path.join(sandbox.mockHome, '.config/zed/AGENTS.md');
+        // Projection writes only under the tool root: `.rules` there, and
+        // never the real $HOME/.config/zed when the root has no `.config`.
+        const rulePath = path.join(sandbox.workspaceDir, '.rules');
         expect(fs.existsSync(rulePath)).toBe(true);
         expect(fs.readFileSync(rulePath, 'utf8')).toContain('Write clean comments');
+        expect(fs.existsSync(path.join(sandbox.mockHome, '.config/zed/AGENTS.md'))).toBe(false);
       } finally {
         sandbox.cleanup();
       }

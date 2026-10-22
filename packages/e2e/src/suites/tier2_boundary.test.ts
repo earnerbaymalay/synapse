@@ -913,8 +913,8 @@ describe('Tier 2: Boundary and Corner Cases', () => {
     it('should fail gracefully on write protection', async () => {
       const sandbox = createSandbox('zed-write-protected');
       try {
-        writeFile(sandbox.mockHome, '.config/zed/AGENTS.md', '');
-        fs.chmodSync(path.join(sandbox.mockHome, '.config/zed/AGENTS.md'), 0o400);
+        writeFile(sandbox.workspaceDir, '.rules', '');
+        fs.chmodSync(path.join(sandbox.workspaceDir, '.rules'), 0o400);
 
         const skillData = {
           id: 'zed-rules',
@@ -930,7 +930,7 @@ describe('Tier 2: Boundary and Corner Cases', () => {
         expect(result.exitCode).not.toBe(0);
       } finally {
         try {
-          fs.chmodSync(path.join(sandbox.mockHome, '.config/zed/AGENTS.md'), 0o600);
+          fs.chmodSync(path.join(sandbox.workspaceDir, '.rules'), 0o600);
         } catch {}
         sandbox.cleanup();
       }
