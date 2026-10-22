@@ -56,11 +56,11 @@ synapse scan              # Scan filesystem for active AI coding tools
 synapse import --dry-run  # Preview config ingestion into ~/AIBrain
 synapse import            # Ingest native configs into ~/AIBrain
 synapse project           # Project canonical Brain configs out to all tools
-synapse sync --daemon     # Launch real-time background sync daemon
+synapse sync              # One sync pass: import tool edits, project the Brain
 synapse doctor            # Run diagnostic self-healing health check
 synapse doctor --fix      # Remediate config drift and broken symlinks
-synapse snapshot "msg"    # Commit a named snapshot in the Brain Time Machine
-synapse rollback <hash>   # Revert Brain working tree to a prior snapshot
+synapse snapshot "msg"    # Commit a named snapshot in the Brain history
+synapse rollback <hash>   # Restore a snapshot and re-project it to the tools
 ```
 
 ---
