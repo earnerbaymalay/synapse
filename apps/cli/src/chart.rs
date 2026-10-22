@@ -156,7 +156,15 @@ pub fn rule() {
 
 /// A labelled scalar above the table, e.g. `Site   /home/user/project`.
 pub fn field(label: &str, value: &str) {
-    println!("  {:<7}{}", paint(Paint::InkSoft, label), value);
+    // Pad on the visible label: ANSI paint codes must not count toward the
+    // column, and a long label still gets a gap before its value.
+    let pad = 7usize.saturating_sub(label.chars().count()).max(2);
+    println!(
+        "  {}{}{}",
+        paint(Paint::InkSoft, label),
+        " ".repeat(pad),
+        value
+    );
 }
 
 /// One chart row: status glyph, subject, then free-form detail.

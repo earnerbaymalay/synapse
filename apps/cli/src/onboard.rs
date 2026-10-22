@@ -37,7 +37,7 @@ fn prompt_question(prompt: &str, default_val: &str) -> String {
 }
 
 pub fn run_onboard(brain_root: &Path, tool_root: &Path, args: OnboardArgs) -> ExitCode {
-    chart::open("SYNAPSE · ONBOARDING WIZARD", "customizing master prompt");
+    chart::open("onboarding wizard", "customizing master prompt");
     chart::field("Brain", &brain_root.display().to_string());
     chart::field("Tools", &tool_root.display().to_string());
     chart::rule();
