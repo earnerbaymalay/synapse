@@ -5,10 +5,11 @@
 //!
 //! Filters repetitive log noise while strictly preserving 100% of errors, stack
 //! traces, failed assertions, and summary diagnostics, caching raw logs in the local
-//! spool directory for on-demand retrieval.
+//! spool directory for on-demand retrieval. Spooled logs are secret-redacted and
+//! owner-only (0600 files in a 0700 directory on unix).
 
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -318,23 +319,33 @@ impl SpoolManager {
         &self.spool_dir
     }
 
-    /// Resolve default spool directory inside ~/.synapse/spool or $AIBRAIN/spool
+    /// Resolve default spool directory: `$SYNAPSE_BRAIN/spool`, else
+    /// `~/.synapse/spool`, else the per-user cache/runtime dir. Never a
+    /// shared, predictable path like `/tmp/synapse`.
     pub fn default_dir() -> PathBuf {
         if let Ok(brain) = std::env::var("SYNAPSE_BRAIN") {
             PathBuf::from(brain).join("spool")
         } else if let Ok(home) = std::env::var("HOME") {
             PathBuf::from(home).join(".synapse").join("spool")
+        } else if let Some(dir) = dirs::cache_dir().or_else(dirs::runtime_dir) {
+            dir.join("synapse").join("spool")
         } else {
-            PathBuf::from("/tmp/synapse/spool")
+            PathBuf::from(".synapse").join("spool")
         }
     }
 
-    /// Ensure spool storage directory exists
+    /// Ensure spool storage directory exists (created owner-only).
     pub fn ensure_dir(&self) -> Result<(), std::io::Error> {
-        if !self.spool_dir.exists() {
-            fs::create_dir_all(&self.spool_dir)?;
-        }
-        Ok(())
+        crate::security::create_private_dir_all(&self.spool_dir)
+    }
+
+    /// Writes `text` as spool entry `id`, secret-redacted, owner-only, and
+    /// refusing to follow a symlink planted at the target path.
+    pub fn write_entry(&self, id: &str, text: &str) -> Result<PathBuf, std::io::Error> {
+        self.ensure_dir()?;
+        let path = self.spool_dir.join(format!("{id}.log"));
+        crate::security::write_private_atomic(&path, crate::security::redact_secrets(text))?;
+        Ok(path)
     }
 
     /// Store a raw execution log and record metadata
@@ -344,8 +355,6 @@ impl SpoolManager {
         raw_output: &str,
         level: CompressionLevel,
     ) -> Result<CompressedOutput, std::io::Error> {
-        self.ensure_dir()?;
-
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -356,9 +365,7 @@ impl SpoolManager {
         let id = format!("{:x}", md5_simple(&hash_seed));
         let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-        let log_file = self.spool_dir.join(format!("{}.log", short_id));
-        let mut file = File::create(&log_file)?;
-        file.write_all(raw_output.as_bytes())?;
+        self.write_entry(short_id, raw_output)?;
 
         let (mut text, raw_tokens, compressed_tokens, reduction_percent) =
             compress_text(raw_output, level);
@@ -599,5 +606,35 @@ test result: FAILED. 2 passed; 1 failed; 0 ignored
         assert_eq!(entries[0].id, id);
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn spooled_logs_are_redacted_and_owner_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let spool_dir = dir.path().join("spool");
+        let manager = SpoolManager::new(spool_dir.clone());
+        let res = manager
+            .record(
+                "deploy",
+                "export AWS_SECRET_ACCESS_KEY=abcdEFGH1234ijklMNOP\nok\n",
+                CompressionLevel::Balanced,
+            )
+            .unwrap();
+        let id = res.spool_id.unwrap();
+        let stored = manager.read_log(&id, None, None).unwrap();
+        assert!(!stored.contains("abcdEFGH1234ijklMNOP"), "{stored}");
+        assert!(stored.contains("[REDACTED]"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode(&spool_dir), 0o700);
+            assert_eq!(mode(&spool_dir.join(format!("{id}.log"))), 0o600);
+        }
+    }
+
+    #[test]
+    fn default_spool_dir_is_never_shared_tmp() {
+        assert!(!SpoolManager::default_dir().starts_with("/tmp/synapse"));
     }
 }
