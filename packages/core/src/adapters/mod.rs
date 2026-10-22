@@ -360,6 +360,7 @@ pub fn parse_and_validate_mcp_server(
             env_placeholders.push(key.clone());
         }
     }
+    let command_or_url = redact_mcp_secrets(id, &command_or_url, &mut env_placeholders);
     env_placeholders.sort();
 
     out_servers.push(crate::model::McpServer {
@@ -372,6 +373,43 @@ pub fn parse_and_validate_mcp_server(
     });
 
     Ok(())
+}
+
+/// Replaces credentials embedded in an MCP server's command line or URL
+/// (`postgresql://user:pass@host`, `--api-key=…`, `?token=…`) with
+/// `${SYNAPSE_REDACTED_<N>}` placeholders before the entry reaches the
+/// git-backed Brain. Each placeholder name is added to `env_placeholders`
+/// so the projected config asks the user to supply it, and a warning is
+/// printed — secrets are never stored silently.
+pub fn redact_mcp_secrets(
+    id: &str,
+    command_or_url: &str,
+    env_placeholders: &mut Vec<String>,
+) -> String {
+    let mut names = Vec::new();
+    let (redacted, count) = crate::security::redact_secrets_with(command_or_url, || {
+        let name = format!("SYNAPSE_REDACTED_{}", names.len() + 1);
+        let placeholder = format!("${{{name}}}");
+        names.push(name);
+        placeholder
+    });
+    if count > 0 {
+        eprintln!(
+            "warning: MCP server '{id}' had {count} credential(s) in its command/url; \
+             stored as {} — set them in the tool's env instead",
+            names
+                .iter()
+                .map(|n| format!("${{{n}}}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        for name in names {
+            if !env_placeholders.contains(&name) {
+                env_placeholders.push(name);
+            }
+        }
+    }
+    redacted
 }
 
 /// Helper to get the Windsurf mcp.json path.
@@ -457,6 +495,66 @@ mod registry_tests {
                 adapter.id()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod mcp_redaction_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn credentials_in_mcp_args_and_urls_become_placeholders() {
+        let mut out = Vec::new();
+        parse_and_validate_mcp_server(
+            "db",
+            &json!({
+                "command": "npx",
+                "args": ["-y", "@mcp/postgres", "postgresql://admin:s3cretpw@db:5432/app"],
+                "env": { "PGSSLMODE": "require" }
+            }),
+            "cursor",
+            &mut out,
+        )
+        .unwrap();
+        parse_and_validate_mcp_server(
+            "remote",
+            &json!({ "url": "https://mcp.example.com/sse?token=abcd1234efgh5678" }),
+            "cursor",
+            &mut out,
+        )
+        .unwrap();
+
+        assert_eq!(
+            out[0].command_or_url,
+            "npx -y @mcp/postgres postgresql://admin:${SYNAPSE_REDACTED_1}@db:5432/app"
+        );
+        assert_eq!(out[0].env_placeholders, vec!["PGSSLMODE", "SYNAPSE_REDACTED_1"]);
+        assert_eq!(
+            out[1].command_or_url,
+            "https://mcp.example.com/sse?token=${SYNAPSE_REDACTED_1}"
+        );
+        for server in &out {
+            assert!(!server.command_or_url.contains("s3cretpw"));
+            assert!(!server.command_or_url.contains("abcd1234efgh5678"));
+        }
+    }
+
+    #[test]
+    fn clean_mcp_commands_are_unchanged() {
+        let mut out = Vec::new();
+        parse_and_validate_mcp_server(
+            "fs",
+            &json!({ "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "--token=${GITHUB_TOKEN}"] }),
+            "cursor",
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(
+            out[0].command_or_url,
+            "npx -y @modelcontextprotocol/server-filesystem --token=${GITHUB_TOKEN}"
+        );
+        assert!(out[0].env_placeholders.is_empty());
     }
 }
 
