@@ -1,3 +1,21 @@
+```text
+┌─ CYBERDECK // SYNAPSE CLINICAL ENGINE · TERMINAL COCKPIT ─────────────────────── v1.0.0 ─┐
+│                                                                                          │
+│                ●       ●      ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗        │
+│                 \     /       ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝        │
+│            ● ─── (●) ─── ●    ███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝███████╗        │
+│                 / │ \         ╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ╚════██║        │
+│                ●  ●  ●        ███████║   ██║   ██║ ╚████║██║  ██║██║     ███████║        │
+│                               ╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝     ╚══════╝        │
+│                                                                                          │
+│ Dual-Zone Architecture · Star Topology · Local Execution · Zero Telemetry · MIT License  │
+├──────────────────────────────────────────────────────────────────────────────────────────┤
+│  SYSTEM PARITY:   15/15 ONLINE (100%)      │ TOKEN GATING:     -93% RATIO (ACTIVE)       │
+│  RUNTIME GATEWAY: PORT 8088 (127.0.0.1)    │ ZERO TELEMETRY:   0 PACKETS (LOCAL)         │
+│  STAR ADAPTERS:   15 REGISTERED / 0 DRIFT  │ DIAGNOSTICS:      LOCKSTEP SYNCED (0 FAULTS)│
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 <div align="center">
 
 <img src="./assets/hero.png" width="100%" alt="SYNAPSE Hero Banner">
