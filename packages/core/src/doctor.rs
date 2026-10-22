@@ -391,8 +391,10 @@ fn reproject(ctx: &DoctorContext, subject: &str) -> Result<(), DoctorError> {
         return Ok(());
     };
 
-    let full_projection = ctx.tool_root.join(&mapping.projection_path);
-    let canonical_full = ctx.brain_root.join(&mapping.canonical_path);
+    // mappings.json is plain data on disk: never let it steer a write (or a
+    // symlink) outside the tool root, or read a canonical outside the Brain.
+    let full_projection = contained_path(&ctx.tool_root, &mapping.projection_path)?;
+    let canonical_full = contained_path(&ctx.brain_root, &mapping.canonical_path)?;
     if let Some(parent) = full_projection.parent() {
         fs::create_dir_all(parent).map_err(|e| DoctorError::Io(e.to_string()))?;
     }
@@ -425,6 +427,38 @@ fn reproject(ctx: &DoctorContext, subject: &str) -> Result<(), DoctorError> {
         .save(&ctx.mappings_path)
         .map_err(|e| DoctorError::Io(e.to_string()))?;
     Ok(())
+}
+
+/// Resolves `relative` under `root`, refusing anything that leaves it.
+/// Parent directories must not be symlinks that escape `root`; the leaf may
+/// be a (possibly wrong) symlink, since reproject replaces it.
+fn contained_path(root: &Path, relative: &str) -> Result<PathBuf, DoctorError> {
+    use std::path::Component;
+    let escapes = || {
+        DoctorError::Io(format!(
+            "refusing a path outside {}: {relative}",
+            root.display()
+        ))
+    };
+    let path = Path::new(relative);
+    if crate::adapters::has_path_traversal(relative)
+        || path
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
+    {
+        return Err(escapes());
+    }
+    let name = path.file_name().ok_or_else(escapes)?;
+    let parent = path
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let dir = if parent.is_empty() {
+        root.to_path_buf()
+    } else {
+        crate::adapters::safe_join(root, &parent).map_err(|e| DoctorError::Io(e.to_string()))?
+    };
+    Ok(dir.join(name))
 }
 
 #[cfg(unix)]
@@ -832,5 +866,17 @@ mod tests {
 
         // Idempotent: a second pass has nothing left to auto-fix.
         assert_eq!(apply_fixes(&ctx).unwrap(), 0);
+    }
+
+    #[test]
+    fn reproject_refuses_a_mapping_that_escapes_the_tool_root() {
+        let fx = fixture_with_generate_mapping();
+        let mut mappings = MappingsFile::load(&fx.ctx.mappings_path).unwrap();
+        mappings.mappings[0].projection_path = "../escaped.md".into();
+        mappings.save(&fx.ctx.mappings_path).unwrap();
+
+        assert!(reproject(&fx.ctx, "../escaped.md").is_err());
+        let outside = fx.ctx.tool_root.parent().unwrap().join("escaped.md");
+        assert!(!outside.exists());
     }
 }

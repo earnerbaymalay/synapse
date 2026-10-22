@@ -397,7 +397,9 @@ fn projection_path_for(adapter_id: &str, skill_id: &str, root: &Path) -> String 
             }
         }
         "claude-code" => {
-            if skill_id == "claude-rules" {
+            if let Some(agent) = skill_id.strip_prefix("claude-agent-") {
+                format!(".claude/agents/{agent}.md")
+            } else if skill_id == "claude-rules" {
                 "CLAUDE.md".to_string()
             } else {
                 let slug = skill_id.trim_start_matches("claude-skill-");
@@ -611,12 +613,47 @@ fn project_items(
 /// Projects Brain content from `brain_root` out to `tool_root`.
 pub fn perform_project(brain_root: &Path, tool_root: &Path) -> Result<Vec<String>, String> {
     ensure_default_skills(brain_root)?;
-    project_items(
+    let written = project_items(
         tool_root,
         &load_brain_skills(brain_root),
         &load_brain_agents(brain_root),
         &load_brain_mcp_servers(brain_root),
-    )
+    )?;
+    record_projected_hashes(brain_root, tool_root)?;
+    Ok(written)
+}
+
+/// Drift detection compares a projection file's hash with its mapping, so
+/// the mapping must record what was actually written (provenance header,
+/// tool-specific wrapping, shared-file aggregation) rather than the hash of
+/// the Brain source — otherwise `doctor` flags every fresh projection as
+/// hand-edited.
+fn record_projected_hashes(brain_root: &Path, tool_root: &Path) -> Result<(), String> {
+    let mappings_path = brain_root.join(".brain/mappings.json");
+    if !mappings_path.exists() {
+        return Ok(());
+    }
+    let mut mappings_file = MappingsFile::load(&mappings_path).unwrap_or_default();
+    let mut dirty = false;
+    for mapping in &mut mappings_file.mappings {
+        if mapping.policy != crate::projector::ProjectionPolicy::Generate {
+            continue;
+        }
+        let Ok(path) = safe_join(tool_root, &mapping.projection_path) else {
+            continue;
+        };
+        if let Ok(content) = fs::read_to_string(path) {
+            let sha = crate::adapters::compute_sha256(&content);
+            if mapping.content_sha256 != sha {
+                mapping.content_sha256 = sha;
+                dirty = true;
+            }
+        }
+    }
+    if dirty {
+        save_mappings(&mut mappings_file, &mappings_path)?;
+    }
+    Ok(())
 }
 
 /// A scratch directory removed on drop.
