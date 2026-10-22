@@ -69,7 +69,7 @@ Every freshly initialized or imported Brain automatically provisions the canonic
 
 ## 2. CLI Command Reference
 
-Both binary names `synapse` and `synapse` can be used interchangeably.
+The CLI binary is `synapse`.
 
 ```mermaid
 stateDiagram-v2
