@@ -62,6 +62,14 @@ pub struct GatewayConfig {
     /// messages into restorable stubs (see [`crate::fold`]). `None` = off.
     #[serde(default)]
     pub fold_keep_recent: Option<usize>,
+    /// When true (default), mask private IPs, hardware MACs, and secrets before
+    /// forwarding upstream, and unmask upon response return.
+    #[serde(default = "default_true")]
+    pub context_firewall: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for GatewayConfig {
@@ -74,6 +82,7 @@ impl Default for GatewayConfig {
             gate_level: CompressionLevel::Balanced,
             api_key: None,
             fold_keep_recent: None,
+            context_firewall: true,
         }
     }
 }
@@ -493,7 +502,13 @@ pub fn process_chat_request(
         inject_tool_calling_instructions(&mut payload);
     }
 
-    // 3. Upstream Forwarding
+    // 3. Context Firewall: mask sensitive tokens before outbound egress
+    let mut firewall = crate::firewall::FirewallSession::new();
+    if config.context_firewall {
+        crate::firewall::mask_chat_payload(&mut payload, &mut firewall);
+    }
+
+    // 4. Upstream Forwarding
     let upstream_target = match config.upstream_kind {
         UpstreamKind::Ollama => {
             if config.upstream_url.ends_with("/v1") {
@@ -550,8 +565,13 @@ pub fn process_chat_request(
         }
     };
 
-    // 4. Sanitize and Extract Tool Calls if emitted as raw text
-    let sanitized_res = sanitize_tool_calling_response(res_val);
+    // 5. Sanitize and Extract Tool Calls if emitted as raw text
+    let mut sanitized_res = sanitize_tool_calling_response(res_val);
+
+    // 6. Context Firewall: rehydrate masked synthetic tokens
+    if config.context_firewall {
+        crate::firewall::unmask_chat_response(&mut sanitized_res, &firewall);
+    }
 
     let completion_tokens = sanitized_res["usage"]["completion_tokens"]
         .as_u64()

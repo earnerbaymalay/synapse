@@ -86,6 +86,7 @@ fn test_gateway_server_lifecycle_and_endpoints() {
         gate_level: CompressionLevel::Balanced,
         api_key: None,
         fold_keep_recent: None,
+        context_firewall: true,
     };
 
     let mut server = GatewayServer::new(config);
@@ -155,6 +156,7 @@ fn test_gateway_bearer_auth() {
         gate_level: CompressionLevel::Balanced,
         api_key: Some("secret-token-123".to_string()),
         fold_keep_recent: None,
+        context_firewall: true,
     };
 
     let mut server = GatewayServer::new(config);

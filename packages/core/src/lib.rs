@@ -15,6 +15,7 @@ pub mod compression;
 pub mod conflict_queue;
 pub mod doctor;
 pub mod drift;
+pub mod firewall;
 pub mod fold;
 pub mod gateway;
 pub mod hud;
@@ -44,6 +45,7 @@ pub use compression::{
 pub use conflict_queue::{reconcile, ConflictQueue, QueuedConflict};
 pub use doctor::{diagnose, Diagnosis, DoctorContext, Severity};
 pub use drift::{DriftReport, DriftStatus};
+pub use firewall::{mask_chat_payload, unmask_chat_response, FirewallSession};
 pub use gateway::{GatewayConfig, GatewayServer, GatewayStats, UpstreamKind};
 pub use hud::{format_hud, HudSnapshot};
 pub use mappings::{Mapping, MappingsFile};

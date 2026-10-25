@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Context Firewall (`packages/core/src/firewall.rs`)** — zero-leak egress pseudonymization and response rehydration for runtime gateway traffic (`synapse serve`):
+  - Masks physical hardware MAC addresses, RFC 1918 private IPv4/IPv6 ranges, and API keys/tokens before forwarding prompts to upstream models.
+  - Automatically rehydrates synthetic placeholder tokens upon response return and inside tool-call JSON arguments so local execution operates without breaking.
+  - Exposes `--no-firewall` CLI flag on `synapse serve` to toggle egress protection (enabled by default).
 - **Synaptic Memory (`synapse mem`)** — persistent cross-session memory for AI agents, adapted from claude-mem but local-first and zero-telemetry:
   - `mem hook session-start|prompt|post-tool|stop` captures lifecycle events from agent hooks (`mem hooks` prints the Claude Code config; nothing is written automatically).
   - Progressive disclosure: `mem search` (token-costed index) → `mem timeline <id>` → `mem get <ids>`; `mem context` is the SessionStart injection block.

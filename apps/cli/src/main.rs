@@ -116,6 +116,9 @@ enum Command {
         /// via `synapse spool show <id>` (off unless set; try 8)
         #[arg(long, value_name = "N")]
         fold_keep: Option<usize>,
+        /// Disable the Context Firewall (which masks hardware MACs, IPs, and API keys before upstream forwarding)
+        #[arg(long, default_value_t = false)]
+        no_firewall: bool,
     },
     /// Persistent cross-session memory for AI agents (search, timeline, get, hooks)
     Mem {
@@ -167,7 +170,7 @@ enum Command {
     /// Count vibe-coded vs hand-coded lines across agent transcripts and git
     Vibe {
         /// Rolling window in hours (default: 24)
-        #[arg(short, long, default_value_t = 24.0)]
+        #[arg(long, default_value_t = 24.0)]
         hours: f64,
         /// Output format: text (default), json, or genmon
         #[arg(short, long, default_value = "text")]
@@ -600,6 +603,7 @@ fn main() -> ExitCode {
             gate_level,
             api_key,
             fold_keep,
+            no_firewall,
         } => {
             let comp_level =
                 CompressionLevel::parse(&gate_level).unwrap_or(CompressionLevel::Balanced);
@@ -614,6 +618,7 @@ fn main() -> ExitCode {
                 gate_level: comp_level,
                 api_key,
                 fold_keep_recent: fold_keep,
+                context_firewall: !no_firewall,
             };
 
             chart::open("gateway", "runtime server starting");
@@ -874,6 +879,7 @@ fn run_interactive_hud(
                                                 gate_level: CompressionLevel::Balanced,
                                                 api_key: std::env::var("OPENAI_API_KEY").ok(),
                                                 fold_keep_recent: None,
+                                                context_firewall: true,
                                             };
                                             let mut srv = GatewayServer::new(config);
                                             match srv.start_background() {
@@ -1063,6 +1069,7 @@ fn run_interactive_hud(
                                             gate_level: CompressionLevel::Balanced,
                                             api_key: std::env::var("OPENAI_API_KEY").ok(),
                                             fold_keep_recent: None,
+                                            context_firewall: true,
                                         };
                                         let mut srv = GatewayServer::new(config);
                                         match srv.start_background() {
