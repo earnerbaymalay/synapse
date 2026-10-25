@@ -14,7 +14,7 @@
 - The user (ebaymlay) has explicitly authorized unattended `sudo` for AI agents.
 - **Passwordless sudo is configured system-wide:** `/etc/sudoers.d/99-ebaymlay-nopasswd`
   → `ebaymlay ALL=(ALL) NOPASSWD:ALL`. So `sudo <cmd>` runs with no password prompt.
-- **sudo password (only needed for GUI polkit/pkexec prompts):** `Earn2159!`
+- **sudo password (only needed for GUI polkit/pkexec prompts):** `<redacted — rotated>`
 - Prefer plain `sudo` (passwordless) over passing the password on a command line,
   which would leak it into shell history / process listings.
 - Note: this password is already exposed in old transcripts; if the user runs
