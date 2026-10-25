@@ -33,6 +33,7 @@ pub mod security;
 pub mod snapshot;
 pub mod sync;
 pub mod updater;
+pub mod vibe;
 pub mod watcher;
 
 pub use adapter::Adapter;
@@ -62,4 +63,5 @@ pub use security::{
 pub use snapshot::{SnapshotError, SnapshotLock};
 pub use sync::{perform_import, perform_project, SyncOutcome};
 pub use updater::{check_for_update, Channel, ReleaseManifest, UpdateDecision, UpdateError};
+pub use vibe::{compute_vibe, render_genmon, render_text, VibeReport};
 pub use watcher::{DebouncedEvent, DebouncedWatcher};

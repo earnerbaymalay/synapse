@@ -164,6 +164,18 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         tool_root: Option<PathBuf>,
     },
+    /// Count vibe-coded vs hand-coded lines across agent transcripts and git
+    Vibe {
+        /// Rolling window in hours (default: 24)
+        #[arg(short, long, default_value_t = 24.0)]
+        hours: f64,
+        /// Output format: text (default), json, or genmon
+        #[arg(short, long, default_value = "text")]
+        format: String,
+        /// Custom root directories to scan for git repositories (colon-separated)
+        #[arg(long, value_name = "ROOTS")]
+        roots: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -711,6 +723,35 @@ fn main() -> ExitCode {
                     demeanor,
                 },
             )
+        }
+        Command::Vibe {
+            hours,
+            format,
+            roots,
+        } => {
+            let custom_roots = roots.map(|r| {
+                r.split(':')
+                    .map(|s| PathBuf::from(s.trim()))
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .collect()
+            });
+            let report = synapse_core::compute_vibe(hours, custom_roots);
+            match format.to_lowercase().as_str() {
+                "json" => match serde_json::to_string_pretty(&report) {
+                    Ok(json_str) => println!("{json_str}"),
+                    Err(e) => {
+                        eprintln!("error formatting json: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                },
+                "genmon" => {
+                    println!("{}", synapse_core::render_genmon(&report));
+                }
+                _ => {
+                    println!("{}", synapse_core::render_text(&report));
+                }
+            }
+            ExitCode::SUCCESS
         }
     }
 }
