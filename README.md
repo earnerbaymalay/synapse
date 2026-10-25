@@ -137,7 +137,7 @@ $ synapse scan
 
   SYNAPSE · INTAKE                                           7 of 15 present
   ──────────────────────────────────────────────────────────────────────────
-  Site   /home/ebaymlay
+  Site   ~
 
   ●  agy-cli               config detected
   ●  claude-code           config detected
@@ -162,7 +162,7 @@ $ synapse import --dry-run
 
   SYNAPSE · INTAKE · DRY RUN                         nothing will be written
   ──────────────────────────────────────────────────────────────────────────
-  Site   /home/ebaymlay
+  Site   ~
 
   ●  agy-cli               11 skills  0 agents  0 mcp servers
   ●  claude-code           1 skill   0 agents  0 mcp servers
@@ -176,14 +176,14 @@ $ synapse project
 
   SYNAPSE · GRAFT                                                   15 grafts
   ──────────────────────────────────────────────────────────────────────────
-  Brain  ~/Desktop/AI BRAIN
+  Brain  ~/AIBrain
   Tools  ~
 
-  ●  claude-code           CLAUDE.md stamped · .claude/ linked
+  ●  claude-code           CLAUDE.md stamped · .claude/skills/ projected
   ●  cursor                .cursor/rules/ 14 MDC rules projected
   ●  gemini-cli            GEMINI.md stamped
-  ●  zed                   .rules stamped · AGENTS.md linked
-  ●  agy-cli               AGENTS.md stamped · .agy/skills/ linked
+  ●  zed                   .rules stamped · AGENTS.md projected
+  ●  agy-cli               AGENTS.md stamped · .agents/skills/ projected
   ──────────────────────────────────────────────────────────────────────────
   All tools synchronized in 14ms.
   Next  synapse doctor
@@ -224,9 +224,12 @@ Keep all tools permanently synchronized as you code. The background daemon watch
 # Run one-time sync check
 synapse sync --once
 
-# Launch background file watcher daemon
-synapse sync --daemon
+# Run a one-pass synchronization
+synapse sync --once
 ```
+
+### 4. Continuous Synchronization (Roadmap)
+Automatic background daemon synchronization via inotify (`synapse sync --daemon`) is planned in Phase 2. Currently, trigger `synapse sync --once` manually or via pre-commit / build hooks.
 
 ### Git Time Machine Snapshots & Rollback
 
@@ -302,7 +305,7 @@ Synaptic Memory gives both agents and humans 3-tier progressive context retrieva
 
 ```bash
 # Layer 1: Search index for relevant context
-synapse mem "database migration sqlite"
+synapse mem search "database migration sqlite"
 
 # Layer 2: View chronological timeline around a specific observation
 synapse mem timeline 42 --before 3 --after 3
@@ -337,7 +340,7 @@ The **Vital Signs HUD** is a zero-RAM, clinical terminal dashboard for monitorin
 ╰──────────────────────────────────────────────────────────────────────────────────
 
 ╭── CANONICAL BRAIN (THE ORGAN)
-│  Path:      /home/ebaymlay/Desktop/AI BRAIN
+│  Path:      ~/AIBrain
 │  Adapters:  15 verified tools
 │  Doctor:    [▰▰▰▰▰▰▰▰▰▰▰▰] ✔ LOCKSTEP SYNCED (0 faults)
 ╰──────────────────────────────────────────────────────────────────────────────────
@@ -365,7 +368,7 @@ Every adapter is verified with boundary, stress, and roundtrip tests in our CI m
 | **Claude Code / Desktop** | [Spec](docs/adapters/claude.md) | `CLAUDE.md`, `.claude/skills/`, `.mcp.json` | Markdown, JSON | Skills, Agents, MCP Servers | Stamped `CLAUDE.md` + `.claude/` |
 | **Cursor** | [Spec](docs/adapters/cursor.md) | `.cursorrules`, `.cursor/rules/*.mdc` | MDC Frontmatter | MDC Rules & Globs | `.cursor/rules/*.mdc` |
 | **Gemini CLI** | [Spec](docs/adapters/gemini.md) | `GEMINI.md`, `.gemini/settings.json` | Markdown, JSON | Rules, Settings | Stamped `GEMINI.md` |
-| **Windsurf** | [Spec](docs/adapters/windsurf.md) | `.windsurfrules`, `mcp_config.json` | Text, JSON | Rules & MCP Servers | Stamped `.windsurfrules` |
+| **Windsurf** | [Spec](docs/adapters/windsurf.md) | `.windsurfrules`, `.codeium/windsurf/mcp.json` | Text, JSON | Rules & MCP Servers | Stamped `.windsurfrules` |
 | **Cline** | [Spec](docs/adapters/cline.md) | `.clinerules`, `cline_mcp_settings.json` | Text, JSON | Custom Rules & MCP | Stamped `.clinerules` |
 | **Roo Code** | [Spec](docs/adapters/roo-code.md) | `.roomodes`, `.clinerules` | JSON, Text | Mode Rules | Stamped `.roomodes` |
 | **Aider** | [Spec](docs/adapters/aider.md) | `CONVENTIONS.md`, `.aider.conf.yml` | Markdown, YAML | Conventions & Config | Stamped `CONVENTIONS.md` |
@@ -374,7 +377,7 @@ Every adapter is verified with boundary, stress, and roundtrip tests in our CI m
 | **Zed** | [Spec](docs/adapters/zed.md) | `.rules`, `.zed/settings.json`, `AGENTS.md` | Text, JSON, MD | Settings & Rules | `.rules` + `AGENTS.md` |
 | **OpenAI Codex CLI** | [Spec](docs/adapters/openai-codex.md) | `.codex/config.toml`, `.codex/instructions.md` | TOML, Markdown | Rules, Config | `AGENTS.md` + `.codex/` |
 | **OpenCode** | [Spec](docs/adapters/opencode.md) | `AGENTS.md` | Markdown | Multi-Agent Rules | Stamped `AGENTS.md` |
-| **Antigravity CLI (AGY)** | [Spec](docs/adapters/antigravity.md) | `AGENTS.md`, `.agy/skills/`, `.gemini/` | Markdown, YAML | Skills & Settings | `AGENTS.md` + `.agy/skills/` |
+| **Antigravity CLI (AGY)** | [Spec](docs/adapters/antigravity.md) | `AGENTS.md`, `.agents/skills/`, `.agents/` | Markdown, YAML | Skills & Settings | `AGENTS.md` + `.agents/skills/` |
 | **AWS Kiro IDE** | [Spec](docs/adapters/kiro.md) | `.kiro/steering/*.md`, `.kiro/settings/mcp.json` | Frontmatter, JSONC | Steering Rules & MCP | `.kiro/steering/` + `.kiro/settings/` |
 | **Trae IDE** | [Spec](docs/adapters/trae.md) | `.trae/rules/*.md`, `.trae/mcp.json` | MDC Frontmatter, JSONC | Scoped Rules & MCP | `.trae/rules/` + `.trae/mcp.json` |
 
@@ -410,7 +413,7 @@ flowchart TD
         GM["Gemini CLI (GEMINI.md)"]
         WS["Windsurf (.windsurfrules)"]
         ZD["Zed (.rules & AGENTS.md)"]
-        AGY["Antigravity CLI (.agy/ & AGENTS.md)"]
+        AGY["Antigravity CLI (.agents/ & AGENTS.md)"]
         KI["AWS Kiro (.kiro/steering/)"]
         TR["Trae IDE (.trae/rules/)"]
         OTH["Cline · Roo · Aider · Copilot · Codex · OpenCode · Continue"]

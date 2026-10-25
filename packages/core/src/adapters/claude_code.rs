@@ -123,7 +123,11 @@ impl Adapter for ClaudeCodeAdapter {
                 let content = strip_provenance(&raw).trim().to_string();
                 let sha256 = compute_sha256(&content);
                 let clean_slug = slug.trim_start_matches(SKILL_ID_PREFIX);
-                let clean_slug = if clean_slug.is_empty() { "skill" } else { clean_slug };
+                let clean_slug = if clean_slug.is_empty() {
+                    "skill"
+                } else {
+                    clean_slug
+                };
                 skills.push(Skill {
                     id: format!("{}{}", SKILL_ID_PREFIX, clean_slug),
                     version: "1.0.0".to_string(),

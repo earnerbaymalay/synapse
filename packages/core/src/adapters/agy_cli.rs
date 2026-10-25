@@ -116,7 +116,11 @@ impl Adapter for AgyCliAdapter {
                     })?;
                     let content = strip_provenance(&raw);
                     let clean_slug = dir_name.trim_start_matches("agy-skill-");
-                    let clean_slug = if clean_slug.is_empty() { "skill" } else { clean_slug };
+                    let clean_slug = if clean_slug.is_empty() {
+                        "skill"
+                    } else {
+                        clean_slug
+                    };
                     let sha256 = compute_sha256(&content);
                     let id = if clean_slug == "obsidian-session-worklog" {
                         "obsidian-session-worklog".to_string()

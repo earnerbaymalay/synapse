@@ -340,8 +340,11 @@ pub fn apply_fixes(ctx: &DoctorContext) -> Result<usize, DoctorError> {
                 if let Ok(mut mappings) = MappingsFile::load(&ctx.mappings_path) {
                     let before_len = mappings.mappings.len();
                     mappings.mappings.sort_by(|a, b| {
-                        (&a.tool_id, &a.canonical_path, &a.projection_path)
-                            .cmp(&(&b.tool_id, &b.canonical_path, &b.projection_path))
+                        (&a.tool_id, &a.canonical_path, &a.projection_path).cmp(&(
+                            &b.tool_id,
+                            &b.canonical_path,
+                            &b.projection_path,
+                        ))
                     });
                     mappings.mappings.dedup_by(|a, b| {
                         a.tool_id == b.tool_id && a.canonical_path == b.canonical_path

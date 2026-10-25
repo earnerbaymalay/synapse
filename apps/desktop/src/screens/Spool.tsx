@@ -19,7 +19,7 @@ const SAMPLE_SPOOLS: SpooledRun[] = [
     rawTokens: 8420,
     gatedTokens: 240,
     reduction: 97.1,
-    rawSample: `   Compiling synapse-core v1.0.0 (/home/ebaymlay/workspace/llm-neuro-surgeon/packages/core)
+    rawSample: `   Compiling synapse-core v1.0.0 (/workspace/synapse/packages/core)
     Finished \`test\` profile in 14.8s
      Running unittests src/lib.rs (target/debug/deps/synapse_core-9e231d4004220db7)
 test adapters::agy_cli::tests::test_agy_cli_detect ... ok
@@ -42,7 +42,7 @@ test result: ok. 237 passed; 0 failed; 0 ignored; 0 measured; finished in 15.4s`
     rawTokens: 6840,
     gatedTokens: 210,
     reduction: 96.9,
-    rawSample: ` RUN  v4.1.12 /home/ebaymlay/workspace/llm-neuro-surgeon/packages/e2e
+    rawSample: ` RUN  v4.1.12 /workspace/synapse/packages/e2e
  ✓ src/suites/sanity.test.ts (4 tests) 53ms
  ✓ src/suites/tier4_workload.test.ts (6 tests) 400ms
  ✓ src/suites/tier2_boundary.test.ts (68 tests) 1272ms
