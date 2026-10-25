@@ -165,13 +165,50 @@ impl GatewayServer {
     }
 }
 
+fn is_loopback_origin(origin: &str) -> bool {
+    let lower = origin.trim().to_lowercase();
+    lower.starts_with("http://127.0.0.1")
+        || lower.starts_with("http://localhost")
+        || lower.starts_with("http://[::1]")
+        || lower.starts_with("https://127.0.0.1")
+        || lower.starts_with("https://localhost")
+        || lower.starts_with("https://[::1]")
+        || lower.starts_with("tauri://localhost")
+        || lower.starts_with("vscode-webview://")
+}
+
 fn send_json<T: ToString>(request: tiny_http::Request, status: u16, body: T) {
-    let cors = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap();
+    let origin_header = request
+        .headers()
+        .iter()
+        .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("Origin"))
+        .map(|h| h.value.as_str().to_string());
+
+    let loopback_origin = origin_header.filter(|o| is_loopback_origin(o));
+    send_json_with_origin(request, status, body, loopback_origin.as_deref());
+}
+
+fn send_json_with_origin<T: ToString>(
+    request: tiny_http::Request,
+    status: u16,
+    body: T,
+    allowed_origin: Option<&str>,
+) {
     let ctype = Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap();
-    let res = Response::from_string(body.to_string())
+    let mut res = Response::from_string(body.to_string())
         .with_status_code(StatusCode(status))
-        .with_header(cors)
         .with_header(ctype);
+
+    if let Some(origin) = allowed_origin {
+        if let Ok(cors) = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], origin.as_bytes())
+        {
+            res = res.with_header(cors);
+        }
+        if let Ok(vary) = Header::from_bytes(&b"Vary"[..], &b"Origin"[..]) {
+            res = res.with_header(vary);
+        }
+    }
+
     let _ = request.respond(res);
 }
 
@@ -184,22 +221,116 @@ pub fn handle_request(
     let url = request.url().to_string();
     let method = request.method().as_str().to_string();
 
+    // 1. Host header validation (blocks DNS rebinding)
+    let host_header = request
+        .headers()
+        .iter()
+        .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("Host"))
+        .map(|h| h.value.as_str());
+
+    let host_valid = match host_header {
+        Some(h) => {
+            let host_trimmed = h.trim();
+            let hostname = if let Some(bracket_end) = host_trimmed.find(']') {
+                &host_trimmed[..=bracket_end]
+            } else if let Some(colon) = host_trimmed.find(':') {
+                &host_trimmed[..colon]
+            } else {
+                host_trimmed
+            };
+            hostname == "127.0.0.1"
+                || hostname == "localhost"
+                || hostname == "::1"
+                || hostname == "[::1]"
+        }
+        None => false,
+    };
+
+    if !host_valid {
+        send_json_with_origin(
+            request,
+            403,
+            json!({ "error": "Forbidden: invalid Host header" }).to_string(),
+            None,
+        );
+        return;
+    }
+
+    // 2. Bearer token authorization if configured
+    let required_token = config
+        .api_key
+        .clone()
+        .or_else(|| std::env::var("SYNAPSE_GATEWAY_TOKEN").ok());
+
+    if let Some(ref token) = required_token {
+        if !(url == "/health" || method == "OPTIONS") {
+            let auth_header = request
+                .headers()
+                .iter()
+                .find(|h| {
+                    h.field
+                        .as_str()
+                        .as_str()
+                        .eq_ignore_ascii_case("Authorization")
+                })
+                .map(|h| h.value.as_str().trim());
+
+            let authorized = match auth_header {
+                Some(val) => {
+                    if let Some(bearer) = val.strip_prefix("Bearer ") {
+                        bearer.trim() == token.as_str()
+                    } else {
+                        false
+                    }
+                }
+                None => false,
+            };
+
+            if !authorized {
+                send_json(
+                    request,
+                    401,
+                    json!({ "error": "Unauthorized: invalid or missing bearer token" }).to_string(),
+                );
+                return;
+            }
+        }
+    }
+
     if method == "OPTIONS" {
-        let cors = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap();
-        let methods = Header::from_bytes(
-            &b"Access-Control-Allow-Methods"[..],
-            &b"GET, POST, OPTIONS"[..],
-        )
-        .unwrap();
-        let headers = Header::from_bytes(
-            &b"Access-Control-Allow-Headers"[..],
-            &b"Content-Type, Authorization"[..],
-        )
-        .unwrap();
-        let res = Response::empty(StatusCode(200))
-            .with_header(cors)
-            .with_header(methods)
-            .with_header(headers);
+        let origin_header = request
+            .headers()
+            .iter()
+            .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("Origin"))
+            .map(|h| h.value.as_str());
+
+        let mut res = Response::empty(StatusCode(200));
+
+        if let Some(origin) = origin_header {
+            if is_loopback_origin(origin) {
+                if let Ok(cors) =
+                    Header::from_bytes(&b"Access-Control-Allow-Origin"[..], origin.as_bytes())
+                {
+                    res = res.with_header(cors);
+                }
+                if let Ok(methods) = Header::from_bytes(
+                    &b"Access-Control-Allow-Methods"[..],
+                    &b"GET, POST, OPTIONS"[..],
+                ) {
+                    res = res.with_header(methods);
+                }
+                if let Ok(headers) = Header::from_bytes(
+                    &b"Access-Control-Allow-Headers"[..],
+                    &b"Content-Type, Authorization"[..],
+                ) {
+                    res = res.with_header(headers);
+                }
+                if let Ok(vary) = Header::from_bytes(&b"Vary"[..], &b"Origin"[..]) {
+                    res = res.with_header(vary);
+                }
+            }
+        }
+
         let _ = request.respond(res);
         return;
     }
@@ -228,13 +359,18 @@ pub fn handle_request(
 
     // Model list endpoint
     if url == "/v1/models" && method == "GET" {
+        let created_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(1700000000);
+
         let models_payload = json!({
             "object": "list",
             "data": [
                 {
                     "id": config.default_model.clone().unwrap_or_else(|| "default".to_string()),
                     "object": "model",
-                    "created": 1700000000,
+                    "created": created_ts,
                     "owned_by": "synapse-local"
                 }
             ]

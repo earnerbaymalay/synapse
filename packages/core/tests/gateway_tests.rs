@@ -114,9 +114,75 @@ fn test_gateway_server_lifecycle_and_endpoints() {
     let models_body: serde_json::Value = models_res.into_json().unwrap();
     assert_eq!(models_body["data"][0]["id"], "qwen2.5-coder:7b");
 
+    // Test Host header rejection (DNS rebinding protection)
+    let bad_host_res = ureq::get("http://127.0.0.1:18088/health")
+        .set("Host", "attacker.com")
+        .call();
+    match bad_host_res {
+        Ok(r) => assert_eq!(r.status(), 403),
+        Err(ureq::Error::Status(code, _)) => assert_eq!(code, 403),
+        Err(e) => panic!("Unexpected error: {:?}", e),
+    }
+
+    // Test CORS loopback vs foreign origin
+    let loopback_cors_res = ureq::get("http://127.0.0.1:18088/health")
+        .set("Origin", "http://localhost:3000")
+        .call()
+        .expect("loopback origin request failed");
+    assert_eq!(
+        loopback_cors_res.header("Access-Control-Allow-Origin"),
+        Some("http://localhost:3000")
+    );
+
+    let foreign_cors_res = ureq::get("http://127.0.0.1:18088/health")
+        .set("Origin", "https://evil-site.com")
+        .call()
+        .expect("foreign origin request failed");
+    assert_eq!(foreign_cors_res.header("Access-Control-Allow-Origin"), None);
+
     // Stop server
     server.stop();
     assert!(!server.is_running());
+}
+
+#[test]
+fn test_gateway_bearer_auth() {
+    let config = GatewayConfig {
+        bind_addr: "127.0.0.1:18089".to_string(),
+        upstream_url: "http://127.0.0.1:11434".to_string(),
+        upstream_kind: UpstreamKind::Ollama,
+        default_model: Some("qwen2.5-coder:7b".to_string()),
+        gate_level: CompressionLevel::Balanced,
+        api_key: Some("secret-token-123".to_string()),
+        fold_keep_recent: None,
+    };
+
+    let mut server = GatewayServer::new(config);
+    server.start_background().expect("Failed to start gateway");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    // /health is public
+    let health_res = ureq::get("http://127.0.0.1:18089/health")
+        .call()
+        .expect("health check failed");
+    assert_eq!(health_res.status(), 200);
+
+    // /v1/models without token -> 401
+    let unauth_res = ureq::get("http://127.0.0.1:18089/v1/models").call();
+    match unauth_res {
+        Ok(r) => assert_eq!(r.status(), 401),
+        Err(ureq::Error::Status(code, _)) => assert_eq!(code, 401),
+        Err(e) => panic!("Unexpected error: {:?}", e),
+    }
+
+    // /v1/models with correct token -> 200
+    let auth_res = ureq::get("http://127.0.0.1:18089/v1/models")
+        .set("Authorization", "Bearer secret-token-123")
+        .call()
+        .expect("authorized request failed");
+    assert_eq!(auth_res.status(), 200);
+
+    server.stop();
 }
 
 #[test]
