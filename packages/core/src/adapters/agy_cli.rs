@@ -122,8 +122,8 @@ impl Adapter for AgyCliAdapter {
                         clean_slug
                     };
                     let sha256 = compute_sha256(&content);
-                    let id = if clean_slug == "obsidian-session-worklog" {
-                        "obsidian-session-worklog".to_string()
+                    let id = if clean_slug == crate::sync::SYNAPSE_MEMORY_SKILL_ID {
+                        crate::sync::SYNAPSE_MEMORY_SKILL_ID.to_string()
                     } else {
                         format!("agy-skill-{}", clean_slug)
                     };

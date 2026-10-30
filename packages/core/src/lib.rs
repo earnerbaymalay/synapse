@@ -14,6 +14,7 @@ pub mod adapters;
 pub mod compression;
 pub mod conflict_queue;
 pub mod doctor;
+pub mod embedding;
 pub mod drift;
 pub mod firewall;
 pub mod fold;

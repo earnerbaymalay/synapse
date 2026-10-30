@@ -251,7 +251,7 @@ impl Adapter for ClaudeCodeAdapter {
             .filter(|s| {
                 !s.id.starts_with(SKILL_ID_PREFIX)
                     && !s.id.starts_with(AGENT_SKILL_ID_PREFIX)
-                    && s.id != "obsidian-session-worklog"
+                    && s.id != crate::sync::SYNAPSE_MEMORY_SKILL_ID
             })
             .copied()
             .collect();
@@ -274,7 +274,9 @@ impl Adapter for ClaudeCodeAdapter {
 
         for skill in claude_skills
             .iter()
-            .filter(|s| s.id.starts_with(SKILL_ID_PREFIX) || s.id == "obsidian-session-worklog")
+            .filter(|s| {
+                s.id.starts_with(SKILL_ID_PREFIX) || s.id == crate::sync::SYNAPSE_MEMORY_SKILL_ID
+            })
         {
             let slug = skill.id.strip_prefix(SKILL_ID_PREFIX).unwrap_or(&skill.id);
             let rel_path = format!(".claude/skills/{}/SKILL.md", slug);

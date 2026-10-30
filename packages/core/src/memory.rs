@@ -42,30 +42,76 @@ pub struct Observation {
     pub narrative: String,
     #[serde(default)]
     pub files: Vec<String>,
+    /// Subject area for organisation (e.g. "networking", "memory-system").
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub topic: String,
+    /// Freeform keyword tags.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// AI model / agent that recorded this (e.g. "claude-opus-4-8", "qwen2.5-coder").
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub model: String,
 }
 
 impl Observation {
     /// Approximate token cost of the full record (what `get` will spend).
     pub fn full_tokens(&self) -> usize {
         estimate_tokens(&format!(
-            "{} {} {}",
+            "{} {} {} {} {}",
             self.title,
             self.narrative,
-            self.files.join(" ")
+            self.files.join(" "),
+            self.topic,
+            self.tags.join(" ")
         ))
     }
 
-    /// One-line index entry (what `search`/`context` spend).
+    /// One-line index entry (what `search`/`context` spend). The optional
+    /// `[topic]` tag keeps the index organised without much extra token cost.
     pub fn index_line(&self) -> String {
+        let topic = if self.topic.is_empty() {
+            String::new()
+        } else {
+            format!(" [{}]", self.topic)
+        };
         format!(
-            "#{:<5} {} {:<9} {}  (~{}t)",
+            "#{:<5} {} {:<9} {}{}  (~{}t)",
             self.id,
             format_ts(self.ts),
             self.kind,
             self.title,
+            topic,
             self.full_tokens()
         )
     }
+
+    /// Text handed to the embedding model: topic + tags + title + narrative,
+    /// so semantically similar fragments cluster by subject, not just wording.
+    pub fn embed_input(&self) -> String {
+        let mut s = String::new();
+        if !self.topic.is_empty() {
+            s.push_str(&self.topic);
+            s.push_str(". ");
+        }
+        if !self.tags.is_empty() {
+            s.push_str(&self.tags.join(", "));
+            s.push_str(". ");
+        }
+        s.push_str(&self.title);
+        if !self.narrative.is_empty() {
+            s.push_str(". ");
+            s.push_str(&self.narrative);
+        }
+        s
+    }
+}
+
+/// One stored embedding vector, keyed to an [`Observation`] id. Kept in a
+/// sidecar `embeddings.jsonl` so `observations.jsonl` stays human-readable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct EmbeddingRecord {
+    id: u64,
+    v: Vec<f32>,
 }
 
 /// Input for [`MemoryStore::add`]; id and timestamp are assigned by the store.
@@ -77,6 +123,9 @@ pub struct NewObservation {
     pub title: String,
     pub narrative: String,
     pub files: Vec<String>,
+    pub topic: String,
+    pub tags: Vec<String>,
+    pub model: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -86,6 +135,27 @@ pub struct MemoryStats {
     pub projects: usize,
     pub stored_tokens: usize,
     pub bytes: u64,
+}
+
+/// One collapsed cluster of near-duplicate observations.
+#[derive(Debug, Clone)]
+pub struct DistillCluster {
+    /// Id of the member kept (the most informative one).
+    pub keep: u64,
+    pub keep_title: String,
+    /// Ids of the redundant members removed (or that would be, in a dry run).
+    pub drop: Vec<u64>,
+    pub tokens_saved: usize,
+}
+
+/// Outcome of a [`MemoryStore::distill`] pass.
+#[derive(Debug, Clone, Default)]
+pub struct DistillReport {
+    pub applied: bool,
+    pub tokens_before: usize,
+    pub tokens_after: usize,
+    pub removed: usize,
+    pub clusters: Vec<DistillCluster>,
 }
 
 pub struct MemoryStore {
@@ -112,6 +182,10 @@ impl MemoryStore {
 
     fn log_path(&self) -> PathBuf {
         self.dir.join("observations.jsonl")
+    }
+
+    fn embeddings_path(&self) -> PathBuf {
+        self.dir.join("embeddings.jsonl")
     }
 
     /// Sanitises (privacy + redaction), assigns an id, and appends.
@@ -144,6 +218,14 @@ impl MemoryStore {
             title,
             narrative,
             files: new.files,
+            topic: sanitize(&new.topic).trim().to_string(),
+            tags: new
+                .tags
+                .iter()
+                .map(|t| t.trim().to_lowercase())
+                .filter(|t| !t.is_empty())
+                .collect(),
+            model: new.model.trim().to_string(),
         };
         let mut line = serde_json::to_string(&obs).map_err(std::io::Error::other)?;
         line.push('\n');
@@ -152,7 +234,165 @@ impl MemoryStore {
             .append(true)
             .open(self.log_path())?;
         f.write_all(line.as_bytes())?;
+        // Best-effort local embedding — never fails the write if Ollama is down.
+        let _ = self.store_embedding(obs.id, &obs.embed_input());
         Ok(Some(obs))
+    }
+
+    // ── semantic layer (local embeddings via Ollama) ───────────────────────
+
+    /// Append one embedding to the sidecar. Returns `true` only when a vector
+    /// was computed and written; a silent `false` when embeddings are disabled
+    /// or the model is unreachable (so the write path never fails).
+    fn store_embedding(&self, id: u64, text: &str) -> bool {
+        if !crate::embedding::enabled() {
+            return false;
+        }
+        let Some(v) = crate::embedding::embed_document(text) else {
+            return false;
+        };
+        let line = match serde_json::to_string(&EmbeddingRecord { id, v }) {
+            Ok(mut l) => {
+                l.push('\n');
+                l
+            }
+            Err(_) => return false,
+        };
+        match OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.embeddings_path())
+        {
+            Ok(mut f) => f.write_all(line.as_bytes()).is_ok(),
+            Err(_) => false,
+        }
+    }
+
+    /// Load all stored embeddings keyed by observation id (last write wins).
+    pub fn load_embeddings(&self) -> HashMap<u64, Vec<f32>> {
+        let mut map = HashMap::new();
+        if let Ok(raw) = fs::read_to_string(self.embeddings_path()) {
+            for line in raw.lines() {
+                if let Ok(rec) = serde_json::from_str::<EmbeddingRecord>(line) {
+                    map.insert(rec.id, rec.v);
+                }
+            }
+        }
+        map
+    }
+
+    /// Rewrite the embedding sidecar to exactly `kept` (compacts duplicates and
+    /// drops entries for forgotten observations).
+    fn rewrite_embeddings(&self, kept: &HashMap<u64, Vec<f32>>) -> std::io::Result<()> {
+        if kept.is_empty() {
+            let _ = fs::remove_file(self.embeddings_path());
+            return Ok(());
+        }
+        let mut ids: Vec<&u64> = kept.keys().collect();
+        ids.sort();
+        let mut out = String::new();
+        for id in ids {
+            out.push_str(
+                &serde_json::to_string(&EmbeddingRecord {
+                    id: *id,
+                    v: kept[id].clone(),
+                })
+                .map_err(std::io::Error::other)?,
+            );
+            out.push('\n');
+        }
+        fs::write(self.embeddings_path(), out)
+    }
+
+    /// Compute embeddings for every observation that is missing one. Returns the
+    /// number newly embedded. Used by `mem reindex` and after a bulk import.
+    pub fn reembed_missing(&self) -> std::io::Result<usize> {
+        if !crate::embedding::enabled() {
+            return Ok(0);
+        }
+        let all = self.all()?;
+        let have = self.load_embeddings();
+        let mut added = 0usize;
+        for o in &all {
+            if have.contains_key(&o.id) {
+                continue;
+            }
+            if self.store_embedding(o.id, &o.embed_input()) {
+                added += 1;
+            }
+        }
+        Ok(added)
+    }
+
+    /// Distillation — find semantically near-duplicate observations (cosine ≥
+    /// `threshold`) within a project and collapse each cluster to its single
+    /// most-informative member, cutting the memory footprint while keeping the
+    /// genuinely distinct knowledge. `summary` observations are never touched.
+    /// With `apply=false` this only reports; with `apply=true` it forgets the
+    /// redundant ids. Requires embeddings (returns an empty report otherwise).
+    pub fn distill(
+        &self,
+        project: Option<&str>,
+        threshold: f32,
+        apply: bool,
+    ) -> std::io::Result<DistillReport> {
+        let all = self.all()?;
+        let embeddings = self.load_embeddings();
+        let pool: Vec<&Observation> = all
+            .iter()
+            .filter(|o| project.is_none_or(|p| o.project == p))
+            .filter(|o| o.kind != "summary")
+            .filter(|o| embeddings.contains_key(&o.id))
+            .collect();
+
+        let tokens_before: usize = all.iter().map(Observation::full_tokens).sum();
+        let mut assigned: HashSet<u64> = HashSet::new();
+        let mut clusters: Vec<DistillCluster> = Vec::new();
+
+        for (i, a) in pool.iter().enumerate() {
+            if assigned.contains(&a.id) {
+                continue;
+            }
+            let av = &embeddings[&a.id];
+            let mut members: Vec<&Observation> = vec![*a];
+            assigned.insert(a.id);
+            for b in pool.iter().skip(i + 1) {
+                if assigned.contains(&b.id) {
+                    continue;
+                }
+                if crate::embedding::cosine(av, &embeddings[&b.id]) >= threshold {
+                    members.push(*b);
+                    assigned.insert(b.id);
+                }
+            }
+            if members.len() < 2 {
+                continue;
+            }
+            // Keep the most informative (token-richest); drop the rest.
+            members.sort_by_key(|o| std::cmp::Reverse(o.full_tokens()));
+            let keep = members[0].id;
+            let drop: Vec<u64> = members[1..].iter().map(|o| o.id).collect();
+            let saved: usize = members[1..].iter().map(|o| o.full_tokens()).sum();
+            clusters.push(DistillCluster {
+                keep,
+                keep_title: members[0].title.clone(),
+                drop,
+                tokens_saved: saved,
+            });
+        }
+
+        let removed_ids: Vec<u64> = clusters.iter().flat_map(|c| c.drop.clone()).collect();
+        let tokens_saved: usize = clusters.iter().map(|c| c.tokens_saved).sum();
+        if apply && !removed_ids.is_empty() {
+            self.forget(&removed_ids)?;
+        }
+        Ok(DistillReport {
+            applied: apply,
+            tokens_before,
+            tokens_after: tokens_before.saturating_sub(tokens_saved),
+            removed: removed_ids.len(),
+            clusters,
+        })
     }
 
     /// All observations in id order. Corrupt lines are skipped, not fatal.
@@ -168,23 +408,42 @@ impl MemoryStore {
             .collect())
     }
 
-    /// Layer 1: ranked keyword search. Terms are scored title ×3, files ×2,
-    /// narrative ×1, weighted by rarity, with a small recency tiebreak.
+    /// Layer 1: ranked search. Keyword relevance (title ×3, files ×2, narrative
+    /// ×1, tags ×2, topic ×2, rarity-weighted) is blended with local semantic
+    /// similarity from `nomic-embed-text`, so paraphrases and related subjects
+    /// surface even when they share no literal terms. Falls back cleanly to
+    /// keyword-only when embeddings are disabled or Ollama is unreachable.
     pub fn search(
         &self,
         query: &str,
         project: Option<&str>,
         limit: usize,
     ) -> std::io::Result<Vec<Observation>> {
+        self.search_filtered(query, project, None, None, limit)
+    }
+
+    /// Like [`search`], with optional `topic` and `model` equality filters.
+    pub fn search_filtered(
+        &self,
+        query: &str,
+        project: Option<&str>,
+        topic: Option<&str>,
+        model: Option<&str>,
+        limit: usize,
+    ) -> std::io::Result<Vec<Observation>> {
         let all = self.all()?;
         let pool: Vec<&Observation> = all
             .iter()
             .filter(|o| project.is_none_or(|p| o.project == p))
+            .filter(|o| topic.is_none_or(|t| o.topic.eq_ignore_ascii_case(t)))
+            .filter(|o| model.is_none_or(|m| o.model.eq_ignore_ascii_case(m)))
             .collect();
         let terms = tokenize(query);
         if terms.is_empty() {
             return Ok(pool.into_iter().rev().take(limit).cloned().collect());
         }
+
+        // Keyword tf-idf over title/files/narrative/tags/topic.
         let n = pool.len().max(1) as f64;
         let docs: Vec<(HashMap<String, f64>, &Observation)> = pool
             .iter()
@@ -196,13 +455,19 @@ impl MemoryStore {
                 for t in o.files.iter().flat_map(|f| tokenize(f)) {
                     *tf.entry(t).or_default() += 2.0;
                 }
+                for t in o.tags.iter().flat_map(|t| tokenize(t)) {
+                    *tf.entry(t).or_default() += 2.0;
+                }
+                for t in tokenize(&o.topic) {
+                    *tf.entry(t).or_default() += 2.0;
+                }
                 for t in tokenize(&o.narrative) {
                     *tf.entry(t).or_default() += 1.0;
                 }
                 (tf, *o)
             })
             .collect();
-        let mut scored: Vec<(f64, &Observation)> = docs
+        let kw: HashMap<u64, f64> = docs
             .iter()
             .filter_map(|(tf, o)| {
                 let mut score = 0.0;
@@ -212,7 +477,57 @@ impl MemoryStore {
                         score += w * (1.0 + (n / df).ln());
                     }
                 }
-                (score > 0.0).then_some((score + o.id as f64 * 1e-6, *o))
+                (score > 0.0).then_some((o.id, score))
+            })
+            .collect();
+        let kw_max = kw.values().cloned().fold(0.0f64, f64::max);
+
+        // Semantic similarity (best-effort; empty map ⇒ keyword-only behaviour).
+        let embeddings = self.load_embeddings();
+        let qvec = if embeddings.is_empty() {
+            None
+        } else {
+            crate::embedding::embed_query(query)
+        };
+        // Raw cosine per doc (so the semantic-only floor is interpretable).
+        let sem_cos: HashMap<u64, f64> = match &qvec {
+            Some(qv) => pool
+                .iter()
+                .filter_map(|o| {
+                    embeddings
+                        .get(&o.id)
+                        .map(|dv| (o.id, crate::embedding::cosine(qv, dv) as f64))
+                })
+                .collect(),
+            None => HashMap::new(),
+        };
+
+        // Admit a semantic-only match (no keyword hit) at cosine ≥ this. nomic's
+        // related query/document pairs land around 0.5–0.75 with task prefixes;
+        // 0.5 recalls paraphrases without dragging in unrelated notes. Tunable.
+        let sem_floor: f64 = std::env::var("SYNAPSE_SEM_FLOOR")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.5);
+        // Blend: 0.6 keyword + 0.4 semantic (cosine mapped to [0,1]). Without
+        // embeddings this collapses to the original keyword ranking.
+        let mut scored: Vec<(f64, &Observation)> = pool
+            .iter()
+            .filter_map(|o| {
+                let kw_norm = if kw_max > 0.0 {
+                    kw.get(&o.id).copied().unwrap_or(0.0) / kw_max
+                } else {
+                    0.0
+                };
+                let cos = sem_cos.get(&o.id).copied().unwrap_or(0.0);
+                let combined = if sem_cos.is_empty() {
+                    kw.get(&o.id).copied().unwrap_or(0.0)
+                } else {
+                    0.6 * kw_norm + 0.4 * ((cos + 1.0) / 2.0)
+                };
+                let relevant =
+                    kw.contains_key(&o.id) || (!sem_cos.is_empty() && cos >= sem_floor);
+                relevant.then_some((combined + o.id as f64 * 1e-9, *o))
             })
             .collect();
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -251,18 +566,24 @@ impl MemoryStore {
             .collect())
     }
 
-    /// Delete observations by id. Returns how many were removed.
+    /// Delete observations by id. Returns how many were removed. Keeps the
+    /// embedding sidecar in sync so vectors never outlive their observation.
     pub fn forget(&self, ids: &[u64]) -> std::io::Result<usize> {
         let all = self.all()?;
         let keep: Vec<&Observation> = all.iter().filter(|o| !ids.contains(&o.id)).collect();
         let removed = all.len() - keep.len();
         if removed > 0 {
             let mut out = String::new();
-            for o in keep {
+            for o in &keep {
                 out.push_str(&serde_json::to_string(o).map_err(std::io::Error::other)?);
                 out.push('\n');
             }
             fs::write(self.log_path(), out)?;
+            let mut embeddings = self.load_embeddings();
+            if !embeddings.is_empty() {
+                embeddings.retain(|id, _| !ids.contains(id));
+                self.rewrite_embeddings(&embeddings)?;
+            }
         }
         Ok(removed)
     }
@@ -434,6 +755,7 @@ pub fn observation_from_tool(
         title,
         narrative,
         files,
+        ..Default::default()
     })
 }
 
@@ -488,6 +810,7 @@ pub fn summarize_session(
         title: format!("Session: {}", clip(goal, 60)),
         narrative,
         files,
+        ..Default::default()
     }))
 }
 
@@ -633,6 +956,7 @@ mod tests {
             title: title.into(),
             narrative: narrative.into(),
             files: vec![],
+            ..Default::default()
         }
     }
 
@@ -791,5 +1115,86 @@ mod tests {
     fn format_ts_epoch_and_known_date() {
         assert_eq!(format_ts(0), "1970-01-01 00:00");
         assert_eq!(format_ts(1_760_227_200), "2025-10-12 00:00");
+    }
+
+    #[test]
+    fn new_fields_are_stored_and_old_lines_still_parse() {
+        let (d, s) = store();
+        let mut n = note("s", "p", "note", "stealth egress policy", "firewalld drops mdns");
+        n.topic = "Networking".into();
+        n.tags = vec!["Firewall".into(), " ".into(), "mDNS".into()];
+        n.model = "claude-opus-4-8".into();
+        let o = s.add(n).unwrap().unwrap();
+        // topic preserved, tags trimmed + lowercased + blanks dropped.
+        assert_eq!(o.topic, "Networking");
+        assert_eq!(o.tags, vec!["firewall", "mdns"]);
+        assert_eq!(o.model, "claude-opus-4-8");
+        // A legacy line without the new fields deserialises with defaults.
+        fs::write(
+            d.path().join("observations.jsonl"),
+            "{\"id\":9,\"ts\":1,\"session\":\"x\",\"project\":\"p\",\"kind\":\"note\",\"title\":\"old\",\"narrative\":\"\"}\n",
+        )
+        .unwrap();
+        let back = &s.all().unwrap()[0];
+        assert_eq!(back.id, 9);
+        assert_eq!(back.topic, "");
+        assert!(back.tags.is_empty());
+        assert_eq!(back.model, "");
+    }
+
+    #[test]
+    fn search_filters_by_topic_and_model() {
+        let (_d, s) = store();
+        let mk = |title: &str, topic: &str, model: &str| {
+            let mut n = note("s", "p", "note", title, "shared body about tokens");
+            n.topic = topic.into();
+            n.model = model.into();
+            n
+        };
+        s.add(mk("alpha tokens", "memory", "claude")).unwrap();
+        s.add(mk("beta tokens", "networking", "qwen")).unwrap();
+        // No embeddings sidecar ⇒ pure keyword, but topic/model still filter.
+        let only_mem = s
+            .search_filtered("tokens", Some("p"), Some("memory"), None, 10)
+            .unwrap();
+        assert_eq!(only_mem.len(), 1);
+        assert_eq!(only_mem[0].title, "alpha tokens");
+        let only_qwen = s
+            .search_filtered("tokens", Some("p"), None, Some("qwen"), 10)
+            .unwrap();
+        assert_eq!(only_qwen.len(), 1);
+        assert_eq!(only_qwen[0].title, "beta tokens");
+    }
+
+    #[test]
+    fn distill_collapses_near_duplicates_to_the_richest() {
+        let (d, s) = store();
+        // Three notes; #1 and #2 will be "duplicates" via hand-written vectors.
+        s.add(note("s", "p", "note", "short dup", "brief")).unwrap();
+        s.add(note("s", "p", "note", "long dup", "a much longer, more informative narrative body"))
+            .unwrap();
+        s.add(note("s", "p", "note", "distinct", "unrelated")).unwrap();
+        // Inject embeddings directly (no Ollama in tests): 1 & 2 ≈ parallel, 3 ⊥.
+        fs::write(
+            d.path().join("embeddings.jsonl"),
+            "{\"id\":1,\"v\":[1.0,0.0,0.0]}\n\
+             {\"id\":2,\"v\":[0.99,0.1,0.0]}\n\
+             {\"id\":3,\"v\":[0.0,0.0,1.0]}\n",
+        )
+        .unwrap();
+        // Dry run: reports but keeps everything.
+        let report = s.distill(Some("p"), 0.9, false).unwrap();
+        assert_eq!(report.clusters.len(), 1);
+        assert_eq!(report.removed, 1);
+        assert_eq!(s.all().unwrap().len(), 3);
+        // The richer of the pair is kept (#2 has the longer narrative).
+        assert_eq!(report.clusters[0].keep, 2);
+        assert_eq!(report.clusters[0].drop, vec![1]);
+        // Apply: the redundant one is forgotten, along with its embedding.
+        let applied = s.distill(Some("p"), 0.9, true).unwrap();
+        assert!(applied.applied);
+        let ids: Vec<u64> = s.all().unwrap().iter().map(|o| o.id).collect();
+        assert_eq!(ids, vec![2, 3]);
+        assert!(!s.load_embeddings().contains_key(&1));
     }
 }

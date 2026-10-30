@@ -95,75 +95,76 @@ fn get_git_file_content(brain_root: &Path, rel_path: &str) -> Option<String> {
     }
 }
 
-pub const OBSIDIAN_WORKLOG_SKILL_ID: &str = "obsidian-session-worklog";
-pub const OBSIDIAN_WORKLOG_SKILL_CONTENT: &str = r#"---
-name: obsidian-session-worklog
-description: Inbuilt Obsidian integration skill for AI coding sessions — manages vault notes, session worklogs, and project checklists automatically across all tools.
+pub const SYNAPSE_MEMORY_SKILL_ID: &str = "synapse-memory";
+pub const SYNAPSE_MEMORY_SKILL_CONTENT: &str = r#"---
+name: synapse-memory
+description: Built-in persistent cross-session memory for AI coding sessions — load context at session start, record durable decisions and milestones, recall by meaning, and distil. Replaces vault/worklog note-taking across all tools.
 version: 1.0.0
 author: SYNAPSE AI
 license: MIT
 metadata:
   synapse:
-    tags: [Obsidian, Vault, Worklog, Synapse, All-Tools]
+    tags: [Memory, Synapse, Semantic, Distillation, All-Tools]
 ---
 
-# Obsidian Session Worklog Skill
+# Synapse Memory Skill
 
-This skill provides automatic and on-demand integration between AI coding sessions (Claude Code, Cursor, Gemini CLI, Windsurf, Zed, Antigravity, Cline, Roo, Aider, Codex, OpenCode, Continue, Copilot) and your local Obsidian vault.
+The single source of durable memory for every AI coding session (Claude Code,
+Cursor, Gemini CLI, Antigravity, Zed, Cline, Roo, Aider, Codex, OpenCode,
+Continue, Copilot). It is local-first and zero-telemetry: nothing leaves the
+machine. There is no Obsidian vault, Trilium, or external note store — memory
+lives in `~/.synapse/memory/` and is reached only through `synapse mem`.
 
-## Vault Location & Discovery
+## When to use it
 
-1. Check the `OBSIDIAN_VAULT_PATH` environment variable.
-2. Fallback location: `~/Documents/My-Vault` (or `/home/$USER/Documents/My-Vault`).
-3. If neither path exists, prompt the user for their active Obsidian vault directory.
+- **At session start** — load prior context for the current project:
+  `synapse mem context` (the SessionStart hook does this automatically).
+- **When something durable happens** — a decision, a fix, a non-obvious
+  discovery, an architectural trade-off — record it:
+  `synapse mem observe "<title>" -n "<detail>" -k <kind> --topic <area> --tag <kw> [--tag <kw>] --model <agent>`
+- **Before relying on memory** — recall by meaning, not just keywords:
+  `synapse mem search <query>` → `synapse mem timeline <id>` → `synapse mem get <id>…`
 
-## Standard Structure
+## How fragments are organised
 
-- **AI Session Worklogs**: `${VAULT}/Worklog/AGY Sessions/YYYY-MM-DD - AI Session - ${CONVERSATION_ID}.md`
-- **Project Notes**: `${VAULT}/Projects/${PROJECT_NAME}/Repository To-Do.md`
+Every observation carries, and can be filtered by:
 
-## Note Template (AI Session Worklog)
+- **project** — the working directory it belongs to (automatic; `--all` searches every project).
+- **date/time** — assigned automatically; drives the timeline view.
+- **topic** — a subject area you set (e.g. `networking`, `audio`, `synapse`, `pentest`). Filter with `--topic <area>`.
+- **tags** — freeform keywords (`--tag`, repeatable).
+- **model** — which agent recorded it (`--model`, or `$SYNAPSE_MODEL`). Filter with `--model <agent>`.
+- **kind** — `decision | solution | insight | runbook | research | note | summary`.
 
-```markdown
----
-type: ai-session-worklog
-date: YYYY-MM-DD
-session_id: "CONVERSATION_ID"
-status: active | completed | partial | blocked
-tags:
-  - ai/session
-  - worklog
----
+## Semantic recall (nomic-embed-text)
 
-# AI Session Worklog — ${TITLE}
+Each fragment is embedded locally with `nomic-embed-text` via Ollama, so
+`synapse mem search` blends keyword relevance with meaning — paraphrases and
+related subjects surface even with no shared words. If Ollama is unavailable it
+degrades silently to keyword search. `synapse mem reindex` embeds anything that
+is missing a vector. Set `$SYNAPSE_EMBED_MODEL=off` to disable embeddings.
 
-## Objective
-High-level summary of the session goal.
+## Distillation (keep only genuinely valuable knowledge)
 
-## Work Completed
-- [x] Concrete task or milestone achieved.
+Memory must stay high-signal. Record distilled facts, not transcripts:
 
-## Verification
-- Verified build and test results.
+- Prefer one dense observation over several near-identical ones.
+- Wrap anything sensitive in `<private>…</private>` — it never reaches disk.
+- Periodically run `synapse mem distill` (dry-run) to find semantically
+  near-duplicate fragments; `synapse mem distill --apply` collapses each cluster
+  to its most informative member, shrinking the footprint without losing meaning.
 
-## Decisions & Trade-offs
-- Architectural or implementation choices made during session.
+## Auto-sync points
 
-## Follow-ups & Next Steps
-- [ ] Task for future work.
-```
-
-## Workflows & Auto-Sync Points
-
-1. **Session Initialization**: Automatically discover and load active Obsidian vault notes and project backlog checklists at the start of each session.
-2. **Milestones & Git Operations**: Record major milestones, commit hashes, test pass metrics, and architectural decisions into the active session worklog.
-3. **Project Checklist Sync**: Reconcile `${VAULT}/Projects/${PROJECT_NAME}/Repository To-Do.md` with git commit state and completed backlog items.
+1. **Session initialization** — `synapse mem context` loads the project's memory index.
+2. **Milestones & git operations** — record decisions, resolved anomalies, commit-worthy outcomes as observations with a topic and tags.
+3. **Housekeeping** — distil before the store grows noisy; forget superseded facts with `synapse mem forget <id>`.
 "#;
 
-/// Ensures built-in canonical skills (e.g. `obsidian-session-worklog`) exist in `brain_root/skills/`.
+/// Ensures built-in canonical skills (e.g. `synapse-memory`) exist in `brain_root/skills/`.
 pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
     let mut provisioned = Vec::new();
-    let skill_dir = brain_root.join("skills").join(OBSIDIAN_WORKLOG_SKILL_ID);
+    let skill_dir = brain_root.join("skills").join(SYNAPSE_MEMORY_SKILL_ID);
     let skill_md = skill_dir.join("SKILL.md");
     let skill_yaml = skill_dir.join("skill.yaml");
 
@@ -171,12 +172,12 @@ pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
         fs::create_dir_all(&skill_dir)
             .map_err(|e| format!("Failed to create skill directory: {e}"))?;
 
-        write_if_changed(&skill_md, OBSIDIAN_WORKLOG_SKILL_CONTENT)
+        write_if_changed(&skill_md, SYNAPSE_MEMORY_SKILL_CONTENT)
             .map_err(|e| format!("Failed to write SKILL.md: {e}"))?;
 
-        let sha256 = crate::adapters::compute_sha256(OBSIDIAN_WORKLOG_SKILL_CONTENT);
+        let sha256 = crate::adapters::compute_sha256(SYNAPSE_MEMORY_SKILL_CONTENT);
         let skill = Skill {
-            id: OBSIDIAN_WORKLOG_SKILL_ID.to_string(),
+            id: SYNAPSE_MEMORY_SKILL_ID.to_string(),
             version: "1.0.0".to_string(),
             triggers: vec![
                 "*".to_string(),
@@ -189,7 +190,7 @@ pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
                 "agy-cli".to_string(),
                 "continue".to_string(),
             ],
-            source: OBSIDIAN_WORKLOG_SKILL_CONTENT.to_string(),
+            source: SYNAPSE_MEMORY_SKILL_CONTENT.to_string(),
             sha256,
         };
 
@@ -198,7 +199,7 @@ pub fn ensure_default_skills(brain_root: &Path) -> Result<Vec<String>, String> {
         write_if_changed(&skill_yaml, yaml_content)
             .map_err(|e| format!("Failed to write skill.yaml: {e}"))?;
 
-        provisioned.push(format!("skills/{}/SKILL.md", OBSIDIAN_WORKLOG_SKILL_ID));
+        provisioned.push(format!("skills/{}/SKILL.md", SYNAPSE_MEMORY_SKILL_ID));
     }
     Ok(provisioned)
 }
@@ -662,59 +663,56 @@ mod tests {
     }
 
     #[test]
-    fn test_default_obsidian_skill_auto_provisioned_and_projected() {
+    fn test_default_synapse_memory_skill_auto_provisioned_and_projected() {
         let home = tempfile::tempdir().unwrap();
         let _home = crate::test_home::HomeGuard::set(home.path());
         let brain = tempfile::tempdir().unwrap();
         let tool_root = tempfile::tempdir().unwrap();
 
-        // Projecting from an empty brain should auto-provision the obsidian-session-worklog skill
+        // Projecting from an empty brain should auto-provision the synapse-memory skill
         let projected = perform_project(brain.path(), tool_root.path()).unwrap();
         assert!(!projected.is_empty());
 
         // Check brain has the skill
-        let brain_skill = brain
-            .path()
-            .join("skills/obsidian-session-worklog/SKILL.md");
+        let brain_skill = brain.path().join("skills/synapse-memory/SKILL.md");
         assert!(
             brain_skill.exists(),
-            "Brain must contain obsidian-session-worklog SKILL.md"
+            "Brain must contain synapse-memory SKILL.md"
         );
         let content = fs::read_to_string(&brain_skill).unwrap();
-        assert!(content.contains("Obsidian Session Worklog"));
+        assert!(content.contains("Synapse Memory Skill"));
 
         // Check projected to tool targets:
         // Claude Code
         let claude_skill = tool_root
             .path()
-            .join(".claude/skills/obsidian-session-worklog/SKILL.md");
+            .join(".claude/skills/synapse-memory/SKILL.md");
         assert!(
             claude_skill.exists(),
-            "Claude must have obsidian skill projected"
+            "Claude must have synapse-memory skill projected"
         );
 
         // Cursor
-        let cursor_rule = tool_root
-            .path()
-            .join(".cursor/rules/obsidian-session-worklog.mdc");
+        let cursor_rule = tool_root.path().join(".cursor/rules/synapse-memory.mdc");
         assert!(
             cursor_rule.exists(),
-            "Cursor must have obsidian rule projected"
+            "Cursor must have synapse-memory rule projected"
         );
 
         // AGY / Agents
         let agy_skill = tool_root
             .path()
-            .join(".agents/skills/obsidian-session-worklog/SKILL.md");
-        assert!(agy_skill.exists(), "AGY must have obsidian skill projected");
+            .join(".agents/skills/synapse-memory/SKILL.md");
+        assert!(
+            agy_skill.exists(),
+            "AGY must have synapse-memory skill projected"
+        );
 
         // Continue
-        let continue_rule = tool_root
-            .path()
-            .join(".continue/rules/obsidian-session-worklog.md");
+        let continue_rule = tool_root.path().join(".continue/rules/synapse-memory.md");
         assert!(
             continue_rule.exists(),
-            "Continue must have obsidian rule projected"
+            "Continue must have synapse-memory rule projected"
         );
     }
 }

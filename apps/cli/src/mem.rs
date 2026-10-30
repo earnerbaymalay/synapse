@@ -15,7 +15,8 @@ use crate::chart;
 
 #[derive(Debug, Subcommand)]
 pub enum MemAction {
-    /// Layer 1 — search memory; returns a compact, token-costed index
+    /// Layer 1 — search memory; returns a compact, token-costed index.
+    /// Blends keyword relevance with local nomic-embed-text semantic similarity.
     Search {
         /// Keywords (empty = most recent)
         #[arg(trailing_var_arg = true)]
@@ -26,6 +27,12 @@ pub enum MemAction {
         /// Search across every project
         #[arg(long)]
         all: bool,
+        /// Only observations with this topic
+        #[arg(long)]
+        topic: Option<String>,
+        /// Only observations recorded by this model/agent
+        #[arg(long)]
+        model: Option<String>,
         #[arg(short, long, default_value_t = 15)]
         limit: usize,
         #[arg(long, value_name = "PATH")]
@@ -59,6 +66,15 @@ pub enum MemAction {
         /// Related file (repeatable)
         #[arg(short, long)]
         file: Vec<String>,
+        /// Subject area for organisation (e.g. networking, memory-system)
+        #[arg(long, default_value = "")]
+        topic: String,
+        /// Keyword tag (repeatable)
+        #[arg(short, long)]
+        tag: Vec<String>,
+        /// Recording model/agent (defaults to $SYNAPSE_MODEL)
+        #[arg(long)]
+        model: Option<String>,
         #[arg(long)]
         project: Option<String>,
         #[arg(long, value_name = "PATH")]
@@ -84,6 +100,29 @@ pub enum MemAction {
     Forget {
         #[arg(required = true)]
         ids: Vec<u64>,
+        #[arg(long, value_name = "PATH")]
+        dir: Option<PathBuf>,
+    },
+    /// Compute local embeddings for any observations missing one (uses Ollama)
+    Reindex {
+        #[arg(long, value_name = "PATH")]
+        dir: Option<PathBuf>,
+    },
+    /// Distil memory: collapse semantically near-duplicate observations to the
+    /// single most-informative one. Reports by default; --apply to remove.
+    Distill {
+        /// Limit to a project path (defaults to the current directory)
+        #[arg(long)]
+        project: Option<String>,
+        /// Distil across every project
+        #[arg(long)]
+        all: bool,
+        /// Cosine similarity at/above which two observations are duplicates
+        #[arg(long, default_value_t = 0.90)]
+        threshold: f32,
+        /// Actually remove the redundant observations (otherwise dry-run)
+        #[arg(long)]
+        apply: bool,
         #[arg(long, value_name = "PATH")]
         dir: Option<PathBuf>,
     },
@@ -119,12 +158,20 @@ pub fn run(action: MemAction) -> ExitCode {
             query,
             project,
             all,
+            topic,
+            model,
             limit,
             dir,
         } => {
             let proj = cwd_project(project);
             let scope = if all { None } else { Some(proj.as_str()) };
-            match store(dir).search(&query.join(" "), scope, limit) {
+            match store(dir).search_filtered(
+                &query.join(" "),
+                scope,
+                topic.as_deref(),
+                model.as_deref(),
+                limit,
+            ) {
                 Ok(hits) if hits.is_empty() => {
                     println!("No matching memories.");
                     ExitCode::SUCCESS
@@ -170,8 +217,21 @@ pub fn run(action: MemAction) -> ExitCode {
                     if !o.narrative.is_empty() {
                         println!("{}\n", o.narrative);
                     }
+                    let mut meta = Vec::new();
+                    if !o.topic.is_empty() {
+                        meta.push(format!("topic: {}", o.topic));
+                    }
+                    if !o.tags.is_empty() {
+                        meta.push(format!("tags: {}", o.tags.join(", ")));
+                    }
+                    if !o.model.is_empty() {
+                        meta.push(format!("model: {}", o.model));
+                    }
                     if !o.files.is_empty() {
-                        println!("files: {}\n", o.files.join(", "));
+                        meta.push(format!("files: {}", o.files.join(", ")));
+                    }
+                    if !meta.is_empty() {
+                        println!("{}\n", meta.join("  ·  "));
                     }
                 }
                 ExitCode::SUCCESS
@@ -183,6 +243,9 @@ pub fn run(action: MemAction) -> ExitCode {
             note,
             kind,
             file,
+            topic,
+            tag,
+            model,
             project,
             dir,
         } => {
@@ -193,11 +256,17 @@ pub fn run(action: MemAction) -> ExitCode {
                 title,
                 narrative: note,
                 files: file,
+                topic,
+                tags: tag,
+                model: model.or_else(|| std::env::var("SYNAPSE_MODEL").ok()).unwrap_or_default(),
             };
             match store(dir).add(new) {
                 Ok(Some(o)) => {
                     chart::open("memory", "observation recorded");
                     chart::field("Id", &format!("#{}", o.id));
+                    if !o.topic.is_empty() {
+                        chart::field("Topic", &o.topic);
+                    }
                     chart::close(&o.title, None);
                     ExitCode::SUCCESS
                 }
@@ -232,6 +301,81 @@ pub fn run(action: MemAction) -> ExitCode {
             }
             Err(e) => fail(&e.to_string()),
         },
+        MemAction::Reindex { dir } => {
+            if !synapse_core::embedding::enabled() {
+                return fail(
+                    "embeddings are disabled (SYNAPSE_EMBED_MODEL=off); nothing to reindex",
+                );
+            }
+            match store(dir).reembed_missing() {
+                Ok(n) => {
+                    chart::open("memory", "reindex");
+                    chart::field(
+                        "Model",
+                        &synapse_core::embedding::model().unwrap_or_default(),
+                    );
+                    chart::close(&format!("{} embedded", chart::plural(n, "observation")), None);
+                    ExitCode::SUCCESS
+                }
+                Err(e) => fail(&e.to_string()),
+            }
+        }
+        MemAction::Distill {
+            project,
+            all,
+            threshold,
+            apply,
+            dir,
+        } => {
+            let proj = cwd_project(project);
+            let scope = if all { None } else { Some(proj.as_str()) };
+            match store(dir).distill(scope, threshold, apply) {
+                Ok(r) if r.clusters.is_empty() => {
+                    if synapse_core::embedding::enabled() {
+                        println!(
+                            "Nothing to distil — no near-duplicate clusters at cosine ≥ {:.2}.",
+                            threshold
+                        );
+                    } else {
+                        println!(
+                            "Embeddings are disabled (SYNAPSE_EMBED_MODEL=off); distillation needs them."
+                        );
+                    }
+                    ExitCode::SUCCESS
+                }
+                Ok(r) => {
+                    chart::open(
+                        "memory",
+                        if r.applied { "distil · applied" } else { "distil · dry-run" },
+                    );
+                    chart::field("Clusters", &r.clusters.len().to_string());
+                    chart::field(
+                        if r.applied { "Removed" } else { "Removable" },
+                        &chart::plural(r.removed, "observation"),
+                    );
+                    chart::field(
+                        "Tokens",
+                        &format!("{} → {}", r.tokens_before, r.tokens_after),
+                    );
+                    chart::close(
+                        if r.applied {
+                            "redundant fragments collapsed"
+                        } else {
+                            "re-run with --apply to collapse"
+                        },
+                        None,
+                    );
+                    for c in &r.clusters {
+                        println!(
+                            "  keep #{:<4} {}  ⟵ drop {:?}  (~{}t)",
+                            c.keep, c.keep_title, c.drop, c.tokens_saved
+                        );
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => fail(&e.to_string()),
+            }
+        }
         MemAction::Stats { dir } => {
             let s = store(dir);
             match s.stats() {
@@ -245,6 +389,16 @@ pub fn run(action: MemAction) -> ExitCode {
                     chart::field("Sessions", &st.sessions.to_string());
                     chart::field("Projects", &st.projects.to_string());
                     chart::field("Stored tokens", &format!("~{}", st.stored_tokens));
+                    let embedded = s.load_embeddings().len();
+                    chart::field(
+                        "Embedded",
+                        &format!(
+                            "{} / {} ({})",
+                            embedded,
+                            st.observations,
+                            synapse_core::embedding::model().unwrap_or_else(|| "off".into())
+                        ),
+                    );
                     chart::field("On disk", &format!("{} bytes", st.bytes));
                     chart::close("local only — zero telemetry", None);
                     ExitCode::SUCCESS
@@ -278,6 +432,11 @@ fn run_hook(event: &str, store: &MemoryStore) -> std::io::Result<()> {
         s if s.is_empty() => cwd_project(None),
         s => s,
     };
+    // Which agent/model is recording — from the hook payload, else $SYNAPSE_MODEL.
+    let model = match str_of("model") {
+        s if s.is_empty() => std::env::var("SYNAPSE_MODEL").unwrap_or_default(),
+        s => s,
+    };
 
     match event {
         "session-start" => {
@@ -292,17 +451,20 @@ fn run_hook(event: &str, store: &MemoryStore) -> std::io::Result<()> {
                 title: prompt.lines().next().unwrap_or("").to_string(),
                 narrative: prompt,
                 files: vec![],
+                model,
+                ..Default::default()
             })?;
         }
         "post-tool" => {
             let null = Value::Null;
-            if let Some(new) = observation_from_tool(
+            if let Some(mut new) = observation_from_tool(
                 &session,
                 &project,
                 &str_of("tool_name"),
                 payload.get("tool_input").unwrap_or(&null),
                 payload.get("tool_response").unwrap_or(&null),
             ) {
+                new.model = model;
                 store.add(new)?;
             }
         }
