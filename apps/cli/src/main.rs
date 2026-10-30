@@ -92,6 +92,18 @@ enum Command {
         #[command(subcommand)]
         action: SpoolAction,
     },
+    /// Intelligent LLM context squasher & terminal noise compressor (Boost)
+    Squash {
+        /// Compression level: balanced (default), aggressive, or strict
+        #[arg(short, long)]
+        level: Option<String>,
+        /// Custom spool directory for raw logs (defaults to ~/.synapse/spool)
+        #[arg(long, value_name = "PATH")]
+        spool_dir: Option<PathBuf>,
+        /// Command and arguments to execute, or action (view, list, filter)
+        #[arg(trailing_var_arg = true, required = true, value_name = "COMMAND_OR_ACTION")]
+        command: Vec<String>,
+    },
     /// Start the SYNAPSE local runtime gateway proxy on localhost
     Serve {
         /// Port to bind the local proxy to (default: 8088)
@@ -594,7 +606,115 @@ fn main() -> ExitCode {
                     }
                 }
             }
-        },
+        }
+        Command::Squash {
+            level,
+            spool_dir,
+            command,
+        } => {
+            if command.is_empty() {
+                chart::fault("squash", "no command specified", None);
+                return ExitCode::FAILURE;
+            }
+
+            let spool_path = spool_dir.unwrap_or_else(SpoolManager::default_dir);
+
+            if command[0] == "view" || command[0] == "show" {
+                if command.len() < 2 {
+                    chart::fault("squash", "usage: synapse squash view <id>", None);
+                    return ExitCode::FAILURE;
+                }
+                let id = &command[1];
+                let spooler = SpoolManager::new(spool_path);
+                match spooler.read_log(id, None, None) {
+                    Ok(content) => {
+                        println!("{}", content);
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        chart::fault("squash", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            } else if command[0] == "list" || command[0] == "ls" {
+                let spooler = SpoolManager::new(spool_path.clone());
+                match spooler.list() {
+                    Ok(entries) => {
+                        chart::open("squash", &chart::plural(entries.len(), "execution log"));
+                        chart::field("Spool Dir", &spool_path.display().to_string());
+                        println!();
+                        if entries.is_empty() {
+                            chart::row(chart::Mark::Absent, "empty", "no spooled logs recorded");
+                        } else {
+                            for e in entries {
+                                let desc = format!(
+                                    "{} tokens ({}% reduction) • {}",
+                                    e.raw_tokens, e.reduction_percent, e.command
+                                );
+                                chart::row(chart::Mark::Present, &e.id, &desc);
+                            }
+                        }
+                        chart::close("View full logs with: synapse squash view <id>", None);
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        chart::fault("squash", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            } else if command[0] == "filter" {
+                let comp_level = level
+                    .as_deref()
+                    .and_then(CompressionLevel::parse)
+                    .unwrap_or_default();
+                let mut input = String::new();
+                if let Err(e) = std::io::stdin().read_to_string(&mut input) {
+                    chart::fault("squash", &e.to_string(), None);
+                    return ExitCode::FAILURE;
+                }
+                let spooler = SpoolManager::new(spool_path);
+                match spooler.record("stdin stream", &input, comp_level) {
+                    Ok(compressed) => {
+                        println!("{}", compressed.text);
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        chart::fault("squash", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            } else {
+                let comp_level = level
+                    .as_deref()
+                    .and_then(CompressionLevel::parse)
+                    .unwrap_or_default();
+                let bin = if command[0] == "run" && command.len() > 1 {
+                    &command[1]
+                } else {
+                    &command[0]
+                };
+                let args = if command[0] == "run" && command.len() > 1 {
+                    &command[2..]
+                } else {
+                    &command[1..]
+                };
+
+                match execute_with_compression(bin, args, comp_level, Some(&spool_path)) {
+                    Ok((compressed, status)) => {
+                        println!("{}", compressed.text);
+                        if status.success() {
+                            ExitCode::SUCCESS
+                        } else {
+                            ExitCode::from(status.code().unwrap_or(1) as u8)
+                        }
+                    }
+                    Err(e) => {
+                        chart::fault("squash", &e.to_string(), None);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        }
         Command::Serve {
             port,
             host,

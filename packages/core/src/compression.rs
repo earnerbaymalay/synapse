@@ -64,6 +64,40 @@ pub struct CompressedOutput {
     pub spool_id: Option<String>,
 }
 
+/// Strips non-semantic ANSI/VT100 escape sequences and carriage return spam from terminal output
+pub fn strip_ansi(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            if let Some(&'[') = chars.peek() {
+                chars.next();
+                while let Some(&next) = chars.peek() {
+                    chars.next();
+                    if (0x40..=0x7e).contains(&(next as u32)) {
+                        break;
+                    }
+                }
+            } else if let Some(&']') = chars.peek() {
+                chars.next();
+                while let Some(next) = chars.next() {
+                    if next == '\x07' || next == '\x1b' {
+                        break;
+                    }
+                }
+            }
+        } else if c == '\r' {
+            if let Some(&'\n') = chars.peek() {
+                chars.next();
+                out.push('\n');
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Approximate token count estimation (industry standard heuristic: ~4 chars per token)
 pub fn estimate_tokens(text: &str) -> usize {
     if text.is_empty() {
@@ -115,13 +149,14 @@ pub fn detect_stream_kind(output: &str) -> StreamKind {
 
 /// Compresses a raw terminal output buffer using semantic pattern rules
 pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, usize, u32) {
-    let raw_tokens = estimate_tokens(input);
-    if input.trim().is_empty() {
+    let cleaned = strip_ansi(input);
+    let raw_tokens = estimate_tokens(&cleaned);
+    if cleaned.trim().is_empty() {
         return (String::new(), 0, 0, 0);
     }
 
-    let kind = detect_stream_kind(input);
-    let lines: Vec<&str> = input.lines().collect();
+    let kind = detect_stream_kind(&cleaned);
+    let lines: Vec<&str> = cleaned.lines().collect();
     let mut kept_lines: Vec<String> = Vec::new();
 
     match kind {
@@ -210,6 +245,7 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
         }
         StreamKind::Pytest => {
             let mut in_failures = false;
+            let mut in_summary = false;
             for line in lines {
                 let trimmed = line.trim();
                 if trimmed.starts_with("=== FAILURES ===") {
@@ -217,8 +253,9 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
                     kept_lines.push(line.to_string());
                 } else if trimmed.starts_with("=== ") && trimmed.ends_with(" ===") {
                     in_failures = false;
+                    in_summary = true;
                     kept_lines.push(line.to_string());
-                } else if in_failures || trimmed.contains("FAILED ") || trimmed.contains("ERROR ") {
+                } else if in_failures || in_summary || trimmed.contains("FAILED ") || trimmed.contains("ERROR ") {
                     kept_lines.push(line.to_string());
                 }
             }
@@ -567,6 +604,29 @@ test result: FAILED. 2 passed; 1 failed; 0 ignored
         assert!(compressed.contains("Test Files  50 passed (50)"));
         assert!(reduction >= 75);
         assert!(comp_tok < raw_tok);
+    }
+
+    #[test]
+    fn test_strip_ansi() {
+        let colored = "\x1b[32mPASS\x1b[0m \x1b[1;34mtest_something\x1b[0m\r\n";
+        assert_eq!(strip_ansi(colored), "PASS test_something\n");
+    }
+
+    #[test]
+    fn test_pytest_compression() {
+        let raw = r#"
+=== test session starts ===
+tests/test_audit.py ...............                                      [ 40%]
+tests/test_lines.py .............                                        [ 75%]
+tests/test_pentest.py .......                                            [ 94%]
+tests/test_screensaver.py ..                                              [100%]
+=== 37 passed in 1.07s ===
+"#;
+        let (compressed, raw_tok, comp_tok, reduction) =
+            compress_text(raw, CompressionLevel::Balanced);
+        assert!(compressed.contains("=== 37 passed in 1.07s ==="));
+        assert!(comp_tok <= raw_tok);
+        assert!(reduction > 0);
     }
 
     #[test]
