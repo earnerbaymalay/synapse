@@ -197,6 +197,9 @@ impl MemoryStore {
             return Ok(None);
         }
         fs::create_dir_all(&self.dir)?;
+        // Hooks from several agents fire concurrently: serialise id allocation
+        // and the append so ids stay unique and no line is interleaved.
+        let guard = self.lock()?;
         let existing = self.all()?;
         // Collapse immediate duplicates (e.g. repeated identical reads).
         if let Some(last) = existing.iter().rev().find(|o| o.session == new.session) {
@@ -217,15 +220,20 @@ impl MemoryStore {
             },
             title,
             narrative,
-            files: new.files,
+            files: new
+                .files
+                .iter()
+                .map(|f| sanitize(f).trim().to_string())
+                .filter(|f| !f.is_empty())
+                .collect(),
             topic: sanitize(&new.topic).trim().to_string(),
             tags: new
                 .tags
                 .iter()
-                .map(|t| t.trim().to_lowercase())
+                .map(|t| sanitize(t).trim().to_lowercase())
                 .filter(|t| !t.is_empty())
                 .collect(),
-            model: new.model.trim().to_string(),
+            model: sanitize(&new.model).trim().to_string(),
         };
         let mut line = serde_json::to_string(&obs).map_err(std::io::Error::other)?;
         line.push('\n');
@@ -234,9 +242,30 @@ impl MemoryStore {
             .append(true)
             .open(self.log_path())?;
         f.write_all(line.as_bytes())?;
-        // Best-effort local embedding — never fails the write if Ollama is down.
+        drop(guard);
+        // Best-effort local embedding (outside the lock: it is a network call).
+        // A miss is not lost — `mem reindex` and the Stop hook backfill it.
         let _ = self.store_embedding(obs.id, &obs.embed_input());
         Ok(Some(obs))
+    }
+
+    /// Exclusive advisory lock on the store (released when the guard drops).
+    fn lock(&self) -> std::io::Result<fs::File> {
+        fs::create_dir_all(&self.dir)?;
+        let f = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.dir.join(".lock"))?;
+        f.lock()?;
+        Ok(f)
+    }
+
+    /// Write `contents` to `path` atomically (temp file + rename).
+    fn write_atomic(&self, path: &std::path::Path, contents: &str) -> std::io::Result<()> {
+        let tmp = path.with_extension("tmp");
+        fs::write(&tmp, contents)?;
+        fs::rename(&tmp, path)
     }
 
     // ── semantic layer (local embeddings via Ollama) ───────────────────────
@@ -257,6 +286,9 @@ impl MemoryStore {
                 l
             }
             Err(_) => return false,
+        };
+        let Ok(_guard) = self.lock() else {
+            return false;
         };
         match OpenOptions::new()
             .create(true)
@@ -301,7 +333,7 @@ impl MemoryStore {
             );
             out.push('\n');
         }
-        fs::write(self.embeddings_path(), out)
+        self.write_atomic(&self.embeddings_path(), &out)
     }
 
     /// Compute embeddings for every observation that is missing one. Returns the
@@ -569,6 +601,7 @@ impl MemoryStore {
     /// Delete observations by id. Returns how many were removed. Keeps the
     /// embedding sidecar in sync so vectors never outlive their observation.
     pub fn forget(&self, ids: &[u64]) -> std::io::Result<usize> {
+        let _guard = self.lock()?;
         let all = self.all()?;
         let keep: Vec<&Observation> = all.iter().filter(|o| !ids.contains(&o.id)).collect();
         let removed = all.len() - keep.len();
@@ -578,7 +611,7 @@ impl MemoryStore {
                 out.push_str(&serde_json::to_string(o).map_err(std::io::Error::other)?);
                 out.push('\n');
             }
-            fs::write(self.log_path(), out)?;
+            self.write_atomic(&self.log_path(), &out)?;
             let mut embeddings = self.load_embeddings();
             if !embeddings.is_empty() {
                 embeddings.retain(|id, _| !ids.contains(id));
