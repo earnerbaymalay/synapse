@@ -226,7 +226,7 @@ function Shell() {
                         <span className="block font-mono text-sm">{item.label}</span>
                         <span className="block text-xs text-ink-soft">{item.blurb}</span>
                       </span>
-                      <kbd className="shrink-0 font-mono text-[10px] text-ink-soft">{keyLabel(item.keys)}</kbd>
+                      <kbd aria-hidden="true" className="shrink-0 font-mono text-[10px] text-ink-soft">{keyLabel(item.keys)}</kbd>
                     </button>
                   </li>
                 )
@@ -271,6 +271,7 @@ function Shell() {
             </div>
             <Hint id="shell.reference">Press ? for every shortcut.</Hint>
           </div>
+        <HintsCoach />
         </aside>
 
         {/* Working area */}
@@ -323,7 +324,6 @@ function Shell() {
       </div>
 
       <CommandReference />
-      <HintsCoach />
     </div>
   )
 }

@@ -116,7 +116,7 @@ function examFixture(scenario: MockScenario, healed: boolean) {
 }
 
 function memoryFixture() {
-  const now = 1_762_800_000_000
+  const now = 1_794_380_000_000
   const n = (id: string, label: string, kind: string, narrative: string, files: string[], val: number, i: number) => ({
     id,
     label,
@@ -149,7 +149,7 @@ function memoryFixture() {
 }
 
 function spoolFixture() {
-  const base = 1_762_830_000 // unix seconds
+  const base = 1_794_380_000 // unix seconds (2026-11-11)
   const longLog = [
     '$ cargo test --workspace',
     '   Compiling synapse-core v1.0.0 (/home/mara/work/atlas/packages/core)',

@@ -126,6 +126,7 @@ const PAGE_HELPERS = () => {
     text: text(el).slice(0, 80),
     placeholder: el.getAttribute('placeholder'),
     disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true',
+    alreadyOn: el.getAttribute('aria-current') === 'page' || el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true',
     inDialog: !!el.closest('[role="dialog"],dialog'),
     region: el.closest('header,[data-tauri-drag-region]')
       ? 'titlebar'
@@ -271,7 +272,9 @@ async function exerciseInner(page, ctl, scr, rec) {
       await el.click({ timeout: 2000 })
     }
   } catch (e) {
-    return { failed: String(e).split('\n')[0] }
+    const lines = String(e).split('\n')
+    const why = lines.find((l) => /intercepts pointer events|not visible|outside of the viewport|detached/.test(l))
+    return { failed: lines[0] + (why ? ` — ${why.trim()}` : '') }
   }
   await sleep(450)
   const after = await state(page)
@@ -299,6 +302,13 @@ async function focusAudit(page) {
   }, FOCUSABLE)
   const seen = []
   const noStyle = []
+  let nullStops = 0
+  // start from the top of the document
+  await page.evaluate(() => {
+    document.body.setAttribute('tabindex', '-1')
+    document.body.focus()
+    document.body.removeAttribute('tabindex')
+  })
   for (let i = 0; i < 80; i++) {
     await page.keyboard.press('Tab')
     const r = await page.evaluate(() => {
@@ -313,7 +323,11 @@ async function focusAudit(page) {
         outline: getComputedStyle(el).outlineStyle,
       }
     })
-    if (!r) break
+    if (!r) {
+      nullStops++
+      if (nullStops > 3 || seen.length) break
+      continue
+    }
     const key = `${r.idx}|${r.d.name}|${r.d.tag}`
     if (seen.includes(key)) break
     seen.push(key)
@@ -424,28 +438,58 @@ async function run(scenario) {
       if (!c.name && !(c.tag === 'input' && c.placeholder)) scr.unnamed.push(`${c.tag}${c.type ? `[${c.type}]` : ''} text="${c.text}" (${c.region})`)
       else if (!c.name) scr.unnamed.push(`${c.tag} placeholder-only "${c.placeholder}" (${c.region})`)
     }
+    if (s.id === 'memory') {
+      const box = await page.locator('canvas').first().boundingBox().catch(() => null)
+      scr.canvas = !!box
+      if (box) {
+        const before = await state(page)
+        for (const [fx, fy] of [[0.5, 0.5], [0.45, 0.5], [0.55, 0.45], [0.5, 0.55], [0.4, 0.4], [0.6, 0.6]]) {
+          await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
+          await sleep(350)
+        }
+        scr.canvasClickEffect = changed(before, await state(page))
+        await page.screenshot({ path: join(SHOTS, `${scenario}-memory-canvas-click.png`) })
+        await page.keyboard.press('Escape')
+        await sleep(300)
+      }
+    }
     // the shell's controls are exercised once (on the first screen), screen controls on every screen
-    const todo = controls.filter((c) => (s.id === 'intake' ? true : c.region === 'main' || c.inDialog))
+    const LAST = /^(list view|graph view|hints o(n|ff)|turn hints off|got it|hide)/i
+    const todo = controls
+      .filter((c) => (s.id === 'intake' ? true : c.region === 'main' || c.inDialog))
+      .sort((a, b) => Number(LAST.test(a.name)) - Number(LAST.test(b.name)))
     for (const c of todo) {
       // nav buttons move us away; exercise and come back
       const r = await exercise(page, c, s, rec)
       const label = `${c.tag} "${c.name || c.placeholder || c.text}" (${c.region})`
-      scr.controls.push({ label, ...r })
       if (r.failed) scr.failed.push(`${label}: ${r.failed}`)
-      else if (!r.skipped && r.effect && r.effect.length === 0) scr.noop.push(label)
+      else if (!r.skipped && r.effect && r.effect.length === 0) {
+        if (c.alreadyOn) r.expectedNoop = 'already current/pressed'
+        else if (s.id === 'memory' && /reset view/i.test(c.name)) r.expectedNoop = 'canvas-only effect (camera), not DOM-observable'
+        else scr.noop.push(label)
+      }
+      scr.controls.push({ label, ...r })
       await closeOverlays(page)
       if ((await currentScreen(page)) !== s.label) await goTo(page, s)
     }
-    // secondary state, e.g. drawer opened by a canvas click (Memory)
-    if (s.id === 'memory') {
-      const box = await page.locator('main canvas').first().boundingBox().catch(() => null)
-      if (box) {
-        for (const [fx, fy] of [[0.5, 0.5], [0.45, 0.5], [0.55, 0.45], [0.5, 0.55]]) {
-          await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
-          await sleep(400)
-        }
-        scr.canvasDrawer = await page.locator('text=CLOSE').count()
+    // second pass: controls that only appeared after the first pass (list view rows, drawers, expanded findings)
+    const seenNames = new Set(controls.map((c) => `${c.tag}|${c.name}`))
+    const fresh = (await listControls(page)).filter(
+      (c) => !seenNames.has(`${c.tag}|${c.name}`) && (c.region === 'main' || c.inDialog),
+    )
+    fresh.sort((a, b) => Number(LAST.test(a.name)) - Number(LAST.test(b.name)))
+    for (const c of fresh.slice(0, 25)) {
+      if (!c.name && !c.placeholder) scr.unnamed.push(`${c.tag} text="${c.text}" (${c.region}, second pass)`)
+      const r = await exercise(page, c, s, rec)
+      const label = `${c.tag} "${c.name || c.placeholder || c.text}" (${c.region}, 2nd pass)`
+      if (r.failed) scr.failed.push(`${label}: ${r.failed}`)
+      else if (!r.skipped && r.effect && r.effect.length === 0) {
+        if (c.alreadyOn) r.expectedNoop = 'already current/pressed'
+        else scr.noop.push(label)
       }
+      scr.controls.push({ label, ...r })
+      await closeOverlays(page)
+      if ((await currentScreen(page)) !== s.label) await goTo(page, s)
     }
     scr.focus = await focusAudit(page)
     await page.screenshot({ path: join(SHOTS, `${scenario}-${s.id}-after.png`) })
@@ -507,12 +551,12 @@ for (const r of all) {
   for (const [id, s] of Object.entries(r.screens)) {
     const ok = s.controls.filter((c) => c.effect?.length).length
     console.log(`\n[${id}] controls exercised: ${s.controls.length}, with effect: ${ok}, tab stops: ${s.focus.tabStops}`)
-    for (const c of s.controls) console.log(`   ${c.effect?.length ? 'ok  ' : c.skipped ? 'skip' : 'NOOP'} ${c.label} ${c.effect ? c.effect.join(',') : c.skipped ?? c.failed ?? ''}`)
+    for (const c of s.controls) console.log(`   ${c.effect?.length ? 'ok  ' : c.skipped ? 'skip' : c.expectedNoop ? 'ok* ' : c.failed ? 'FAIL' : 'NOOP'} ${c.label} ${c.effect ? c.effect.join(',') : c.skipped ?? c.failed ?? ''}`)
     if (s.noop.length) console.log(`   no observable effect: ${s.noop.join(' ; ')}`)
     if (s.failed.length) console.log(`   click failed: ${s.failed.join(' ; ')}`)
     if (s.unnamed.length) console.log(`   no accessible name: ${s.unnamed.join(' ; ')}`)
     if (s.focus.noVisibleFocus.length) console.log(`   no visible focus: ${s.focus.noVisibleFocus.join(' ; ')}`)
-    if (s.canvasDrawer !== undefined) console.log(`   canvas click opened drawer: ${s.canvasDrawer > 0}`)
+    if (s.canvas !== undefined) console.log(`   canvas present: ${s.canvas}; canvas clicks changed: ${JSON.stringify(s.canvasClickEffect ?? null)}`)
     bugs += s.noop.length + s.failed.length
   }
   console.log('\n[keyboard]')

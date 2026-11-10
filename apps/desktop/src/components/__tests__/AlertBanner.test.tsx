@@ -124,19 +124,20 @@ describe('AlertBanner actions', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('onboard action calls onOpenOnboard', async () => {
-    const user = userEvent.setup()
+  it('a missing master prompt is healed, not routed to a dead-end screen', () => {
+    // doctor marks master-prompt-missing auto_fixable and heal regenerates SYNAPSE.md,
+    // so the banner offers Heal and no separate "configure" button that went nowhere.
     const onOpenOnboard = vi.fn()
     render(
       <AlertBanner
-        exam={exam([finding({ rule_id: 'master-prompt-missing' })])}
+        exam={exam([finding({ rule_id: 'master-prompt-missing', auto_fixable: true })])}
         onHealed={() => {}}
         onOpenOnboard={onOpenOnboard}
       />,
     )
-    await user.click(screen.getByRole('button', { name: /configure master prompt/i }))
-    expect(onOpenOnboard).toHaveBeenCalledTimes(1)
-    expect(invokeMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /configure master prompt/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /heal 1 finding/i })).toBeInTheDocument()
+    expect(onOpenOnboard).not.toHaveBeenCalled()
   })
 
   it('findings disclosure toggles with the keyboard and reports aria-expanded', async () => {

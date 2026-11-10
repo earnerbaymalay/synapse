@@ -73,7 +73,6 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
   const infos = findings.filter((f) => f.severity === 'info').length
   const fixable = exam?.fixable ?? 0
   const hasTamper = findings.some((f) => f.rule_id === 'master-prompt-tampered')
-  const hasMissingPrompt = findings.some((f) => f.rule_id === 'master-prompt-missing')
 
   const handleHeal = async () => {
     if (inFlight.current) return
@@ -156,15 +155,6 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
                 className={`border border-rule px-3 py-1 text-ink-soft hover:text-ink ${FOCUS}`}
               >
                 {expanded ? 'Hide findings' : `Show ${plural(findings.length, 'finding')}`}
-              </button>
-            )}
-            {hasMissingPrompt && onOpenOnboard && (
-              <button
-                type="button"
-                onClick={onOpenOnboard}
-                className={`border border-drape px-3 py-1 text-drape hover:bg-drape/10 ${FOCUS}`}
-              >
-                Configure master prompt
               </button>
             )}
             {fixable > 0 && (

@@ -49,7 +49,7 @@ export function HintsCoach(): JSX.Element | null {
       aria-label="Hints"
       data-hints-coach=""
       className={
-        'fixed bottom-4 right-4 z-40 w-[min(22rem,calc(100vw-2rem))] border border-rule bg-ground px-3 py-2 ' +
+        'w-full border-t border-rule bg-ground px-3 py-2 ' +
         'font-mono text-[11px] leading-[16px] text-ink-soft ' +
         'motion-safe:transition-opacity motion-safe:duration-300 motion-reduce:transition-none ' +
         (shown ? 'opacity-100' : 'opacity-0')
