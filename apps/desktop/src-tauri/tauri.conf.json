@@ -12,11 +12,13 @@
     },
     "windows": [
       {
+        "label": "main",
         "title": "SYNAPSE // Clinical Engine for AI Context",
         "width": 1280,
         "height": 840,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false
       }
     ]
   },

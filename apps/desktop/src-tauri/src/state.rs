@@ -13,7 +13,8 @@ impl AppState {
         AppState {
             config_loaded: false,
             last_adapter_check: chrono::offset::Utc::now().to_rfc3339(),
-            adapter_count: 12,
+            // Not measured until an adapter check runs; never a made-up count.
+            adapter_count: 0,
             sync_status: "disconnected".to_string(),
         }
     }

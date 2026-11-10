@@ -31,7 +31,13 @@ pub fn run() {
             )?;
             app.set_menu(menu)?;
 
-            let _config = config::load_config()?;
+            // A missing or malformed settings.json must not stop the window
+            // from opening: `setup` returning Err aborts the whole app with
+            // "error while running tauri application". Nothing reads the
+            // config yet, so log and carry on with defaults.
+            if let Err(e) = config::load_config() {
+                log::warn!("could not load settings, using defaults: {e}");
+            }
 
             log::info!("Synapse Desktop v{} initialized", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -44,6 +50,8 @@ pub fn run() {
             commands::heal_vitals,
             commands::get_memory_graph,
             commands::get_cockpit_telemetry,
+            commands::spool_list,
+            commands::spool_show,
             dry_run::scan_dry_run,
         ])
         .run(tauri::generate_context!())

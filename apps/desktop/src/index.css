@@ -53,11 +53,51 @@
   color-scheme: dark;
 }
 
+/*
+ * The window is frameless: the shell (TitleBar + sidebar + main) owns the
+ * whole viewport. The document itself never scrolls; only the main working
+ * area and, if it overflows, the sidebar do. This prevents a second,
+ * window-level scrollbar beside the main one.
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html,
+body {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   @apply bg-ground text-ink font-sans;
+}
+
+/*
+ * Keyboard focus is always visible: a square 1px accent outline, no glow.
+ * Mouse clicks do not show it (:focus-visible), keyboard navigation does.
+ */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 1px solid var(--drape);
+  outline-offset: 2px;
+}
+
+/* Respect a request for less motion: the shell has no essential animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Charts are dense; the scrollbar should not shout. */

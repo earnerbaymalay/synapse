@@ -77,3 +77,41 @@ export interface CockpitTelemetry {
   doctor_criticals: number
   doctor_fixable: number
 }
+
+/**
+ * `check_for_update` result (synapse_core::updater::DryRunResult). The
+ * decision is internally tagged on `status` (serde snake_case). No screen
+ * calls this command yet; the shape is here so the first caller is typed.
+ */
+export type UpdateDecision =
+  | { status: 'up_to_date'; current: string }
+  | {
+      status: 'update_available'
+      current: string
+      version: string
+      url: string
+      signature: string
+      notes: string
+    }
+  | { status: 'unsupported_platform'; target: string }
+  | { status: 'no_release_for_channel'; channel: 'stable' | 'beta' }
+
+export interface UpdateCheckResult {
+  decision: UpdateDecision
+  report: string
+  signing: 'not_configured' | 'configured'
+}
+
+/**
+ * One spooled run, from `spool_list` (commands.rs `SpoolEntryDto`). Mirrors
+ * the interface exported from Spool.tsx. `command` is `null` until core
+ * actually records the command that produced a log.
+ */
+export interface SpoolEntryDto {
+  id: string
+  /** Unix seconds (the log file's mtime). */
+  timestamp: number
+  raw_bytes: number
+  log_path: string
+  command: string | null
+}

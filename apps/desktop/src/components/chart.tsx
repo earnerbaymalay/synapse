@@ -187,6 +187,39 @@ export function ChartFoot({ finding, next }: { finding: string; next?: string })
   )
 }
 
+/**
+ * One labelled measurement in a ruled readout column: label left, value
+ * right-aligned in tabular figures so columns of numbers line up digit for
+ * digit.
+ *
+ * `value === null` means the backend did not report it. That is shown as
+ * "not reported" (dimmed), never as 0 and never hidden — absence is a finding.
+ */
+export function Readout({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: ReactNode | null
+  tone?: Mark
+}) {
+  const missing = value === null || value === undefined || value === ''
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-rule/60 py-1 font-mono text-xs last:border-0">
+      <dt className="shrink-0 text-ink-soft">{label}</dt>
+      <dd
+        className={cn(
+          'min-w-0 break-all text-right tabular-nums',
+          missing ? 'text-ink-soft' : tone ? TINT[tone] : 'text-ink',
+        )}
+      >
+        {missing ? 'not reported' : value}
+      </dd>
+    </div>
+  )
+}
+
 /** Pluralises `noun` against `n` — "1 tool" / "3 tools". */
 export function plural(n: number, noun: string, plural?: string): string {
   return `${n} ${n === 1 ? noun : (plural ?? `${noun}s`)}`
