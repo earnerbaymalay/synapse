@@ -92,15 +92,17 @@ export function ChartHead({
   context?: ReactNode
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-rule pb-2">
-      <h1 className="flex items-baseline gap-2 uppercase tracking-[0.06em]">
+    // Wraps rather than overflowing when the context (a path, a timestamp
+    // run) is longer than the space beside the title.
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-rule pb-2">
+      <h1 className="flex shrink-0 items-baseline gap-2 uppercase tracking-[0.06em]">
         <span className="font-display text-sm text-drape">Synapse</span>
         <span className="font-mono text-sm font-semibold tracking-[0.14em]">
           <span className="text-ink-soft">·</span> {procedure}
         </span>
       </h1>
       {context !== undefined && (
-        <p className="font-mono text-xs text-ink-soft">{context}</p>
+        <p className="min-w-0 break-words font-mono text-xs text-ink-soft">{context}</p>
       )}
     </div>
   )
@@ -183,6 +185,39 @@ export function ChartFoot({ finding, next }: { finding: string; next?: string })
           <span className="text-drape">{next}</span>
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * One labelled measurement in a ruled readout column: label left, value
+ * right-aligned in tabular figures so columns of numbers line up digit for
+ * digit.
+ *
+ * `value === null` means the backend did not report it. That is shown as
+ * "not reported" (dimmed), never as 0 and never hidden — absence is a finding.
+ */
+export function Readout({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: ReactNode | null
+  tone?: Mark
+}) {
+  const missing = value === null || value === undefined || value === ''
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-rule/60 py-1 font-mono text-xs last:border-0">
+      <dt className="shrink-0 text-ink-soft">{label}</dt>
+      <dd
+        className={cn(
+          'min-w-0 break-all text-right tabular-nums',
+          missing ? 'text-ink-soft' : tone ? TINT[tone] : 'text-ink',
+        )}
+      >
+        {missing ? 'not reported' : value}
+      </dd>
     </div>
   )
 }
