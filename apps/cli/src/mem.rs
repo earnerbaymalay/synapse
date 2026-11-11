@@ -258,7 +258,9 @@ pub fn run(action: MemAction) -> ExitCode {
                 files: file,
                 topic,
                 tags: tag,
-                model: model.or_else(|| std::env::var("SYNAPSE_MODEL").ok()).unwrap_or_default(),
+                model: model
+                    .or_else(|| std::env::var("SYNAPSE_MODEL").ok())
+                    .unwrap_or_default(),
             };
             match store(dir).add(new) {
                 Ok(Some(o)) => {
@@ -314,7 +316,10 @@ pub fn run(action: MemAction) -> ExitCode {
                         "Model",
                         &synapse_core::embedding::model().unwrap_or_default(),
                     );
-                    chart::close(&format!("{} embedded", chart::plural(n, "observation")), None);
+                    chart::close(
+                        &format!("{} embedded", chart::plural(n, "observation")),
+                        None,
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => fail(&e.to_string()),
@@ -346,7 +351,11 @@ pub fn run(action: MemAction) -> ExitCode {
                 Ok(r) => {
                     chart::open(
                         "memory",
-                        if r.applied { "distil · applied" } else { "distil · dry-run" },
+                        if r.applied {
+                            "distil · applied"
+                        } else {
+                            "distil · dry-run"
+                        },
                     );
                     chart::field("Clusters", &r.clusters.len().to_string());
                     chart::field(

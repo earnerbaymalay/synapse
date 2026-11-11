@@ -557,8 +557,7 @@ impl MemoryStore {
                 } else {
                     0.6 * kw_norm + 0.4 * ((cos + 1.0) / 2.0)
                 };
-                let relevant =
-                    kw.contains_key(&o.id) || (!sem_cos.is_empty() && cos >= sem_floor);
+                let relevant = kw.contains_key(&o.id) || (!sem_cos.is_empty() && cos >= sem_floor);
                 relevant.then_some((combined + o.id as f64 * 1e-9, *o))
             })
             .collect();
@@ -1153,7 +1152,13 @@ mod tests {
     #[test]
     fn new_fields_are_stored_and_old_lines_still_parse() {
         let (d, s) = store();
-        let mut n = note("s", "p", "note", "stealth egress policy", "firewalld drops mdns");
+        let mut n = note(
+            "s",
+            "p",
+            "note",
+            "stealth egress policy",
+            "firewalld drops mdns",
+        );
         n.topic = "Networking".into();
         n.tags = vec!["Firewall".into(), " ".into(), "mDNS".into()];
         n.model = "claude-opus-4-8".into();
@@ -1204,9 +1209,16 @@ mod tests {
         let (d, s) = store();
         // Three notes; #1 and #2 will be "duplicates" via hand-written vectors.
         s.add(note("s", "p", "note", "short dup", "brief")).unwrap();
-        s.add(note("s", "p", "note", "long dup", "a much longer, more informative narrative body"))
+        s.add(note(
+            "s",
+            "p",
+            "note",
+            "long dup",
+            "a much longer, more informative narrative body",
+        ))
+        .unwrap();
+        s.add(note("s", "p", "note", "distinct", "unrelated"))
             .unwrap();
-        s.add(note("s", "p", "note", "distinct", "unrelated")).unwrap();
         // Inject embeddings directly (no Ollama in tests): 1 & 2 ≈ parallel, 3 ⊥.
         fs::write(
             d.path().join("embeddings.jsonl"),
