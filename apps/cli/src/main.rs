@@ -101,7 +101,11 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         spool_dir: Option<PathBuf>,
         /// Command and arguments to execute, or action (view, list, filter)
-        #[arg(trailing_var_arg = true, required = true, value_name = "COMMAND_OR_ACTION")]
+        #[arg(
+            trailing_var_arg = true,
+            required = true,
+            value_name = "COMMAND_OR_ACTION"
+        )]
         command: Vec<String>,
     },
     /// Start the SYNAPSE local runtime gateway proxy on localhost
@@ -606,7 +610,7 @@ fn main() -> ExitCode {
                     }
                 }
             }
-        }
+        },
         Command::Squash {
             level,
             spool_dir,
