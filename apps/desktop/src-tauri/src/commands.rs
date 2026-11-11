@@ -457,15 +457,18 @@ pub fn run_get_memory_graph(brain: Option<String>) -> Result<MemoryGraphPayload,
 
 #[derive(Debug, Serialize)]
 pub struct CockpitTelemetry {
-    pub gateway_status: &'static str,
-    pub upstream_url: String,
-    pub model: String,
-    pub latency_ms: u64,
-    pub requests_handled: usize,
-    pub raw_prompt_tokens: usize,
-    pub gated_prompt_tokens: usize,
-    pub tokens_saved: usize,
-    pub reduction_pct: f32,
+    // The desktop app does not read a running gateway yet, so every gateway
+    // field is `None` (→ `null`) and the Cockpit shows "not measured". They
+    // stay in the payload so wiring a real reading later changes no shape.
+    pub gateway_status: Option<String>,
+    pub upstream_url: Option<String>,
+    pub model: Option<String>,
+    pub latency_ms: Option<u64>,
+    pub requests_handled: Option<usize>,
+    pub raw_prompt_tokens: Option<usize>,
+    pub gated_prompt_tokens: Option<usize>,
+    pub tokens_saved: Option<usize>,
+    pub reduction_pct: Option<f32>,
     pub brain_path: String,
     pub adapters_present: usize,
     pub adapters_total: usize,
@@ -503,21 +506,19 @@ pub fn run_get_cockpit_telemetry(
     let all = all_adapters();
     let present = all.iter().filter(|a| a.detect(&tool_root)).count();
 
-    // OPEN PRODUCT QUESTION (not measured): the gateway fields below, from
-    // `gateway_status` through `reduction_pct`, are hard-coded constants, not
-    // readings of a running gateway. Only `brain_path`, the adapter counts
-    // and the Doctor counts are measured. Left as-is pending a product
-    // decision; see the BACKEND audit report.
+    // Only `brain_path`, the adapter counts and the Doctor counts are
+    // measured here. Nothing reads a running gateway, so those fields are
+    // reported as absent rather than invented.
     Ok(CockpitTelemetry {
-        gateway_status: "ONLINE",
-        upstream_url: "http://127.0.0.1:11434 (Ollama)".to_string(),
-        model: "qwen2.5-coder:7b".to_string(),
-        latency_ms: 12,
-        requests_handled: 18,
-        raw_prompt_tokens: 184_600,
-        gated_prompt_tokens: 11_200,
-        tokens_saved: 173_400,
-        reduction_pct: 93.9,
+        gateway_status: None,
+        upstream_url: None,
+        model: None,
+        latency_ms: None,
+        requests_handled: None,
+        raw_prompt_tokens: None,
+        gated_prompt_tokens: None,
+        tokens_saved: None,
+        reduction_pct: None,
         brain_path: brain_root.display().to_string(),
         adapters_present: present,
         adapters_total: all.len(),
@@ -544,6 +545,21 @@ pub fn run_heal_vitals(brain: Option<String>, tools: Option<String>) -> Result<u
         tool_root: tool_root.clone(),
         mappings_path: brain_root.join(".brain/mappings.json"),
     };
+
+    // Keep a rollback point: a heal rewrites Brain files in place. A Brain
+    // folder that does not exist yet has nothing to lose, so it is skipped.
+    // If the snapshot cannot be taken, nothing is changed.
+    if brain_root.is_dir() {
+        synapse_core::snapshot::snapshot(&brain_root, "pre-heal snapshot (desktop)").map_err(
+            |e| {
+                format!(
+                    "Couldn't take a snapshot of the Brain at {} before healing, so nothing was \
+                 changed. ({e})",
+                    brain_root.display()
+                )
+            },
+        )?;
+    }
 
     synapse_core::doctor::apply_fixes(&ctx).map_err(|e| {
         format!(
@@ -590,11 +606,9 @@ fn check_heal_target(brain_root: &Path, home: Option<&Path>) -> Result<(), Strin
 
 // ── spool (raw command logs) ────────────────────────────────────────────
 
-/// One spooled run, as the Spool screen lists it. Only measured fields are
-/// carried over from core's `SpoolEntry`: its `compressed_bytes`,
-/// `compressed_tokens` and `reduction_percent` are fixed ratios (÷10, 90%),
-/// and its `command` is the placeholder "spooled execution", so none of
-/// them reach the UI.
+/// One spooled run, as the Spool screen lists it: the measured fields of
+/// core's `SpoolEntry`. Core does not record the command that produced a
+/// log, so `command` is always `None`.
 #[derive(Debug, Serialize)]
 pub struct SpoolEntryDto {
     pub id: String,
@@ -971,6 +985,48 @@ mod tests {
         .unwrap_err();
         assert!(err.contains("home folder"), "{err}");
         assert!(!home.path().join(".git").exists(), "git init ran in home");
+    }
+
+    #[test]
+    fn heal_snapshots_an_existing_brain_first() {
+        let home = tempfile::tempdir().unwrap();
+        let _home = HomeGuard::empty(home.path());
+        let brain = home.path().join("AIBrain");
+        let tools = home.path().join("work");
+        std::fs::create_dir_all(&brain).unwrap();
+        std::fs::create_dir_all(&tools).unwrap();
+        std::fs::write(brain.join("note.md"), "before the heal").unwrap();
+
+        run_heal_vitals(
+            Some(brain.display().to_string()),
+            Some(tools.display().to_string()),
+        )
+        .unwrap();
+
+        let log = std::process::Command::new("git")
+            .args(["log", "--format=%s"])
+            .current_dir(&brain)
+            .output()
+            .unwrap();
+        let subjects = String::from_utf8_lossy(&log.stdout);
+        assert!(
+            subjects.contains("pre-heal snapshot (desktop)"),
+            "no pre-heal snapshot in: {subjects}"
+        );
+    }
+
+    #[test]
+    fn cockpit_reports_no_gateway_reading_it_did_not_take() {
+        let home = tempfile::tempdir().unwrap();
+        let _home = HomeGuard::empty(home.path());
+        let brain = home.path().join("AIBrain");
+        let t = run_get_cockpit_telemetry(
+            Some(brain.display().to_string()),
+            Some(home.path().display().to_string()),
+        )
+        .unwrap();
+        assert!(t.gateway_status.is_none() && t.latency_ms.is_none());
+        assert!(t.tokens_saved.is_none() && t.reduction_pct.is_none());
     }
 
     #[test]

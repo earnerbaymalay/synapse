@@ -181,10 +181,12 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
               <button
                 type="button"
                 onClick={() => void handleHeal()}
-                disabled={healing}
+                // aria-disabled, not disabled: a disabled button drops keyboard focus
+                // to the page. handleHeal ignores presses while a heal is in flight.
+                aria-disabled={healing || undefined}
                 aria-busy={healing}
                 aria-describedby="alert-heal-note"
-                className={`border border-current px-3 py-1 font-semibold uppercase tracking-wider text-ink hover:bg-chart disabled:cursor-wait disabled:text-ink-soft ${FOCUS}`}
+                className={`border border-current px-3 py-1 font-semibold uppercase tracking-wider text-ink hover:bg-chart aria-disabled:cursor-wait aria-disabled:text-ink-soft aria-disabled:hover:bg-transparent ${FOCUS}`}
               >
                 {healing ? 'Healing…' : `Heal ${plural(fixable, 'finding')}`}
               </button>
@@ -195,8 +197,8 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
 
       {showActions && fixable > 0 && (
         <p id="alert-heal-note" className="mt-1 text-[11px] text-ink-soft">
-          Heal rewrites the auto-fixable files in place. No snapshot is taken first; to keep one, run{' '}
-          <span className="text-drape">synapse snapshot</span> before healing.
+          Heal rewrites the auto-fixable files in place. A snapshot of the Brain is taken first; to undo a
+          heal, run <span className="text-drape">synapse rollback</span>.
         </p>
       )}
 

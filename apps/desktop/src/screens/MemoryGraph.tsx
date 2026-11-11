@@ -901,8 +901,9 @@ export function MemoryGraph() {
         </p>
         <button
           type="button"
-          className="mt-3 border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape disabled:opacity-50"
-          disabled={refreshing}
+          className="mt-3 border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape aria-disabled:opacity-50"
+          // aria-disabled keeps focus here while reading; readGraph ignores repeat presses
+          aria-disabled={refreshing || undefined}
           aria-busy={refreshing}
           onClick={readGraph}
         >
@@ -922,7 +923,7 @@ export function MemoryGraph() {
   }
 
   const btn =
-    'border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape disabled:opacity-50 disabled:hover:border-rule disabled:hover:text-ink-soft'
+    'border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape disabled:opacity-50 disabled:hover:border-rule disabled:hover:text-ink-soft aria-disabled:opacity-50 aria-disabled:hover:border-rule aria-disabled:hover:text-ink-soft'
 
   return (
     <Section>
@@ -947,7 +948,8 @@ export function MemoryGraph() {
         <button
           type="button"
           className={cn(btn, 'ml-auto')}
-          disabled={refreshing}
+          // aria-disabled keeps focus here while reading; readGraph ignores repeat presses
+          aria-disabled={refreshing || undefined}
           aria-busy={refreshing}
           onClick={readGraph}
         >

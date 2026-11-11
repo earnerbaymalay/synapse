@@ -76,7 +76,7 @@ describe('AlertBanner states', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/2 critical findings/i)
     expect(container.textContent).toContain('■')
     expect(screen.getByRole('button', { name: /heal 2 findings/i })).toBeEnabled()
-    expect(screen.getByText(/no snapshot is taken first/i)).toBeInTheDocument()
+    expect(screen.getByText(/a snapshot of the brain is taken first/i)).toBeInTheDocument()
   })
 
   it('names Zone 1 tamper in the headline', () => {
@@ -98,14 +98,15 @@ describe('AlertBanner actions', () => {
     await user.click(btn)
     expect(invokeMock).toHaveBeenCalledTimes(1)
     expect(invokeMock).toHaveBeenCalledWith('heal_vitals', { brain: null, tools: null })
-    expect(btn).toBeDisabled()
+    expect(btn).toHaveAttribute('aria-disabled', 'true')
+    expect(btn).toHaveFocus() // focus is not thrown to the page while healing
     expect(btn).toHaveTextContent(/healing/i)
     expect(onHealed).not.toHaveBeenCalled()
 
     d.resolve(1)
     await waitFor(() => expect(screen.getByText(/healed 1 of 2 auto-fixable findings/i)).toBeInTheDocument())
     expect(onHealed).toHaveBeenCalledTimes(1)
-    expect(btn).toBeEnabled()
+    expect(btn).not.toHaveAttribute('aria-disabled')
   })
 
   it('heal error shows the backend error and does not call onHealed', async () => {

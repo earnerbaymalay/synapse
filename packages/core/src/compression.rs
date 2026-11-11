@@ -43,12 +43,9 @@ impl CompressionLevel {
 pub struct SpoolEntry {
     pub id: String,
     pub timestamp: u64,
-    pub command: String,
     pub raw_bytes: usize,
-    pub compressed_bytes: usize,
+    /// Estimate from the log size (bytes / 4), not a tokenizer count.
     pub raw_tokens: usize,
-    pub compressed_tokens: usize,
-    pub reduction_percent: u32,
     pub log_path: PathBuf,
 }
 
@@ -404,10 +401,11 @@ impl SpoolManager {
             raw_tokens, compressed_tokens, reduction_percent, short_id
         ));
 
+        let compressed_bytes = text.len();
         Ok(CompressedOutput {
             text,
             raw_bytes: raw_output.len(),
-            compressed_bytes: raw_output.len(), // approximate
+            compressed_bytes,
             raw_tokens,
             compressed_tokens,
             reduction_percent,
@@ -444,12 +442,8 @@ impl SpoolManager {
                 entries.push(SpoolEntry {
                     id,
                     timestamp,
-                    command: "spooled execution".to_string(),
                     raw_bytes,
-                    compressed_bytes: raw_bytes / 10,
                     raw_tokens,
-                    compressed_tokens: raw_tokens / 10,
-                    reduction_percent: 90,
                     log_path: path,
                 });
             }

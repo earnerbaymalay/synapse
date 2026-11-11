@@ -62,15 +62,17 @@ export interface MemoryGraphPayload {
 
 /** Real-time Cockpit Telemetry */
 export interface CockpitTelemetry {
-  gateway_status: string
-  upstream_url: string
-  model: string
-  latency_ms: number
-  requests_handled: number
-  raw_prompt_tokens: number
-  gated_prompt_tokens: number
-  tokens_saved: number
-  reduction_pct: number
+  // Gateway fields are null until the backend reads a running gateway;
+  // today it never does, and the Cockpit shows "not measured".
+  gateway_status: string | null
+  upstream_url: string | null
+  model: string | null
+  latency_ms: number | null
+  requests_handled: number | null
+  raw_prompt_tokens: number | null
+  gated_prompt_tokens: number | null
+  tokens_saved: number | null
+  reduction_pct: number | null
   brain_path: string
   adapters_present: number
   adapters_total: number

@@ -575,10 +575,8 @@ fn main() -> ExitCode {
                             chart::row(chart::Mark::Absent, "empty", "no spooled logs recorded");
                         } else {
                             for e in entries {
-                                let desc = format!(
-                                    "{} tokens ({}% reduction) • {}",
-                                    e.raw_tokens, e.reduction_percent, e.command
-                                );
+                                let desc =
+                                    format!("≈{} tokens raw • {} bytes", e.raw_tokens, e.raw_bytes);
                                 chart::row(chart::Mark::Present, &e.id, &desc);
                             }
                         }
@@ -651,10 +649,8 @@ fn main() -> ExitCode {
                             chart::row(chart::Mark::Absent, "empty", "no spooled logs recorded");
                         } else {
                             for e in entries {
-                                let desc = format!(
-                                    "{} tokens ({}% reduction) • {}",
-                                    e.raw_tokens, e.reduction_percent, e.command
-                                );
+                                let desc =
+                                    format!("≈{} tokens raw • {} bytes", e.raw_tokens, e.raw_bytes);
                                 chart::row(chart::Mark::Present, &e.id, &desc);
                             }
                         }

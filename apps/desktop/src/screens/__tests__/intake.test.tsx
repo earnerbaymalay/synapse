@@ -188,12 +188,15 @@ describe('Intake re-scan', () => {
     expect(onRescan).toHaveBeenCalledTimes(1)
   })
 
-  it('while busy: button disabled, label changes, R does nothing', async () => {
+  it('while busy: button inert but still focusable, label changes, R does nothing', async () => {
     const onRescan = vi.fn()
     render(<Intake report={mixed} onRescan={onRescan} busy />)
     const btn = screen.getByRole('button', { name: 're-scanning…' })
-    expect(btn).toBeDisabled()
+    // aria-disabled, not disabled: keyboard focus must not drop to the page
+    expect(btn).toHaveAttribute('aria-disabled', 'true')
+    expect(btn).not.toBeDisabled()
     await userEvent.click(btn)
+    expect(btn).toHaveFocus()
     await userEvent.keyboard('r')
     expect(onRescan).not.toHaveBeenCalled()
   })
