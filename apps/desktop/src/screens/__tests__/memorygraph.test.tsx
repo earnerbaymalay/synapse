@@ -104,6 +104,9 @@ const dist = () => Number(/dist (\d+)/.exec(readout())?.[1])
 async function renderReady() {
   const utils = render(<MemoryGraph />)
   await screen.findByTestId('memory-viewport')
+  // findBy can resolve from its MutationObserver before React has flushed the
+  // passive effect that builds the scene (seen on CI); flush it before asserting.
+  await act(async () => {})
   return utils
 }
 
