@@ -87,7 +87,9 @@ describe('CommandReference', () => {
     await user.keyboard('?')
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Help')).toBeInTheDocument()
-    expect(within(dialog).getAllByText('Open command reference').length).toBe(3)
+    // one row for the action, with its three key combinations side by side
+    expect(within(dialog).getAllByText('Open or close command reference').length).toBe(1)
+    expect(dialog.querySelectorAll('[data-shortcut-id^="help.reference."]').length).toBe(4)
     expect(within(dialog).getByText('Close command reference')).toBeInTheDocument()
     const row = dialog.querySelector('[data-shortcut-id="help.reference.k"]')!
     expect([...row.querySelectorAll('kbd')].map((k) => k.textContent)).toEqual(['Ctrl', 'K'])
@@ -103,14 +105,15 @@ describe('CommandReference', () => {
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('synapse rollback <hash>')).toBeInTheDocument()
     expect(within(dialog).queryByText('synapse scan')).toBeNull()
-    expect(within(dialog).queryByText('Open command reference')).toBeNull()
+    expect(within(dialog).queryByText('Open or close command reference')).toBeNull()
     await user.clear(screen.getByRole('searchbox'))
     await user.type(screen.getByRole('searchbox'), 'close command')
     expect(within(dialog).getByText('Close command reference')).toBeInTheDocument()
     expect(within(dialog).queryByText('CLI')).toBeNull()
     await user.clear(screen.getByRole('searchbox'))
     await user.type(screen.getByRole('searchbox'), 'zzzz-nothing')
-    expect(within(dialog).getByText(/No matches/)).toBeInTheDocument()
+    expect(within(dialog).getByText('No matches for "zzzz-nothing".')).toBeInTheDocument()
+    expect(within(dialog).getByRole('status')).toHaveTextContent('No matches.')
   })
 
   it('hints switch toggles useHints().enabled', async () => {

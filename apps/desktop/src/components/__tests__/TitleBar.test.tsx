@@ -192,7 +192,8 @@ describe('TitleBar', () => {
     setTauri(true)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const unhandled = vi.fn()
-    process.on('unhandledRejection', unhandled)
+    const proc = (globalThis as unknown as { process: { on: Function; off: Function } }).process
+    proc.on('unhandledRejection', unhandled)
     try {
       win.close.mockImplementation(() => Promise.reject(new Error('denied')))
       win.toggleMaximize.mockImplementation(() => Promise.reject(new Error('denied')))
@@ -206,7 +207,7 @@ describe('TitleBar', () => {
       // A failed toggle leaves the label alone.
       expect(screen.getByRole('button', { name: 'Maximise window' })).toBeInTheDocument()
     } finally {
-      process.off('unhandledRejection', unhandled)
+      proc.off('unhandledRejection', unhandled)
       warn.mockRestore()
     }
   })

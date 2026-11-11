@@ -111,7 +111,7 @@ describe('Spool inspector', () => {
     expect(within(inspector).getByText('/home/mara/.synapse/spool/a1b2c3d4.log')).toBeInTheDocument()
 
     // second run has no command: falls back to its id, and its empty log is reported
-    await user.click(within(screen.getByRole('navigation', { name: /spooled runs/i })).getAllByRole('button')[1])
+    await user.click(within(within(screen.getByRole('navigation', { name: /spooled runs/i })).getByRole('list')).getAllByRole('button')[1])
     expect(await screen.findByText(/log is empty/i)).toBeInTheDocument()
     expect(invokeMock).toHaveBeenCalledWith('spool_show', { id: 'ffff0000' })
   })
@@ -213,6 +213,6 @@ describe('Spool inspector', () => {
     backend({ spool_list: () => many, spool_show: () => '' })
     render(<Spool />)
     expect(await screen.findByText(/showing 200 of 205 runs/)).toBeInTheDocument()
-    expect(within(screen.getByRole('navigation', { name: /spooled runs/i })).getAllByRole('button')).toHaveLength(200)
+    expect(within(within(screen.getByRole('navigation', { name: /spooled runs/i })).getByRole('list')).getAllByRole('button')).toHaveLength(200)
   })
 })

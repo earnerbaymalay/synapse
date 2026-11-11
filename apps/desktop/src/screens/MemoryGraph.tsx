@@ -277,7 +277,7 @@ export function MemoryGraph() {
   const asideRef = useRef<HTMLElement | null>(null)
   const panelHeadingRef = useRef<HTMLHeadingElement | null>(null)
   const filterRef = useRef<HTMLInputElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   /** 'panel': move focus to the detail heading; a string: return focus to that node's row */
   const focusAfterRef = useRef<'panel' | { returnTo: string } | null>(null)
   const mountedRef = useRef(true)
@@ -636,6 +636,7 @@ export function MemoryGraph() {
       tween = null
       sph.radius *= Math.exp(Math.max(-200, Math.min(200, e.deltaY)) * 0.0015)
       applyCamera()
+      frame() // same as the keyboard zoom: the readout follows the wheel at once
     }
 
     viewport.addEventListener('pointerdown', onPointerDown)
@@ -998,7 +999,7 @@ export function MemoryGraph() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="label, kind, file"
-                className="w-48 border border-rule bg-ground px-2 py-1 font-mono text-xs text-ink placeholder:text-ink-soft/60 focus:border-drape focus:outline-none"
+                className="w-48 border border-rule bg-ground px-2 py-1 font-mono text-xs text-ink placeholder:text-ink-soft focus:border-drape focus:outline-none"
               />
             </label>
             <button
@@ -1239,7 +1240,7 @@ function NodeList({
   selectedId,
   onSelect,
 }: {
-  listRef: RefObject<HTMLDivElement | null>
+  listRef: RefObject<HTMLDivElement>
   nodes: GraphNode[]
   edges: GraphEdge[]
   selectedId: string | null

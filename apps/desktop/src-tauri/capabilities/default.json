@@ -1,14 +1,19 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core defaults plus the window controls the custom TitleBar needs (decorations are off).",
-  "windows": ["main"],
+  "description": "Main window: only the window controls and resize listener the custom TitleBar uses (decorations are off). core:default is deliberately not granted: it would also expose menu, tray, image-from-path and event-emit commands the app never calls.",
+  "windows": [
+    "main"
+  ],
   "permissions": [
-    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-is-maximized",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
-    "core:window:allow-is-maximized"
+    "core:webview:allow-set-webview-zoom"
   ]
 }

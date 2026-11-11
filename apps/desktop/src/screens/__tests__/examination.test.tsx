@@ -142,7 +142,8 @@ describe('Examination — interactions', () => {
     navigator.clipboard.writeText = () => Promise.reject(new Error('denied'))
     try {
       await user.click(screen.getByRole('button', { name: 'Copy synapse sync --once' }))
-      expect(screen.getByRole('status')).toHaveTextContent('clipboard unavailable')
+      expect(await screen.findByRole('alert')).toHaveTextContent('clipboard unavailable')
+      expect(screen.getByRole('status')).toHaveTextContent('')
     } finally {
       navigator.clipboard.writeText = original
     }

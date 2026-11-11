@@ -64,7 +64,7 @@ describe('AlertBanner states', () => {
     )
     expect(container.querySelector('[data-level]')).toHaveAttribute('data-level', 'warning')
     expect(screen.getByRole('status')).toHaveTextContent(/1 warning/i)
-    expect(container.textContent).toContain('◐')
+    expect(container.textContent).toContain('▲')
     expect(container.textContent).not.toMatch(/critical finding/i)
     // nothing fixable: no heal offered
     expect(screen.queryByRole('button', { name: /heal/i })).toBeNull()
@@ -74,7 +74,7 @@ describe('AlertBanner states', () => {
     const { container } = render(<AlertBanner exam={exam([finding(), finding({ subject: 'b' })])} onHealed={() => {}} />)
     expect(container.querySelector('[data-level]')).toHaveAttribute('data-level', 'critical')
     expect(screen.getByRole('status')).toHaveTextContent(/2 critical findings/i)
-    expect(container.textContent).toContain('▲')
+    expect(container.textContent).toContain('■')
     expect(screen.getByRole('button', { name: /heal 2 findings/i })).toBeEnabled()
     expect(screen.getByText(/no snapshot is taken first/i)).toBeInTheDocument()
   })
