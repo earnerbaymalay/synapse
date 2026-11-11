@@ -272,12 +272,9 @@ impl Adapter for ClaudeCodeAdapter {
             written.push("CLAUDE.md".to_string());
         }
 
-        for skill in claude_skills
-            .iter()
-            .filter(|s| {
-                s.id.starts_with(SKILL_ID_PREFIX) || s.id == crate::sync::SYNAPSE_MEMORY_SKILL_ID
-            })
-        {
+        for skill in claude_skills.iter().filter(|s| {
+            s.id.starts_with(SKILL_ID_PREFIX) || s.id == crate::sync::SYNAPSE_MEMORY_SKILL_ID
+        }) {
             let slug = skill.id.strip_prefix(SKILL_ID_PREFIX).unwrap_or(&skill.id);
             let rel_path = format!(".claude/skills/{}/SKILL.md", slug);
             let target_path = safe_join(root, &rel_path)?;

@@ -80,7 +80,7 @@ pub fn strip_ansi(input: &str) -> String {
                 }
             } else if let Some(&']') = chars.peek() {
                 chars.next();
-                while let Some(next) = chars.next() {
+                for next in chars.by_ref() {
                     if next == '\x07' || next == '\x1b' {
                         break;
                     }
@@ -255,7 +255,11 @@ pub fn compress_text(input: &str, level: CompressionLevel) -> (String, usize, us
                     in_failures = false;
                     in_summary = true;
                     kept_lines.push(line.to_string());
-                } else if in_failures || in_summary || trimmed.contains("FAILED ") || trimmed.contains("ERROR ") {
+                } else if in_failures
+                    || in_summary
+                    || trimmed.contains("FAILED ")
+                    || trimmed.contains("ERROR ")
+                {
                     kept_lines.push(line.to_string());
                 }
             }

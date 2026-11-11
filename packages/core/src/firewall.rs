@@ -172,12 +172,7 @@ pub fn mask_text(text: &str, session: &mut FirewallSession) -> String {
 
     // 3. Private IPv6 (link-local and ULA)
     for m in get_re_ipv6_private().find_iter(text) {
-        spans.push((
-            m.start(),
-            m.end(),
-            m.as_str().to_string(),
-            MaskCategory::Ip,
-        ));
+        spans.push((m.start(), m.end(), m.as_str().to_string(), MaskCategory::Ip));
     }
 
     // 4. API keys and credentials
@@ -293,7 +288,8 @@ mod tests {
     #[test]
     fn test_firewall_mask_and_unmask_mac_and_ip() {
         let mut session = FirewallSession::new();
-        let prompt = "Investigate device b4:69:21:fa:71:d4 at internal address 192.168.1.150 and 10.0.0.5.";
+        let prompt =
+            "Investigate device b4:69:21:fa:71:d4 at internal address 192.168.1.150 and 10.0.0.5.";
         let masked = mask_text(prompt, &mut session);
 
         assert!(!masked.contains("b4:69:21:fa:71:d4"));
@@ -377,7 +373,8 @@ mod tests {
         let assistant_content = model_response["choices"][0]["message"]["content"]
             .as_str()
             .unwrap();
-        let tool_args = model_response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
+        let tool_args = model_response["choices"][0]["message"]["tool_calls"][0]["function"]
+            ["arguments"]
             .as_str()
             .unwrap();
 
