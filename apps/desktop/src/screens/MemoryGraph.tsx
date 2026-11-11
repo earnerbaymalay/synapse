@@ -1,647 +1,1294 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import * as THREE from 'three'
-import type { MemoryGraphPayload, MemoryNodeDto } from './types'
+import { Hint } from '../lib/hints'
+import { useShortcut } from '../lib/shortcuts'
+import { cn } from '../lib/utils'
+
+/**
+ * Memory: the brain's memory store drawn as a 3D node graph, with a plain
+ * list view beside it. Everything on screen comes from `get_memory_graph`;
+ * when that call fails, or there is no WebGL, the screen says so instead of
+ * drawing something in its place (IDENTITY.md rules 2 and 3).
+ */
+
+// ---------------------------------------------------------------------------
+// Limits
+// ---------------------------------------------------------------------------
+
+/** Nodes drawn at most. Beyond this the graph is cut and the cut is reported. */
+export const MAX_NODES = 500
+/** Above this many nodes the scene drops to cheaper geometry. */
+export const LOD_THRESHOLD = 150
+export const MIN_DISTANCE = 40
+export const MAX_DISTANCE = 700
+const HOME = new THREE.Vector3(0, 45, 290)
+const FOCUS_DISTANCE = 70
+const ORBIT_STEP = 0.12 // radians per arrow key press
+const ZOOM_STEP = 0.85 // distance factor per +/- press
+const DRAG_SPEED = 0.005
+const CLICK_SLOP = 4 // px of pointer travel still treated as a click
+
+// ---------------------------------------------------------------------------
+// Payload normalisation (pure, exported for tests)
+// ---------------------------------------------------------------------------
+
+export interface GraphNode {
+  id: string
+  label: string
+  kind: string
+  narrative: string
+  files: string[]
+  /** null when the payload did not carry a usable timestamp */
+  ts: number | null
+  /** raw weight from the backend; null when not measured */
+  weight: number | null
+  /** weight scaled to 0..1 against the heaviest node, for drawing only */
+  size: number
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  label: string
+}
+
+export interface NormalizedGraph {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  /** valid nodes in the payload, before the MAX_NODES cap */
+  totalNodes: number
+  /** edges dropped because an endpoint is missing from the payload */
+  danglingEdges: number
+  /** edges dropped only because an endpoint fell outside the node cap */
+  cappedEdges: number
+  observations: number | null
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const str = (v: unknown): string | null =>
+  typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : null
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+export function normalizeGraph(raw: unknown): NormalizedGraph {
+  const payload = isObj(raw) ? raw : {}
+  const rawNodes = Array.isArray(payload.nodes) ? payload.nodes : []
+  const rawEdges = Array.isArray(payload.edges) ? payload.edges : []
+
+  const seen = new Set<string>()
+  const valid: Omit<GraphNode, 'size'>[] = []
+  for (const n of rawNodes) {
+    if (!isObj(n)) continue
+    const id = str(n.id)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    valid.push({
+      id,
+      label: str(n.label)?.trim() || id,
+      kind: str(n.kind)?.trim() || 'unknown',
+      narrative: str(n.narrative) ?? '',
+      files: Array.isArray(n.files) ? n.files.filter((f): f is string => typeof f === 'string') : [],
+      ts: num(n.ts),
+      weight: num(n.val),
+    })
+  }
+
+  const kept = valid.slice(0, MAX_NODES)
+  const maxWeight = kept.reduce((m, n) => (n.weight !== null && n.weight > m ? n.weight : m), 0)
+  const nodes: GraphNode[] = kept.map((n) => ({
+    ...n,
+    size: n.weight !== null && maxWeight > 0 ? Math.max(0, Math.min(1, n.weight / maxWeight)) : 0.5,
+  }))
+
+  const keptIds = new Set(nodes.map((n) => n.id))
+  const edges: GraphEdge[] = []
+  let danglingEdges = 0
+  let cappedEdges = 0
+  for (const e of rawEdges) {
+    if (!isObj(e)) continue
+    const source = str(e.source)
+    const target = str(e.target)
+    if (!source || !target) {
+      danglingEdges++
+      continue
+    }
+    if (!seen.has(source) || !seen.has(target)) {
+      danglingEdges++
+      continue
+    }
+    if (!keptIds.has(source) || !keptIds.has(target)) {
+      cappedEdges++
+      continue
+    }
+    edges.push({ source, target, label: str(e.label) ?? '' })
+  }
+
+  return {
+    nodes,
+    edges,
+    totalNodes: valid.length,
+    danglingEdges,
+    cappedEdges,
+    observations: num(payload.total_observations),
+  }
+}
+
+export function nodeMatches(node: GraphNode, query: string): boolean {
+  const q = query.toLowerCase().trim()
+  if (!q) return true
+  return (
+    node.label.toLowerCase().includes(q) ||
+    node.kind.toLowerCase().includes(q) ||
+    node.narrative.toLowerCase().includes(q) ||
+    node.files.some((f) => f.toLowerCase().includes(q))
+  )
+}
+
+/** Accepts seconds or milliseconds since the epoch. */
+export function formatTs(ts: number | null): string {
+  if (ts === null || ts <= 0) return 'not recorded'
+  const ms = ts < 1e12 ? ts * 1000 : ts
+  const d = new Date(ms)
+  return Number.isNaN(d.getTime()) ? 'not recorded' : d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
+}
+
+/**
+ * Where node `idx` of `count` sits: an even Fibonacci-sphere spread. Always
+ * finite: 0 or 1 nodes sit at the origin, and a bad index or count never
+ * yields NaN or Infinity.
+ */
+export function layoutPosition(idx: number, count: number, lod: boolean): [number, number, number] {
+  if (!Number.isFinite(idx) || !Number.isFinite(count) || count <= 1 || idx < 0) return [0, 0, 0]
+  const i = Math.min(Math.floor(idx), count - 1)
+  const phi = Math.acos(Math.max(-1, Math.min(1, 1 - (2 * (i + 0.5)) / count)))
+  const theta = Math.PI * (1 + Math.sqrt(5)) * i
+  const dist = 80 + (i % 3) * 20 + (lod ? Math.sqrt(count) * 4 : 0)
+  return [dist * Math.cos(theta) * Math.sin(phi), dist * Math.cos(phi) * 0.7, dist * Math.sin(theta) * Math.sin(phi)]
+}
+
+/** The selection to keep after a re-read: the same id if that node still exists, else none. */
+export function keepSelection(graph: NormalizedGraph, id: string | null): string | null {
+  return id !== null && graph.nodes.some((n) => n.id === id) ? id : null
+}
+
+/** The backend's own error text: Tauri commands reject with a string. */
+export function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (isObj(err) && typeof err.message === 'string') return err.message
+  try {
+    return JSON.stringify(err) ?? String(err)
+  } catch {
+    return String(err)
+  }
+}
+
+/** One-sentence text summary of the graph for screen readers. */
+export function graphSummary(graph: NormalizedGraph, kinds: Array<[string, number]>, matching: number | null): string {
+  const parts = [
+    `${graph.nodes.length} ${graph.nodes.length === 1 ? 'node' : 'nodes'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'edge' : 'edges'}.`,
+  ]
+  if (kinds.length) parts.push(`Kinds: ${kinds.map(([k, n]) => `${k} ${n}`).join(', ')}.`)
+  if (matching !== null) parts.push(`${matching} match the filter.`)
+  return parts.join(' ')
+}
+
+/** True when a WebGL context can be created. Frees the probe context. */
+export function detectWebGL(): boolean {
+  try {
+    if (typeof document === 'undefined') return false
+    const canvas = document.createElement('canvas')
+    const gl = (canvas.getContext('webgl2') ?? canvas.getContext('webgl')) as WebGLRenderingContext | null
+    if (!gl) return false
+    gl.getExtension?.('WEBGL_lose_context')?.loseContext()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
+  }
+}
+
+function inTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
+// Kind colours, drawn from the SYNAPSE tokens. The accent (drape) is kept for
+// interaction only: the selection marker and focus rings.
+const KIND_COLORS: Record<string, string> = {
+  core: '#d4dae2', // ink
+  project: '#3fb950', // success
+  observation: '#8b949e', // ink-soft
+  change: '#d29922', // caution
+  discovery: '#ff7b72', // alarm
+  file: '#5d6673',
+}
+const kindColor = (kind: string) => KIND_COLORS[kind] ?? '#4a525e'
+const DRAPE = '#1d9bf0'
+const GROUND = '#0b0e13'
+const RULE = '#262c37'
+
+// ---------------------------------------------------------------------------
+// Scene controls handed from the WebGL effect to React handlers
+// ---------------------------------------------------------------------------
+
+interface SceneControls {
+  orbit: (dTheta: number, dPhi: number) => void
+  zoom: (factor: number) => void
+  reset: () => void
+  select: (id: string | null) => void
+  filter: (query: string) => void
+}
+
+type Load =
+  | { status: 'loading' }
+  | { status: 'outside' }
+  | { status: 'error'; message: string }
+  | { status: 'ready'; graph: NormalizedGraph }
+
+type GlState = 'ok' | 'unavailable' | 'lost'
 
 export function MemoryGraph() {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [data, setData] = useState<MemoryGraphPayload | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedNode, setSelectedNode] = useState<MemoryNodeDto | null>(null)
-  const [cameraMode, setCameraMode] = useState<'cinema' | 'interactive' | 'fast'>('cinema')
-  const [isAudioEnabled, setIsAudioEnabled] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [nodeCount, setNodeCount] = useState(0)
-  const [axonCount, setAxonCount] = useState(0)
-  const [camCoords, setCamCoords] = useState('X: 0 Y: 45 Z: 290')
+  const [load, setLoad] = useState<Load>({ status: 'loading' })
+  const [gl, setGl] = useState<GlState>(() => (detectWebGL() ? 'ok' : 'unavailable'))
+  const [sceneKey, setSceneKey] = useState(0)
+  const [view, setView] = useState<'graph' | 'list'>('graph')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [hover, setHover] = useState<{ label: string; kind: string } | null>(null)
+  const [query, setQuery] = useState('')
+  const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
+  const [autoRotate, setAutoRotate] = useState(() => !prefersReducedMotion())
+  const [sound, setSound] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const nodeMeshesRef = useRef<THREE.Group[]>([])
-  const sparksRef = useRef<{ mesh: THREE.Mesh; curve: THREE.Curve<THREE.Vector3>; progress: number; speed: number }[]>([])
-  const targetCamPosRef = useRef<THREE.Vector3 | null>(null)
-  const targetLookAtRef = useRef<THREE.Vector3 | null>(null)
-  const sceneRef = useRef<THREE.Scene | null>(null)
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const mountRef = useRef<HTMLDivElement | null>(null)
+  const readoutRef = useRef<HTMLSpanElement | null>(null)
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
+  const controlsRef = useRef<SceneControls | null>(null)
+  const audioRef = useRef<AudioContext | null>(null)
+  const asideRef = useRef<HTMLElement | null>(null)
+  const panelHeadingRef = useRef<HTMLHeadingElement | null>(null)
+  const filterRef = useRef<HTMLInputElement | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  /** 'panel': move focus to the detail heading; a string: return focus to that node's row */
+  const focusAfterRef = useRef<'panel' | { returnTo: string } | null>(null)
+  const mountedRef = useRef(true)
+  const inFlightRef = useRef(false)
+  const seqRef = useRef(0)
 
-  const playTone = useCallback((freq: number, type: OscillatorType = 'sine', duration = 0.35, gainLevel = 0.12) => {
-    if (!isAudioEnabled) return
+  // Live values the render loop reads without rebuilding the scene.
+  const autoRotateRef = useRef(autoRotate)
+  autoRotateRef.current = autoRotate
+  const reducedRef = useRef(reducedMotion)
+  reducedRef.current = reducedMotion
+  const soundRef = useRef(sound)
+  soundRef.current = sound
+  const selectedRef = useRef(selectedId)
+  selectedRef.current = selectedId
+  const queryRef = useRef(query)
+  queryRef.current = query
+
+  const graph = load.status === 'ready' ? load.graph : null
+  const graphView = view === 'graph' && gl === 'ok'
+
+  // --- data ---------------------------------------------------------------
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  /**
+   * Read the graph. One call in flight at a time (a second press is ignored),
+   * and only the newest call may write state. A failed re-read keeps the last
+   * graph on screen and reports the backend's text beside it.
+   */
+  const readGraph = useCallback(() => {
+    if (!inTauri()) {
+      setLoad({ status: 'outside' })
+      return
+    }
+    if (inFlightRef.current) return
+    inFlightRef.current = true
+    const seq = ++seqRef.current
+    setRefreshing(true)
+    const current = () => mountedRef.current && seq === seqRef.current
+    invoke<unknown>('get_memory_graph')
+      .then(
+        (res) => {
+          if (!current()) return
+          const next = normalizeGraph(res)
+          setLoad({ status: 'ready', graph: next })
+          setRefreshError(null)
+          setSelectedId((id) => keepSelection(next, id))
+        },
+        (err: unknown) => {
+          if (!current()) return
+          const message = errorText(err)
+          setLoad((prev) => (prev.status === 'ready' ? prev : { status: 'error', message }))
+          setRefreshError(message)
+        },
+      )
+      .finally(() => {
+        if (seq !== seqRef.current) return
+        inFlightRef.current = false
+        if (mountedRef.current) setRefreshing(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    readGraph()
+  }, [readGraph])
+
+  // --- reduced motion follows the OS setting live -------------------------
+  useEffect(() => {
+    const mq = typeof window !== 'undefined' ? window.matchMedia?.('(prefers-reduced-motion: reduce)') : undefined
+    if (!mq?.addEventListener) return
+    const onChange = (e: MediaQueryListEvent) => {
+      setReducedMotion(e.matches)
+      if (e.matches) setAutoRotate(false)
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  // --- sound (opt-in, released on unmount) --------------------------------
+  const playTone = useCallback((freq: number, duration = 0.2, level = 0.08) => {
+    if (!soundRef.current) return
     try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-      }
-      const ctx = audioCtxRef.current
-      if (ctx.state === 'suspended') ctx.resume()
+      const Ctor =
+        window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!Ctor) return
+      if (!audioRef.current) audioRef.current = new Ctor()
+      const ctx = audioRef.current
+      if (ctx.state === 'suspended') void ctx.resume()
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
-      osc.type = type
       osc.frequency.setValueAtTime(freq, ctx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + duration)
-
-      gain.gain.setValueAtTime(gainLevel, ctx.currentTime)
+      gain.gain.setValueAtTime(level, ctx.currentTime)
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration)
-
       osc.connect(gain)
       gain.connect(ctx.destination)
       osc.start()
       osc.stop(ctx.currentTime + duration)
-    } catch {}
-  }, [isAudioEnabled])
-
-  // Load Initial Memory Graph
-  useEffect(() => {
-    async function fetchGraph() {
-      try {
-        const res = await invoke<MemoryGraphPayload>('get_memory_graph')
-        setData(res)
-      } catch (err) {
-        console.warn('Backend get_memory_graph failed, using simulated matrix:', err)
-        setData({
-          nodes: [
-            { id: 'gov-1', label: 'Master Governance', kind: 'core', narrative: 'Dual-Zone Master Prompt with cryptographic SHA-256 integrity seal.', files: ['SYNAPSE.md'], ts: Date.now(), val: 0.998 },
-            { id: 'mem-1', label: 'Identity & Invariants', kind: 'core', narrative: 'Non-negotiable clinical behavioral invariants and ethical constraints.', files: ['IDENTITY.md'], ts: Date.now(), val: 0.984 },
-            { id: 'gate-1', label: 'Sensory Gating', kind: 'observation', narrative: 'Dynamic context compression filter delivering 42% token reduction.', files: ['compression.rs'], ts: Date.now(), val: 0.972 },
-            { id: 'gate-2', label: 'Context Folding', kind: 'observation', narrative: 'Reversible contextual folding of raw tool outputs and logs.', files: ['spool.rs'], ts: Date.now(), val: 0.946 },
-            { id: 'obs-1', label: 'TDD Rigor Protocol', kind: 'project', narrative: 'Strict test-first development invariant with Vitest and Cargo.', files: ['tests/'], ts: Date.now(), val: 0.921 },
-            { id: 'obs-2', label: 'Clean Architecture', kind: 'project', narrative: 'Ports and adapters separation between CLI, desktop GUI and core.', files: ['packages/core/'], ts: Date.now(), val: 0.915 },
-            { id: 'diag-1', label: 'Doctor Diagnostics', kind: 'discovery', narrative: 'Rule 15 integrity engine detecting missing/tampered master prompt.', files: ['doctor.rs'], ts: Date.now(), val: 0.967 },
-            { id: 'sync-1', label: 'Universal Sync Mesh', kind: 'discovery', narrative: 'Real-time multi-agent sync engine connecting 15 modern LLM tools.', files: ['sync.rs'], ts: Date.now(), val: 0.953 },
-            { id: 'mem-2', label: 'Episodic Memory Matrix', kind: 'core', narrative: 'Permanent vector-indexed memory clusters stored in AI BRAIN.', files: ['mem.rs'], ts: Date.now(), val: 0.989 },
-            { id: 'intake-1', label: 'Clinical Intake Wizard', kind: 'change', narrative: 'Interactive elicitation wizard for stack, architecture, and demeanor.', files: ['onboard.rs'], ts: Date.now(), val: 0.960 }
-          ],
-          edges: [
-            { source: 'gov-1', target: 'mem-1', label: 'governs' },
-            { source: 'gov-1', target: 'gate-1', label: 'gates' },
-            { source: 'gov-1', target: 'diag-1', label: 'verifies' },
-            { source: 'gov-1', target: 'sync-1', label: 'syncs' },
-            { source: 'gate-1', target: 'gate-2', label: 'folds' },
-            { source: 'gate-1', target: 'mem-2', label: 'indexes' },
-            { source: 'mem-1', target: 'obs-1', label: 'enforces' },
-            { source: 'mem-1', target: 'obs-2', label: 'structures' },
-            { source: 'diag-1', target: 'intake-1', label: 'provisions' },
-            { source: 'sync-1', target: 'obs-2', label: 'projects' },
-            { source: 'intake-1', target: 'gov-1', label: 'initializes' }
-          ],
-          total_observations: 10
-        })
-      } finally {
-        setLoading(false)
-      }
+    } catch {
+      /* audio is decoration; failure is silent by design */
     }
-    fetchGraph()
   }, [])
+  const playToneRef = useRef(playTone)
+  playToneRef.current = playTone
 
-  // Three.js WebGL Engine Lifecycle
+  useEffect(
+    () => () => {
+      void audioRef.current?.close?.().catch(() => {})
+      audioRef.current = null
+    },
+    [],
+  )
+
+  // --- WebGL scene ----------------------------------------------------------
   useEffect(() => {
-    if (!containerRef.current || !data) return
-    const container = containerRef.current
-    let width = container.clientWidth
-    let height = container.clientHeight
+    const viewport = viewportRef.current
+    const mount = mountRef.current
+    if (!graph || !graphView || !viewport || !mount || graph.nodes.length === 0) return
+
+    const lod = graph.nodes.length > LOD_THRESHOLD
+    const size = () => ({ w: Math.max(1, viewport.clientWidth), h: Math.max(1, viewport.clientHeight) })
+    let { w, h } = size()
+
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: !lod, alpha: false })
+    } catch {
+      setGl('unavailable')
+      return
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.setSize(w, h)
+    renderer.setClearColor(GROUND, 1)
+    const canvas = renderer.domElement
+    canvas.setAttribute('aria-hidden', 'true')
+    canvas.style.display = 'block'
+    mount.appendChild(canvas)
 
     const scene = new THREE.Scene()
-    scene.fog = new THREE.FogExp2(0x020408, 0.0018)
-    sceneRef.current = scene
+    const camera = new THREE.PerspectiveCamera(55, w / h, 1, 3000)
 
-    const camera = new THREE.PerspectiveCamera(55, width / height, 1, 3000)
-    camera.position.set(0, 45, 290)
-    cameraRef.current = camera
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75))
+    const key = new THREE.DirectionalLight(0xffffff, 0.9)
+    key.position.set(120, 200, 160)
+    scene.add(key)
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
-    renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.25
-    container.innerHTML = ''
-    container.appendChild(renderer.domElement)
+    const grid = new THREE.GridHelper(600, 24, RULE, RULE)
+    grid.position.y = -110
+    scene.add(grid)
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0x0a192f, 2.0)
-    scene.add(ambientLight)
-    const centerLight = new THREE.PointLight(0x38bdf8, 3.5, 400)
-    centerLight.position.set(0, 0, 0)
-    scene.add(centerLight)
-
-    // Cyber Ground Grid
-    const gridHelper = new THREE.GridHelper(500, 30, 0x0ea5e9, 0x1e293b)
-    gridHelper.position.y = -110
-    ;(gridHelper.material as THREE.Material).opacity = 0.25
-    ;(gridHelper.material as THREE.Material).transparent = true
-    scene.add(gridHelper)
-
-    // Parallax Dust / Starfield
-    const dustCount = 1800
-    const dustGeo = new THREE.BufferGeometry()
-    const dustPositions = new Float32Array(dustCount * 3)
-    const dustColors = new Float32Array(dustCount * 3)
-    for (let i = 0; i < dustCount; i++) {
-      dustPositions[i * 3] = (Math.random() - 0.5) * 800
-      dustPositions[i * 3 + 1] = (Math.random() - 0.5) * 600
-      dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 800
-      const isGold = Math.random() > 0.85
-      dustColors[i * 3] = isGold ? 0.96 : 0.22
-      dustColors[i * 3 + 1] = isGold ? 0.75 : 0.74
-      dustColors[i * 3 + 2] = isGold ? 0.15 : 0.97
-    }
-    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3))
-    dustGeo.setAttribute('color', new THREE.BufferAttribute(dustColors, 3))
-    const dustMat = new THREE.PointsMaterial({
-      size: 2.0,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.75,
-      blending: THREE.AdditiveBlending
-    })
-    const dustParticles = new THREE.Points(dustGeo, dustMat)
-    scene.add(dustParticles)
-
-    // Singularity Accretion Ring
-    const ringGeo = new THREE.RingGeometry(35, 37, 64)
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.35,
-      blending: THREE.AdditiveBlending
-    })
-    const accretionRing = new THREE.Mesh(ringGeo, ringMat)
-    accretionRing.rotation.x = Math.PI / 2
-    scene.add(accretionRing)
-
-    // Category Color Mapping
-    const getKindColor = (kind: string) => {
-      switch (kind) {
-        case 'core': return 0xf59e0b
-        case 'observation': return 0x06b6d4
-        case 'project': return 0x10b981
-        case 'discovery': return 0xef4444
-        case 'change': return 0x0ea5e9
-        default: return 0x8b5cf6
+    // Nodes: one shared sphere geometry, one material per kind.
+    const sphere = lod ? new THREE.SphereGeometry(1, 8, 6) : new THREE.SphereGeometry(1, 20, 14)
+    const materials = new Map<string, THREE.MeshLambertMaterial>()
+    const materialFor = (kind: string) => {
+      let m = materials.get(kind)
+      if (!m) {
+        const c = new THREE.Color(kindColor(kind))
+        m = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.25 })
+        materials.set(kind, m)
       }
+      return m
     }
 
-    // Node Meshes Group
-    const nodeGroup = new THREE.Group()
-    scene.add(nodeGroup)
-    const meshes: THREE.Group[] = []
+    const meshes = new Map<string, THREE.Mesh>()
+    const count = graph.nodes.length
+    graph.nodes.forEach((node, idx) => {
+      const mesh = new THREE.Mesh(sphere, materialFor(node.kind))
+      const r = 3 + node.size * 7
+      mesh.scale.setScalar(r)
+      mesh.position.set(...layoutPosition(idx, count, lod))
+      mesh.userData = { id: node.id, radius: r }
+      scene.add(mesh)
+      meshes.set(node.id, mesh)
+    })
 
-    const count = data.nodes.length
-    data.nodes.forEach((node, idx) => {
-      const group = new THREE.Group()
-      const radius = 6 + (node.val * 3.5)
-      const color = getKindColor(node.kind)
-
-      // Golden Spiral Layout for aesthetic 3D positioning
-      const phi = Math.acos(-1 + (2 * idx) / count)
-      const theta = Math.sqrt(count * Math.PI) * phi
-      const dist = 75 + (idx % 3) * 20
-      const x = dist * Math.cos(theta) * Math.sin(phi)
-      const y = dist * Math.sin(theta) * Math.sin(phi) * 0.7
-      const z = dist * Math.cos(phi)
-      group.position.set(x, y, z)
-
-      // Inner Glowing Core
-      const sphereGeo = new THREE.SphereGeometry(radius, 24, 24)
-      const sphereMat = new THREE.MeshStandardMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 1.8,
-        roughness: 0.2,
-        metalness: 0.8
-      })
-      const coreMesh = new THREE.Mesh(sphereGeo, sphereMat)
-      group.add(coreMesh)
-
-      // Outer Wireframe Icosahedron
-      const icoGeo = new THREE.IcosahedronGeometry(radius * 1.5, 1)
-      const icoMat = new THREE.MeshBasicMaterial({
-        color: color,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.65,
-        blending: THREE.AdditiveBlending
-      })
-      const icoMesh = new THREE.Mesh(icoGeo, icoMat)
-      group.add(icoMesh)
-
-      // Gyroscopic Orbital Ring
-      const ringGeo = new THREE.TorusGeometry(radius * 1.8, 0.35, 8, 36)
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-      })
-      const gyroRing = new THREE.Mesh(ringGeo, ringMat)
-      gyroRing.rotation.x = Math.random() * Math.PI
-      gyroRing.rotation.y = Math.random() * Math.PI
-      group.add(gyroRing)
-
-      if (radius >= 8) {
-        const pLight = new THREE.PointLight(color, 1.2, radius * 6)
-        group.add(pLight)
+    // Edges: per-edge point runs, merged into one LineSegments draw call.
+    const segs = lod ? 1 : 12
+    const edgeRuns = graph.edges.map((e) => {
+      const a = meshes.get(e.source)!.position
+      const b = meshes.get(e.target)!.position
+      const mid = a.clone().add(b).multiplyScalar(0.5)
+      if (!lod && mid.lengthSq() > 0) mid.add(mid.clone().normalize().multiplyScalar(15))
+      const pts = new THREE.QuadraticBezierCurve3(a.clone(), mid, b.clone()).getPoints(segs)
+      const flat = new Float32Array(segs * 6)
+      for (let i = 0; i < segs; i++) {
+        flat.set([pts[i].x, pts[i].y, pts[i].z, pts[i + 1].x, pts[i + 1].y, pts[i + 1].z], i * 6)
       }
-
-      group.userData = { node, coreMesh, icoMesh, gyroRing }
-      nodeGroup.add(group)
-      meshes.push(group)
+      return { edge: e, flat }
     })
-    nodeMeshesRef.current = meshes
-    setNodeCount(meshes.length)
+    const edgeMat = new THREE.LineBasicMaterial({ color: '#8b949e', transparent: true, opacity: 0.35 })
+    const edgeLines = new THREE.LineSegments(new THREE.BufferGeometry(), edgeMat)
+    scene.add(edgeLines)
 
-    // Curved 3D Axons & Sparks
-    const axonGroup = new THREE.Group()
-    scene.add(axonGroup)
-    const localSparks: { mesh: THREE.Mesh; curve: THREE.Curve<THREE.Vector3>; progress: number; speed: number }[] = []
+    // Selection marker (accent: interaction only).
+    const markerGeo = new THREE.IcosahedronGeometry(1, 1)
+    const markerMat = new THREE.MeshBasicMaterial({ color: DRAPE, wireframe: true })
+    const marker = new THREE.Mesh(markerGeo, markerMat)
+    marker.visible = false
+    scene.add(marker)
 
-    data.edges.forEach(edge => {
-      const srcMesh = meshes.find(m => m.userData.node.id === edge.source)
-      const tgtMesh = meshes.find(m => m.userData.node.id === edge.target)
-      if (!srcMesh || !tgtMesh) return
+    // --- orbit state ------------------------------------------------------
+    const target = new THREE.Vector3()
+    const sph = new THREE.Spherical().setFromVector3(HOME)
+    let tween: {
+      t: number
+      fromT: THREE.Vector3
+      toT: THREE.Vector3
+      fromS: THREE.Spherical
+      toS: THREE.Spherical
+    } | null = null
+    let dirty = true
 
-      const p1 = srcMesh.position.clone()
-      const p2 = tgtMesh.position.clone()
-      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5)
-      mid.add(mid.clone().normalize().multiplyScalar(15))
+    const applyCamera = () => {
+      sph.phi = Math.max(0.1, Math.min(Math.PI - 0.1, sph.phi))
+      sph.radius = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, sph.radius))
+      camera.position.setFromSpherical(sph).add(target)
+      camera.lookAt(target)
+      dirty = true
+    }
+    const moveTo = (toT: THREE.Vector3, toS: THREE.Spherical) => {
+      if (reducedRef.current) {
+        target.copy(toT)
+        sph.copy(toS)
+        tween = null
+        applyCamera()
+        return
+      }
+      tween = { t: 0, fromT: target.clone(), toT: toT.clone(), fromS: sph.clone(), toS: toS.clone() }
+    }
+    applyCamera()
 
-      const curve = new THREE.QuadraticBezierCurve3(p1, mid, p2)
-      const points = curve.getPoints(32)
-      const axonGeo = new THREE.BufferGeometry().setFromPoints(points)
-      const axonMat = new THREE.LineBasicMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: 0.28,
-        blending: THREE.AdditiveBlending
-      })
-      axonGroup.add(new THREE.Line(axonGeo, axonMat))
-
-      // Spark
-      const sparkMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1.2, 8, 8),
-        new THREE.MeshBasicMaterial({
-          color: srcMesh.userData.node.kind === 'core' ? 0xf59e0b : 0x38bdf8,
-          transparent: true,
-          opacity: 0.95,
-          blending: THREE.AdditiveBlending
-        })
-      )
-      scene.add(sparkMesh)
-      localSparks.push({
-        mesh: sparkMesh,
-        curve: curve,
-        progress: Math.random(),
-        speed: 0.003 + Math.random() * 0.004
-      })
-    })
-    sparksRef.current = localSparks
-    setAxonCount(data.edges.length)
-
-    // Raycasting & Mouse Interaction
-    const raycaster = new THREE.Raycaster()
-    const mouse = new THREE.Vector2(-1000, -1000)
-    let hoveredGroup: THREE.Group | null = null
-
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      mouse.x = ((e.clientX - rect.left) / width) * 2 - 1
-      mouse.y = -((e.clientY - rect.top) / height) * 2 + 1
-
-      raycaster.setFromCamera(mouse, camera)
-      const interactiveMeshes = meshes.map(m => m.userData.coreMesh)
-      const hits = raycaster.intersectObjects(interactiveMeshes)
-
-      if (hits.length > 0) {
-        const hitGroup = hits[0].object.parent as THREE.Group
-        if (hoveredGroup !== hitGroup) {
-          if (hoveredGroup) hoveredGroup.userData.icoMesh.scale.set(1, 1, 1)
-          hoveredGroup = hitGroup
-          hoveredGroup.userData.icoMesh.scale.set(1.25, 1.25, 1.25)
-          playTone(720, 'sine', 0.2, 0.08)
-          container.style.cursor = 'pointer'
-        }
+    // --- filter & pickables ----------------------------------------------
+    let pickables: THREE.Mesh[] = []
+    let hovered: THREE.Mesh | null = null
+    const setHovered = (m: THREE.Mesh | null) => {
+      if (hovered === m) return
+      if (hovered) hovered.scale.setScalar(hovered.userData.radius)
+      hovered = m
+      if (m) {
+        m.scale.setScalar(m.userData.radius * 1.2)
+        const node = graph.nodes.find((n) => n.id === m.userData.id)
+        setHover(node ? { label: node.label, kind: node.kind } : null)
+        playToneRef.current(720, 0.12, 0.05)
       } else {
-        if (hoveredGroup) {
-          hoveredGroup.userData.icoMesh.scale.set(1, 1, 1)
-          hoveredGroup = null
-        }
-        container.style.cursor = 'grab'
+        setHover(null)
+      }
+      viewport.style.cursor = m ? 'pointer' : 'grab'
+      dirty = true
+    }
+
+    const applyFilter = (q: string) => {
+      const visible = new Set<string>()
+      for (const node of graph.nodes) {
+        const ok = nodeMatches(node, q)
+        meshes.get(node.id)!.visible = ok
+        if (ok) visible.add(node.id)
+      }
+      pickables = [...meshes.values()].filter((m) => m.visible)
+      if (hovered && !hovered.visible) setHovered(null)
+      const runs = edgeRuns.filter((r) => visible.has(r.edge.source) && visible.has(r.edge.target))
+      const buf = new Float32Array(runs.length * segs * 6)
+      runs.forEach((r, i) => buf.set(r.flat, i * segs * 6))
+      const old = edgeLines.geometry
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(buf, 3))
+      edgeLines.geometry = geo
+      old.dispose()
+      const sel = selectedRef.current ? meshes.get(selectedRef.current) : undefined
+      marker.visible = !!sel && sel.visible
+      dirty = true
+    }
+
+    const select = (id: string | null) => {
+      const m = id ? meshes.get(id) : undefined
+      if (!m) {
+        marker.visible = false
+        dirty = true
+        return
+      }
+      marker.position.copy(m.position)
+      marker.scale.setScalar(m.userData.radius * 1.7)
+      marker.visible = m.visible
+      const toS = sph.clone()
+      toS.radius = FOCUS_DISTANCE
+      moveTo(m.position, toS)
+      dirty = true
+    }
+
+    applyFilter(queryRef.current)
+    select(selectedRef.current)
+
+    // --- pointer ------------------------------------------------------------
+    const raycaster = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const pick = (cx: number, cy: number): THREE.Mesh | null => {
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return null
+      ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1)
+      raycaster.setFromCamera(ndc, camera)
+      const hit = raycaster.intersectObjects(pickables, false)[0]
+      return hit ? (hit.object as THREE.Mesh) : null
+    }
+    const placeTooltip = (cx: number, cy: number) => {
+      const tip = tooltipRef.current
+      if (!tip) return
+      const rect = viewport.getBoundingClientRect()
+      tip.style.left = `${cx - rect.left + 14}px`
+      tip.style.top = `${cy - rect.top + 14}px`
+    }
+
+    let drag: { id: number; x: number; y: number; sx: number; sy: number } | null = null
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY }
+      tween = null
+      viewport.setPointerCapture?.(e.pointerId)
+      viewport.style.cursor = 'grabbing'
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (drag && drag.id === e.pointerId) {
+        sph.theta -= (e.clientX - drag.x) * DRAG_SPEED
+        sph.phi -= (e.clientY - drag.y) * DRAG_SPEED
+        drag.x = e.clientX
+        drag.y = e.clientY
+        applyCamera()
+        return
+      }
+      setHovered(pick(e.clientX, e.clientY))
+      placeTooltip(e.clientX, e.clientY)
+    }
+    const onPointerUp = (e: PointerEvent) => {
+      if (!drag || drag.id !== e.pointerId) return
+      const moved = Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy)
+      drag = null
+      viewport.releasePointerCapture?.(e.pointerId)
+      viewport.style.cursor = hovered ? 'pointer' : 'grab'
+      if (moved > CLICK_SLOP) return // a drag, not a click
+      const hit = pick(e.clientX, e.clientY)
+      if (hit) {
+        setSelectedId(hit.userData.id as string)
+        playToneRef.current(440, 0.3, 0.1)
       }
     }
-
-    const onClick = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      mouse.x = ((e.clientX - rect.left) / width) * 2 - 1
-      mouse.y = -((e.clientY - rect.top) / height) * 2 + 1
-
-      raycaster.setFromCamera(mouse, camera)
-      const interactiveMeshes = meshes.map(m => m.userData.coreMesh)
-      const hits = raycaster.intersectObjects(interactiveMeshes)
-      if (hits.length > 0) {
-        const grp = hits[0].object.parent as THREE.Group
-        const node = grp.userData.node as MemoryNodeDto
-        setSelectedNode(node)
-        playTone(440, 'triangle', 0.45, 0.18)
-
-        // Smooth camera fly-to
-        targetCamPosRef.current = grp.position.clone().add(new THREE.Vector3(0, 10, 60))
-        targetLookAtRef.current = grp.position.clone()
-      }
+    const onPointerLeave = () => {
+      if (!drag) setHovered(null)
     }
-
-    // Manual Orbit Dragging
-    let isDragging = false
-    let prevMouseX = 0
-    let prevMouseY = 0
-
-    const onMouseDown = (e: MouseEvent) => {
-      if (e.button === 0) {
-        isDragging = true
-        prevMouseX = e.clientX
-        prevMouseY = e.clientY
-      }
+    const onPointerCancel = () => {
+      drag = null
     }
-
-    const onMouseUp = () => {
-      isDragging = false
-    }
-
-    const onDragMove = (e: MouseEvent) => {
-      if (!isDragging) return
-      const deltaX = e.clientX - prevMouseX
-      const deltaY = e.clientY - prevMouseY
-      prevMouseX = e.clientX
-      prevMouseY = e.clientY
-
-      const rotSpeed = 0.005
-      const spherical = new THREE.Spherical().setFromVector3(camera.position)
-      spherical.theta -= deltaX * rotSpeed
-      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi - deltaY * rotSpeed))
-      camera.position.setFromSpherical(spherical)
-      camera.lookAt(0, 0, 0)
-    }
-
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const zoomFactor = e.deltaY * 0.15
-      const dir = camera.position.clone().normalize()
-      const newPos = camera.position.clone().add(dir.multiplyScalar(zoomFactor))
-      if (newPos.length() > 40 && newPos.length() < 700) {
-        camera.position.copy(newPos)
-      }
+      tween = null
+      sph.radius *= Math.exp(Math.max(-200, Math.min(200, e.deltaY)) * 0.0015)
+      applyCamera()
+      frame() // same as the keyboard zoom: the readout follows the wheel at once
     }
 
-    container.addEventListener('mousemove', onMouseMove)
-    container.addEventListener('click', onClick)
-    container.addEventListener('mousedown', onMouseDown)
-    window.addEventListener('mouseup', onMouseUp)
-    window.addEventListener('mousemove', onDragMove)
-    container.addEventListener('wheel', onWheel, { passive: false })
+    viewport.addEventListener('pointerdown', onPointerDown)
+    viewport.addEventListener('pointermove', onPointerMove)
+    viewport.addEventListener('pointerup', onPointerUp)
+    viewport.addEventListener('pointerleave', onPointerLeave)
+    viewport.addEventListener('pointercancel', onPointerCancel)
+    viewport.addEventListener('wheel', onWheel, { passive: false })
 
-    // Animation Loop
-    let animId: number
-    const clock = new THREE.Clock()
-
-    const animate = () => {
-      animId = requestAnimationFrame(animate)
-      const time = clock.getElapsedTime()
-
-      // Auto-rotate if cinema mode active
-      if (cameraMode === 'cinema' && !isDragging && !targetCamPosRef.current) {
-        const spherical = new THREE.Spherical().setFromVector3(camera.position)
-        spherical.theta += 0.003
-        spherical.phi = (Math.PI / 2.3) + Math.sin(time * 0.4) * 0.15
-        camera.position.setFromSpherical(spherical)
-        camera.lookAt(0, 0, 0)
-      }
-
-      // Rotate ground grid & dust
-      gridHelper.rotation.y += 0.0006
-      dustParticles.rotation.y -= 0.0003
-      accretionRing.rotation.z += 0.002
-
-      // Animate Nodes
-      meshes.forEach((grp, i) => {
-        if (grp.userData.icoMesh) {
-          grp.userData.icoMesh.rotation.x += 0.012
-          grp.userData.icoMesh.rotation.y += 0.015
-        }
-        if (grp.userData.gyroRing) {
-          grp.userData.gyroRing.rotation.x -= 0.018
-          grp.userData.gyroRing.rotation.z += 0.01
-        }
-        const breathe = 1 + Math.sin(time * 2 + i) * 0.03
-        if (grp.userData.coreMesh) {
-          grp.userData.coreMesh.scale.set(breathe, breathe, breathe)
-        }
-      })
-
-      // Animate Sparks along Axons
-      localSparks.forEach(s => {
-        s.progress += s.speed
-        if (s.progress > 1) s.progress = 0
-        const p = s.curve.getPoint(s.progress)
-        s.mesh.position.copy(p)
-      })
-
-      // Smooth Camera Transitions
-      if (targetCamPosRef.current && targetLookAtRef.current) {
-        camera.position.lerp(targetCamPosRef.current, 0.06)
-        camera.lookAt(targetLookAtRef.current)
-        if (camera.position.distanceTo(targetCamPosRef.current) < 1.0) {
-          targetCamPosRef.current = null
-          targetLookAtRef.current = null
-        }
-      }
-
-      const cc = camera.position
-      setCamCoords(`X: ${cc.x.toFixed(0)} Y: ${cc.y.toFixed(0)} Z: ${cc.z.toFixed(0)}`)
-      renderer.render(scene, camera)
+    const onContextLost = (e: Event) => {
+      e.preventDefault()
+      setGl('lost')
     }
+    canvas.addEventListener('webglcontextlost', onContextLost)
 
-    animate()
-
+    // --- resize -----------------------------------------------------------
     const onResize = () => {
-      if (!container) return
-      width = container.clientWidth
-      height = container.clientHeight
-      camera.aspect = width / height
+      ;({ w, h } = size())
+      camera.aspect = w / h
       camera.updateProjectionMatrix()
-      renderer.setSize(width, height)
+      renderer.setSize(w, h)
+      dirty = true
     }
-    window.addEventListener('resize', onResize)
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(onResize)
+      ro.observe(viewport)
+    } else {
+      window.addEventListener('resize', onResize)
+    }
+
+    // --- render loop --------------------------------------------------------
+    const writeReadout = () => {
+      const el = readoutRef.current
+      if (!el) return
+      const p = camera.position
+      el.textContent = `x ${p.x.toFixed(0)}  y ${p.y.toFixed(0)}  z ${p.z.toFixed(0)}  dist ${sph.radius.toFixed(0)}`
+    }
+    const frame = () => {
+      if (tween) {
+        tween.t = Math.min(1, tween.t + 0.06)
+        const k = 1 - Math.pow(1 - tween.t, 3)
+        target.lerpVectors(tween.fromT, tween.toT, k)
+        sph.radius = tween.fromS.radius + (tween.toS.radius - tween.fromS.radius) * k
+        sph.phi = tween.fromS.phi + (tween.toS.phi - tween.fromS.phi) * k
+        sph.theta = tween.fromS.theta + (tween.toS.theta - tween.fromS.theta) * k
+        if (tween.t >= 1) tween = null
+        applyCamera()
+      } else if (autoRotateRef.current && !reducedRef.current && !drag) {
+        sph.theta += 0.002
+        applyCamera()
+      }
+      if (marker.visible && !reducedRef.current) {
+        marker.rotation.y += 0.01
+        dirty = true
+      }
+      if (dirty) {
+        renderer.render(scene, camera)
+        writeReadout()
+        dirty = false
+      }
+    }
+    let raf = 0
+    const loop = () => {
+      raf = requestAnimationFrame(loop)
+      frame()
+    }
+    raf = requestAnimationFrame(loop)
+
+    controlsRef.current = {
+      orbit: (dTheta, dPhi) => {
+        tween = null
+        sph.theta += dTheta
+        sph.phi += dPhi
+        applyCamera()
+        frame()
+      },
+      zoom: (factor) => {
+        tween = null
+        sph.radius *= factor
+        applyCamera()
+        frame()
+      },
+      reset: () => {
+        moveTo(new THREE.Vector3(), new THREE.Spherical().setFromVector3(HOME))
+        frame()
+      },
+      select: (id) => {
+        select(id)
+        frame()
+      },
+      filter: (q) => {
+        applyFilter(q)
+        frame()
+      },
+    }
+    frame()
 
     return () => {
-      cancelAnimationFrame(animId)
+      cancelAnimationFrame(raf)
+      controlsRef.current = null
+      ro?.disconnect()
       window.removeEventListener('resize', onResize)
-      container.removeEventListener('mousemove', onMouseMove)
-      container.removeEventListener('click', onClick)
-      container.removeEventListener('mousedown', onMouseDown)
-      window.removeEventListener('mouseup', onMouseUp)
-      window.removeEventListener('mousemove', onDragMove)
-      container.removeEventListener('wheel', onWheel)
+      viewport.removeEventListener('pointerdown', onPointerDown)
+      viewport.removeEventListener('pointermove', onPointerMove)
+      viewport.removeEventListener('pointerup', onPointerUp)
+      viewport.removeEventListener('pointerleave', onPointerLeave)
+      viewport.removeEventListener('pointercancel', onPointerCancel)
+      viewport.removeEventListener('wheel', onWheel)
+      // Remove before forcing context loss, or our own teardown reads as a GPU reset.
+      canvas.removeEventListener('webglcontextlost', onContextLost)
+      const geos = new Set<THREE.BufferGeometry>()
+      const mats = new Set<THREE.Material>()
+      scene.traverse((o) => {
+        const g = (o as THREE.Mesh).geometry
+        const m = (o as THREE.Mesh).material
+        if (g) geos.add(g)
+        if (Array.isArray(m)) m.forEach((x) => mats.add(x))
+        else if (m) mats.add(m)
+      })
+      geos.forEach((g) => g.dispose())
+      mats.forEach((m) => m.dispose())
+      scene.clear()
       renderer.dispose()
+      renderer.forceContextLoss?.()
+      canvas.remove()
+      setHover(null)
     }
-  }, [data, cameraMode, playTone])
+  }, [graph, graphView, sceneKey])
 
-  // Real-time Search Filter
+  // Push React state into the live scene without rebuilding it.
   useEffect(() => {
-    const q = searchQuery.toLowerCase().trim()
-    nodeMeshesRef.current.forEach(grp => {
-      const node = grp.userData.node as MemoryNodeDto
-      const match = !q || node.label.toLowerCase().includes(q) || node.kind.toLowerCase().includes(q) || node.narrative.toLowerCase().includes(q)
-      grp.visible = match
-    })
-  }, [searchQuery])
+    controlsRef.current?.select(selectedId)
+  }, [selectedId])
+
+  // Focus follows selection changes made from inside the detail panel, so a
+  // keyboard user is never dropped on <body> when the button they pressed goes.
+  useEffect(() => {
+    const want = focusAfterRef.current
+    if (!want) return
+    focusAfterRef.current = null
+    if (want === 'panel') {
+      panelHeadingRef.current?.focus()
+      return
+    }
+    const row = [...(listRef.current?.querySelectorAll<HTMLElement>('[data-node-id]') ?? [])].find(
+      (el) => el.dataset.nodeId === want.returnTo,
+    )
+    ;(row ?? viewportRef.current ?? filterRef.current)?.focus()
+  }, [selectedId])
+
+  const selectFromPanel = (id: string) => {
+    if (id === selectedRef.current) {
+      // a self-link: nothing changes, so no effect will run to move focus
+      panelHeadingRef.current?.focus()
+      return
+    }
+    focusAfterRef.current = 'panel'
+    setSelectedId(id)
+  }
+  const clearSelection = useCallback(() => {
+    const active = typeof document !== 'undefined' ? document.activeElement : null
+    const id = selectedRef.current
+    if (id !== null && asideRef.current && active && asideRef.current.contains(active)) {
+      focusAfterRef.current = { returnTo: id }
+    }
+    setSelectedId(null)
+  }, [])
+  useEffect(() => {
+    controlsRef.current?.filter(query)
+  }, [query])
+
+  // --- shortcuts (registered only while this screen is mounted) -------------
+  useShortcut(
+    { id: 'memory.reset', keys: '0', label: 'Memory: reset view', group: 'View', when: () => graphView },
+    () => controlsRef.current?.reset(),
+  )
+  useShortcut(
+    { id: 'memory.clear', keys: 'escape', label: 'Memory: clear selection', group: 'View', when: () => selectedRef.current !== null },
+    clearSelection,
+  )
+  useShortcut(
+    { id: 'memory.list', keys: 'l', label: 'Memory: switch graph or list view', group: 'View', when: () => gl === 'ok' },
+    () => setView((v) => (v === 'graph' ? 'list' : 'graph')),
+  )
+
+  const onViewportKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const c = controlsRef.current
+    // Leave Ctrl/Cmd/Alt combos (browser zoom, app shortcuts) alone.
+    if (!c || e.ctrlKey || e.metaKey || e.altKey) return
+    switch (e.key) {
+      case 'ArrowLeft':
+        c.orbit(ORBIT_STEP, 0)
+        break
+      case 'ArrowRight':
+        c.orbit(-ORBIT_STEP, 0)
+        break
+      case 'ArrowUp':
+        c.orbit(0, -ORBIT_STEP)
+        break
+      case 'ArrowDown':
+        c.orbit(0, ORBIT_STEP)
+        break
+      case '+':
+      case '=':
+        c.zoom(ZOOM_STEP)
+        break
+      case '-':
+      case '_':
+        c.zoom(1 / ZOOM_STEP)
+        break
+      default:
+        return
+    }
+    e.preventDefault()
+  }
+
+  // --- derived --------------------------------------------------------------
+  const selected = useMemo(
+    () => (graph && selectedId ? graph.nodes.find((n) => n.id === selectedId) ?? null : null),
+    [graph, selectedId],
+  )
+  const links = useMemo(() => {
+    if (!graph || !selected) return []
+    const byId = new Map(graph.nodes.map((n) => [n.id, n]))
+    return graph.edges
+      .filter((e) => e.source === selected.id || e.target === selected.id)
+      .map((e) => {
+        const other = byId.get(e.source === selected.id ? e.target : e.source)!
+        return { edge: e, other, outgoing: e.source === selected.id }
+      })
+  }, [graph, selected])
+  const kinds = useMemo(() => {
+    const m = new Map<string, number>()
+    graph?.nodes.forEach((n) => m.set(n.kind, (m.get(n.kind) ?? 0) + 1))
+    return [...m.entries()].sort((a, b) => b[1] - a[1])
+  }, [graph])
+  const visibleNodes = useMemo(() => graph?.nodes.filter((n) => nodeMatches(n, query)) ?? [], [graph, query])
+  const summary = useMemo(
+    () => (graph ? graphSummary(graph, kinds, query.trim() ? visibleNodes.length : null) : ''),
+    [graph, kinds, query, visibleNodes.length],
+  )
+
+  // --- render ---------------------------------------------------------------
+  if (load.status === 'outside') {
+    return (
+      <Section>
+        <p className="font-mono text-sm">No backend attached.</p>
+        <p className="mt-2 max-w-prose text-sm text-ink-soft">
+          This window is running outside the desktop shell, so there is no memory store to read. Nothing is drawn
+          in its place.
+        </p>
+      </Section>
+    )
+  }
+  if (load.status === 'error') {
+    return (
+      <Section>
+        <p className="font-mono text-sm text-alarm">Memory graph could not be read.</p>
+        <p className="mt-2 max-w-prose break-words font-mono text-xs text-ink-soft">
+          get_memory_graph: {load.message}
+        </p>
+        <button
+          type="button"
+          className="mt-3 border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape disabled:opacity-50"
+          disabled={refreshing}
+          aria-busy={refreshing}
+          onClick={readGraph}
+        >
+          {refreshing ? 'reading…' : 'try again'}
+        </button>
+      </Section>
+    )
+  }
+  if (load.status === 'loading' || !graph) {
+    return (
+      <Section>
+        <p className="font-mono text-xs text-ink-soft" role="status">
+          reading memory store…
+        </p>
+      </Section>
+    )
+  }
+
+  const btn =
+    'border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape disabled:opacity-50 disabled:hover:border-rule disabled:hover:text-ink-soft'
 
   return (
-    <div className="flex h-full flex-col bg-[#020408] text-slate-100 overflow-hidden font-mono select-none relative">
-      {/* Top Header Deck */}
-      <header className="flex flex-wrap items-center justify-between border-b border-slate-800/80 bg-[#060a12]/90 px-6 py-3 z-20 backdrop-blur-xl">
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
-            </div>
-            <span className="font-bold text-sm tracking-[0.25em] text-cyan-400">
-              SYNAPSE // 3D NEURAL CINEMA
-            </span>
-          </div>
-          <div className="hidden md:flex items-center gap-3 text-xs text-slate-400 border-l border-slate-800 pl-4">
-            <span>NODES: <span className="text-white font-semibold">{nodeCount}</span></span>
-            <span>·</span>
-            <span>AXONS: <span className="text-amber-400 font-semibold">{axonCount}</span></span>
-            <span>·</span>
-            <span className="text-emerald-400 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 60 FPS
-            </span>
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center gap-2.5 text-xs">
-          <input
-            type="text"
-            placeholder="Search synaptic memory..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="bg-[#0c1322] border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none w-44 transition focus:w-56"
-          />
-
-          <button
-            onClick={() => {
-              setIsAudioEnabled(!isAudioEnabled)
-              playTone(580, 'triangle', 0.4, 0.15)
-            }}
-            className={`border px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
-              isAudioEnabled
-                ? 'border-cyan-400 text-white bg-cyan-950/40 shadow-[0_0_12px_rgba(56,189,248,0.4)]'
-                : 'border-slate-800 text-slate-400 bg-[#0c1322]'
-            }`}
-          >
-            <span>{isAudioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF'}</span>
-          </button>
-
-          <select
-            value={cameraMode}
-            onChange={e => setCameraMode(e.target.value as 'cinema' | 'interactive' | 'fast')}
-            className="border border-slate-800 bg-[#0c1322] px-3 py-1.5 rounded-lg text-slate-200 focus:border-cyan-400 focus:outline-none"
-          >
-            <option value="cinema">Cinema Drone 3D</option>
-            <option value="interactive">Interactive Orbit</option>
-          </select>
-
-          <button
-            onClick={() => {
-              if (cameraRef.current) {
-                targetCamPosRef.current = new THREE.Vector3(0, 45, 290)
-                targetLookAtRef.current = new THREE.Vector3(0, 0, 0)
-                playTone(640, 'sine', 0.3, 0.12)
-              }
-            }}
-            className="border border-slate-800 bg-[#0c1322] px-3 py-1.5 rounded-lg text-cyan-400 hover:border-cyan-400 hover:text-white transition"
-          >
-            Reset View
-          </button>
-        </div>
-      </header>
-
-      {/* Main 3D Container */}
-      <div className="relative flex-1 w-full h-full">
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#020408]/80 z-30">
-            <span className="text-cyan-400 text-sm tracking-widest animate-pulse">SYNTHESIZING 3D NEURAL SPACE...</span>
-          </div>
+    <Section>
+      {/* Readout: measured counts only */}
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-rule pb-3 font-mono text-xs text-ink-soft">
+        <span>
+          nodes <span className="text-ink">{graph.nodes.length}</span>
+          {graph.totalNodes > graph.nodes.length && <span> of {graph.totalNodes}</span>}
+        </span>
+        <span>
+          edges <span className="text-ink">{graph.edges.length}</span>
+        </span>
+        <span>
+          observations{' '}
+          <span className="text-ink">{graph.observations === null ? 'not reported' : graph.observations}</span>
+        </span>
+        {query.trim() && (
+          <span>
+            matching <span className="text-ink">{visibleNodes.length}</span>
+          </span>
         )}
-
-        <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
-
-        {/* Telemetry Stamp */}
-        <div className="pointer-events-none absolute top-4 left-6 z-10 text-[11px] text-slate-500 space-y-1">
-          <div>COORDINATES: <span className="text-cyan-400">{camCoords}</span></div>
-          <div>FOV: <span className="text-white">55°</span> · SHADING: <span className="text-amber-400">VOLUMETRIC PBR</span></div>
-        </div>
-
-        {/* Node Holographic Drawer */}
-        {selectedNode && (
-          <div className="absolute right-6 top-6 bottom-20 w-80 bg-[#060a12]/90 border border-slate-800 rounded-xl p-5 z-20 flex flex-col justify-between backdrop-blur-xl shadow-2xl">
-            <div>
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider bg-cyan-950/60 text-cyan-400 border border-cyan-800/50">
-                  {selectedNode.kind}
-                </span>
-                <button
-                  onClick={() => setSelectedNode(null)}
-                  className="text-slate-400 hover:text-white text-xs"
-                >
-                  ✕ CLOSE
-                </button>
-              </div>
-
-              <h2 className="text-base font-bold text-white mb-1.5">{selectedNode.label}</h2>
-              <div className="text-xs text-slate-400 mb-4">Node ID: {selectedNode.id}</div>
-
-              <div className="space-y-3 text-xs">
-                <div>
-                  <div className="flex justify-between text-slate-400 mb-1">
-                    <span>Recall Strength:</span>
-                    <span className="text-emerald-400 font-bold">{(selectedNode.val * 100).toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full"
-                      style={{ width: `${selectedNode.val * 100}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-[#020408]/80 p-3 rounded-lg border border-slate-800/80 space-y-1">
-                  <div className="text-slate-500 text-[10px] uppercase tracking-wider">Associated Artifacts</div>
-                  <div className="text-slate-200 text-[11px] truncate">{selectedNode.files.join(', ') || 'None'}</div>
-                </div>
-
-                <div className="bg-[#020408]/80 p-3 rounded-lg border border-slate-800/80 space-y-1">
-                  <div className="text-slate-500 text-[10px] uppercase tracking-wider">Narrative Context</div>
-                  <div className="text-slate-300 text-[11px] leading-relaxed">{selectedNode.narrative}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-4 border-t border-slate-800">
-              <button
-                onClick={() => {
-                  sparksRef.current.forEach(s => { s.speed = 0.02 })
-                  setTimeout(() => {
-                    sparksRef.current.forEach(s => { s.speed = 0.003 + Math.random() * 0.004 })
-                  }, 800)
-                  playTone(980, 'sawtooth', 0.5, 0.22)
-                }}
-                className="w-full py-2 rounded-lg text-xs font-bold text-amber-400 border border-amber-500/40 bg-amber-950/20 hover:bg-amber-900/30 transition flex items-center justify-center gap-1.5"
-              >
-                <span>⚡ Pulse Action Potential</span>
-              </button>
-            </div>
-          </div>
-        )}
+        <button
+          type="button"
+          className={cn(btn, 'ml-auto')}
+          disabled={refreshing}
+          aria-busy={refreshing}
+          onClick={readGraph}
+        >
+          {refreshing ? 'reading…' : 'refresh'}
+        </button>
       </div>
+      <p className="sr-only" role="status" aria-live="polite" data-testid="memory-announce">
+        {refreshing
+          ? 'Reading memory store.'
+          : selected
+            ? `Selected ${selected.label}, ${selected.kind}, ${links.length} ${links.length === 1 ? 'link' : 'links'}.`
+            : ''}
+      </p>
+      {refreshError && (
+        <p className="mt-2 break-words font-mono text-xs text-alarm" role="alert">
+          Refresh failed; showing the last graph read. get_memory_graph: {refreshError}
+        </p>
+      )}
+      {graph.totalNodes > graph.nodes.length && (
+        <p className="mt-2 font-mono text-xs text-caution">
+          Showing the first {graph.nodes.length} of {graph.totalNodes} nodes. {graph.cappedEdges} edges to nodes past
+          the cap are not drawn.
+        </p>
+      )}
+      {graph.danglingEdges > 0 && (
+        <p className="mt-2 font-mono text-xs text-caution">
+          {graph.danglingEdges} {graph.danglingEdges === 1 ? 'edge references' : 'edges reference'} a node missing
+          from the payload and {graph.danglingEdges === 1 ? 'is' : 'are'} not drawn.
+        </p>
+      )}
+
+      {graph.nodes.length === 0 ? (
+        <div className="mt-4">
+          <p className="font-mono text-sm">No memory nodes recorded.</p>
+          <p className="mt-2 max-w-prose text-sm text-ink-soft">
+            The memory store under this brain returned an empty graph. Nodes appear here once a tool records an
+            observation.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Toolbar */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 font-mono text-xs text-ink-soft">
+              filter
+              <input
+                ref={filterRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="label, kind, file"
+                className="w-48 border border-rule bg-ground px-2 py-1 font-mono text-xs text-ink placeholder:text-ink-soft focus:border-drape focus:outline-none"
+              />
+            </label>
+            <button
+              type="button"
+              className={btn}
+              aria-pressed={view === 'list' || gl !== 'ok'}
+              disabled={gl !== 'ok'}
+              onClick={() => setView((v) => (v === 'graph' ? 'list' : 'graph'))}
+            >
+              {graphView ? 'list view' : 'graph view'}
+            </button>
+            {graphView && (
+              <>
+                <button type="button" className={btn} onClick={() => controlsRef.current?.reset()}>
+                  reset view
+                </button>
+                <button
+                  type="button"
+                  className={btn}
+                  aria-pressed={autoRotate && !reducedMotion}
+                  disabled={reducedMotion}
+                  onClick={() => setAutoRotate((v) => !v)}
+                  title={reducedMotion ? 'Your system asks for reduced motion, so the graph does not rotate' : undefined}
+                >
+                  auto-rotate {autoRotate && !reducedMotion ? 'on' : 'off'}
+                </button>
+                <button
+                  type="button"
+                  className={btn}
+                  aria-pressed={sound}
+                  onClick={() => {
+                    const next = !sound
+                    soundRef.current = next
+                    setSound(next)
+                    if (next) playTone(580)
+                  }}
+                >
+                  sound {sound ? 'on' : 'off'}
+                </button>
+              </>
+            )}
+          </div>
+
+          {gl === 'unavailable' && (
+            <p className="mt-3 max-w-prose text-sm text-ink-soft" role="note">
+              <span className="font-mono text-caution">WebGL is not available</span> in this window, so the 3D graph
+              cannot be drawn. The same nodes and edges are listed below.
+            </p>
+          )}
+          {gl === 'lost' && (
+            <p className="mt-3 max-w-prose text-sm text-ink-soft" role="alert">
+              <span className="font-mono text-caution">The graphics context was lost</span> (GPU reset or too many
+              3D views open).{' '}
+              <button
+                type="button"
+                className={btn}
+                onClick={() => {
+                  setGl('ok')
+                  setSceneKey((k) => k + 1)
+                }}
+              >
+                rebuild view
+              </button>
+            </p>
+          )}
+
+          {graphView && (
+            <>
+              <Hint id="memory.orbit">Drag or use the arrow keys to orbit. Scroll or press + and - to zoom.</Hint>
+              <Hint id="memory.inspect">Click a node to inspect it. Esc clears the selection, 0 resets the view.</Hint>
+            </>
+          )}
+
+          <div className="mt-3 flex border border-rule">
+            <div className="relative min-w-0 flex-1">
+              {graphView ? (
+                <div
+                  ref={viewportRef}
+                  tabIndex={0}
+                  role="application"
+                  aria-roledescription="3D graph"
+                  aria-label={`Memory graph, ${graph.nodes.length} nodes. Arrow keys orbit, plus and minus zoom, Escape clears the selection. Press L for a list view.`}
+                  aria-describedby="memory-summary"
+                  onKeyDown={onViewportKey}
+                  className="relative h-[60vh] min-h-[360px] cursor-grab touch-none bg-ground outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape"
+                  data-testid="memory-viewport"
+                >
+                  <div ref={mountRef} className="absolute inset-0" />
+                  <p id="memory-summary" className="sr-only">
+                    {summary}
+                  </p>
+                  <div className="pointer-events-none absolute left-3 top-2 font-mono text-[11px] text-ink-soft">
+                    camera <span ref={readoutRef} data-testid="memory-readout" />
+                  </div>
+                  <div
+                    ref={tooltipRef}
+                    role="tooltip"
+                    className={cn(
+                      'pointer-events-none absolute z-10 max-w-[18rem] truncate border border-rule bg-chart px-2 py-1 font-mono text-[11px]',
+                      !hover && 'hidden',
+                    )}
+                  >
+                    {hover && (
+                      <>
+                        <span className="text-ink">{hover.label}</span>
+                        <span className="text-ink-soft"> · {hover.kind}</span>
+                      </>
+                    )}
+                  </div>
+                  {query.trim() && visibleNodes.length === 0 && (
+                    <p className="absolute inset-x-0 top-1/2 text-center font-mono text-xs text-ink-soft">
+                      No node matches the filter.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <NodeList
+                  listRef={listRef}
+                  nodes={visibleNodes}
+                  edges={graph.edges}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              )}
+            </div>
+
+            {selected && (
+              <aside
+                ref={asideRef}
+                aria-label={`Node ${selected.label}`}
+                className="w-72 shrink-0 overflow-y-auto border-l border-rule bg-chart p-4 text-xs"
+              >
+                <div className="flex items-baseline justify-between border-b border-rule pb-2">
+                  <span className="min-w-0 truncate font-mono uppercase tracking-wider text-ink-soft" title={selected.kind}>
+                    {selected.kind}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Close details for ${selected.label}`}
+                    onClick={clearSelection}
+                    className="font-mono text-ink-soft hover:text-drape focus-visible:text-drape"
+                  >
+                    close
+                  </button>
+                </div>
+                <h2
+                  ref={panelHeadingRef}
+                  tabIndex={-1}
+                  className="mt-3 text-sm text-ink outline-none [overflow-wrap:anywhere] focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape"
+                >
+                  {selected.label}
+                </h2>
+                <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[11px]">
+                  <dt className="text-ink-soft">id</dt>
+                  <dd className="break-all">{selected.id}</dd>
+                  <dt className="text-ink-soft">weight</dt>
+                  <dd>{selected.weight === null ? 'not measured' : selected.weight}</dd>
+                  <dt className="text-ink-soft">recorded</dt>
+                  <dd>{formatTs(selected.ts)}</dd>
+                </dl>
+                <h3 className="mt-4 border-b border-rule pb-1 font-mono text-[11px] uppercase tracking-wider text-ink-soft">
+                  files
+                </h3>
+                {selected.files.length === 0 ? (
+                  <p className="mt-1 font-mono text-[11px] text-ink-soft">none recorded</p>
+                ) : (
+                  <ul className="mt-1 space-y-0.5 font-mono text-[11px]">
+                    {selected.files.map((f) => (
+                      <li key={f} className="break-all">
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <h3 className="mt-4 border-b border-rule pb-1 font-mono text-[11px] uppercase tracking-wider text-ink-soft">
+                  narrative
+                </h3>
+                <p className="mt-1 leading-relaxed text-ink [overflow-wrap:anywhere]">
+                  {selected.narrative || <span className="font-mono text-ink-soft">none recorded</span>}
+                </p>
+                <h3 className="mt-4 border-b border-rule pb-1 font-mono text-[11px] uppercase tracking-wider text-ink-soft">
+                  links {links.length}
+                </h3>
+                {links.length === 0 ? (
+                  <p className="mt-1 font-mono text-[11px] text-ink-soft">no edges</p>
+                ) : (
+                  <ul className="mt-1 space-y-0.5 font-mono text-[11px]">
+                    {links.map(({ edge, other, outgoing }, i) => (
+                      <li key={`${edge.source}-${edge.target}-${i}`}>
+                        <span className="text-ink-soft">
+                          {outgoing ? '→' : '←'} {edge.label || 'linked'}{' '}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => selectFromPanel(other.id)}
+                          className="text-left text-ink underline [overflow-wrap:anywhere] decoration-rule underline-offset-2 hover:text-drape focus-visible:text-drape"
+                        >
+                          {other.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </aside>
+            )}
+          </div>
+
+          {/* Legend: kinds present in this payload, with counts */}
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-ink-soft" aria-label="Node kinds">
+            {kinds.map(([kind, n]) => (
+              <li key={kind} className="flex items-center gap-1.5">
+                <span aria-hidden="true" className="inline-block h-2 w-2" style={{ background: kindColor(kind) }} />
+                {kind} <span className="text-ink">{n}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Section>
+  )
+}
+
+function Section({ children }: { children: ReactNode }) {
+  return (
+    <section aria-labelledby="memory-title">
+      <h1 id="memory-title" className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-ink-soft">
+        Memory
+      </h1>
+      {children}
+    </section>
+  )
+}
+
+function NodeList({
+  listRef,
+  nodes,
+  edges,
+  selectedId,
+  onSelect,
+}: {
+  listRef: RefObject<HTMLDivElement>
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  selectedId: string | null
+  onSelect: (id: string) => void
+}) {
+  const degree = useMemo(() => {
+    const d = new Map<string, number>()
+    for (const e of edges) {
+      d.set(e.source, (d.get(e.source) ?? 0) + 1)
+      d.set(e.target, (d.get(e.target) ?? 0) + 1)
+    }
+    return d
+  }, [edges])
+  if (nodes.length === 0) return <p className="p-3 font-mono text-xs text-ink-soft">No node matches the filter.</p>
+  return (
+    <div ref={listRef} className="max-h-[60vh] overflow-y-auto">
+      <table className="w-full border-collapse font-mono text-xs" aria-label="Memory nodes">
+        <thead>
+          <tr className="border-b border-rule text-left text-ink-soft">
+            <th scope="col" className="px-3 py-1.5 font-normal">kind</th>
+            <th scope="col" className="px-3 py-1.5 font-normal">label</th>
+            <th scope="col" className="px-3 py-1.5 text-right font-normal">weight</th>
+            <th scope="col" className="px-3 py-1.5 text-right font-normal">links</th>
+            <th scope="col" className="px-3 py-1.5 text-right font-normal">files</th>
+          </tr>
+        </thead>
+        <tbody>
+          {nodes.map((n) => (
+            <tr key={n.id} className={cn('border-b border-rule', n.id === selectedId && 'bg-chart')}>
+              <td className="px-3 py-1 text-ink-soft [overflow-wrap:anywhere]">{n.kind}</td>
+              <td className="px-3 py-1">
+                <button
+                  type="button"
+                  data-node-id={n.id}
+                  aria-pressed={n.id === selectedId}
+                  onClick={() => onSelect(n.id)}
+                  className="text-left text-ink [overflow-wrap:anywhere] hover:text-drape focus-visible:text-drape focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape"
+                >
+                  {n.label}
+                </button>
+              </td>
+              <td className="px-3 py-1 text-right">{n.weight === null ? '—' : n.weight}</td>
+              <td className="px-3 py-1 text-right">{degree.get(n.id) ?? 0}</td>
+              <td className="px-3 py-1 text-right">{n.files.length}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

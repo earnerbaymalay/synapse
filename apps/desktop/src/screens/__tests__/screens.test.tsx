@@ -73,12 +73,29 @@ describe('Intake', () => {
     expect(screen.getByText(/not valid UTF-8/)).toBeInTheDocument()
   })
 
-  it('does not offer a next step when nothing was detected', () => {
+  // IDENTITY.md rule 1: no surface is a dead end. When nothing was scanned the
+  // next step is `synapse doctor`; when tools exist but none is present it is
+  // `synapse onboard`. (This replaced an older test asserting no Next line.)
+  it('names synapse doctor when no adapters were scanned', () => {
     render(
       <Intake report={intakeReport({ present: 0, total: 0, findings: [] })} />,
     )
-    expect(screen.getByText(/No supported tool configs/)).toBeInTheDocument()
-    expect(screen.queryByText(/^Next/)).not.toBeInTheDocument()
+    expect(screen.getByText(/No tool adapters are registered/)).toBeInTheDocument()
+    expect(screen.getByText(/^Next/)).toBeInTheDocument()
+    expect(screen.getByText('synapse doctor')).toBeInTheDocument()
+  })
+
+  it('names synapse onboard when no supported tool is present', () => {
+    render(
+      <Intake
+        report={intakeReport({
+          present: 0,
+          findings: intakeReport().findings.map((f) => ({ ...f, present: false, skills: null, agents: null, mcp_servers: null })),
+        })}
+      />,
+    )
+    expect(screen.getByText(/^Next/)).toBeInTheDocument()
+    expect(screen.getByText('synapse onboard')).toBeInTheDocument()
   })
 })
 
