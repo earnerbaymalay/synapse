@@ -63,11 +63,14 @@ export function Intake({
             <RescanShortcut onRescan={onRescan} busy={busy} />
             <button
               type="button"
-              onClick={onRescan}
-              disabled={busy}
+              onClick={() => {
+                if (!busy) onRescan()
+              }}
+              // aria-disabled keeps keyboard focus on the button while it is busy
+              aria-disabled={busy || undefined}
               aria-keyshortcuts="R"
               title="Re-scan this site (R)"
-              className="shrink-0 text-drape outline-none hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape disabled:text-ink-soft"
+              className="shrink-0 text-drape outline-none hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape aria-disabled:cursor-default aria-disabled:text-ink-soft aria-disabled:hover:text-ink-soft"
             >
               {busy ? 're-scanning…' : 're-scan'}
             </button>

@@ -486,7 +486,8 @@ describe('MemoryGraph reading the backend', () => {
     const next = deferred()
     invokeMock.mockReturnValueOnce(next.promise as never)
     await user.click(retry)
-    expect(screen.getByRole('button', { name: 'reading…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'reading…' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'reading…' })).toHaveFocus() // focus survives the busy state
     await user.click(screen.getByRole('button', { name: 'reading…' }))
     expect(invokeMock).toHaveBeenCalledTimes(2) // double press ignored
     await act(async () => next.resolve(payload()))
@@ -522,7 +523,8 @@ describe('MemoryGraph reading the backend', () => {
     invokeMock.mockReturnValueOnce(next.promise as never)
     await user.click(screen.getByRole('button', { name: 'refresh' }))
     const busy = screen.getByRole('button', { name: 'reading…' })
-    expect(busy).toBeDisabled()
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    expect(busy).toHaveFocus()
     expect(busy).toHaveAttribute('aria-busy', 'true')
     await user.click(busy)
     expect(invokeMock).toHaveBeenCalledTimes(2)

@@ -194,15 +194,16 @@ function cockpitFixture(scenario: MockScenario, healed: boolean) {
   const exam = examFixture(scenario, healed)
   const intake = intakeFixture()
   return {
-    gateway_status: 'ONLINE',
-    upstream_url: 'http://127.0.0.1:11434 (Ollama)',
-    model: 'qwen2.5-coder:7b',
-    latency_ms: 12,
-    requests_handled: 18,
-    raw_prompt_tokens: 184_600,
-    gated_prompt_tokens: 11_200,
-    tokens_saved: 173_400,
-    reduction_pct: 93.9,
+    // mirrors the backend: no gateway reading is taken, so these are null
+    gateway_status: null,
+    upstream_url: null,
+    model: null,
+    latency_ms: null,
+    requests_handled: null,
+    raw_prompt_tokens: null,
+    gated_prompt_tokens: null,
+    tokens_saved: null,
+    reduction_pct: null,
     brain_path: BRAIN,
     adapters_present: intake.present,
     adapters_total: intake.total,
