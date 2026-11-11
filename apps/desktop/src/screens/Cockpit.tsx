@@ -83,6 +83,21 @@ export const fmtInt = (n: number | null): string | null => (n === null ? null : 
 export const fmtPct = (n: number | null): string | null => (n === null ? null : `${PCT.format(n)}%`)
 export const fmtMs = (n: number | null): string | null => (n === null ? null : `${INT.format(n)} ms`)
 
+/**
+ * The backend's error text. Tauri commands reject with a string, but a plugin
+ * or IPC failure can reject with an Error or a `{ message }` object; neither
+ * should reach the user as "[object Object]" or as an empty reason.
+ */
+export function errorText(e: unknown): string {
+  let s = ''
+  if (e instanceof Error) s = e.message
+  else if (typeof e === 'string') s = e
+  else if (e && typeof e === 'object' && typeof (e as { message?: unknown }).message === 'string')
+    s = (e as { message: string }).message
+  else if (e !== null && e !== undefined) s = String(e)
+  return s.trim() === '' ? 'no reason given by the backend' : s
+}
+
 function fmtClock(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
@@ -112,14 +127,17 @@ function finding(r: Reading, gatewayMeasured: boolean): string {
     const n = r.doctor_criticals as number
     return `${plural(n, 'critical finding')} ${n === 1 ? 'needs' : 'need'} a human.`
   }
+  // "Steady" is a claim; it needs both Doctor counts actually reported.
+  const doctorReported = r.doctor_criticals !== null && r.doctor_fixable !== null
   if (!gatewayMeasured) {
     if ((r.doctor_fixable ?? 0) > 0) return `${plural(r.doctor_fixable as number, 'fixable finding')} on the Brain.`
-    if (r.doctor_criticals === null) return 'Doctor counts not reported.'
+    if (!doctorReported) return 'Doctor counts not reported.'
     return 'Brain steady. Gateway not measured.'
   }
   if (gatewayMark(r.gateway_status) === 'critical') return `Gateway reports ${r.gateway_status}.`
   if (r.gateway_status === null) return 'Gateway status not reported.'
   if ((r.doctor_fixable ?? 0) > 0) return `${plural(r.doctor_fixable as number, 'fixable finding')} on the Brain.`
+  if (!doctorReported) return 'Doctor counts not reported.'
   return 'Vitals steady.'
 }
 
@@ -167,7 +185,7 @@ export function Cockpit({ gatewayMeasured = GATEWAY_MEASURED }: { gatewayMeasure
     } catch (e) {
       if (!mounted.current) return
       // Keep the last good reading on screen, but say it is stale.
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorText(e))
       setStatus('error')
     } finally {
       inFlight.current = false
@@ -187,20 +205,30 @@ export function Cockpit({ gatewayMeasured = GATEWAY_MEASURED }: { gatewayMeasure
     if (!live || !inTauri()) return
     let timer: ReturnType<typeof setTimeout> | undefined
     let cancelled = false
+    // True while a tick is awaiting its read. Without it, a visibility flip
+    // during a slow read saw `timer === undefined`, started a second tick, and
+    // both ticks rescheduled: two polling chains, one of them never cleared.
+    let ticking = false
 
     const schedule = () => {
       if (cancelled) return
+      if (timer !== undefined) clearTimeout(timer)
       timer = setTimeout(tick, POLL_MS)
     }
     const tick = async () => {
       timer = undefined
-      if (cancelled) return
+      if (cancelled || ticking) return
       if (typeof document !== 'undefined' && document.hidden) return // resumed by onVisible
-      await read()
+      ticking = true
+      try {
+        await read()
+      } finally {
+        ticking = false
+      }
       schedule()
     }
     const onVisible = () => {
-      if (cancelled || document.hidden || timer !== undefined) return
+      if (cancelled || document.hidden || timer !== undefined || ticking) return
       void tick()
     }
 
@@ -273,39 +301,29 @@ export function Cockpit({ gatewayMeasured = GATEWAY_MEASURED }: { gatewayMeasure
             onClick={toggleLive}
             aria-pressed={!live}
             aria-keyshortcuts="P"
+            title={live ? 'Pause live telemetry (P)' : 'Resume live telemetry (P)'}
             className="text-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape"
           >
-            {live ? 'pause' : 'resume'} <span className="text-ink-soft">[P]</span>
+            {live ? 'pause' : 'resume'}{' '}
+            <span aria-hidden className="text-ink-soft">
+              [P]
+            </span>
           </button>
-          <button
-            type="button"
-            onClick={() => void read()}
-            disabled={busy}
-            className="text-drape hover:text-ink disabled:text-ink-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape"
-          >
-            {busy ? 'reading…' : 'read now'}
-          </button>
+          <ReadButton busy={busy} onRead={read} idle="read now" pending="reading…" />
         </div>
       </div>
 
       <VitalsTrace mode={trace} />
 
       {status === 'error' && (
-        <p role="alert" className="mt-3 flex items-baseline gap-2 font-mono text-xs text-alarm">
+        <div role="alert" className="mt-3 flex items-baseline gap-2 font-mono text-xs text-alarm">
           <Glyph mark="critical" />
-          <span className="break-words">
+          <p className="min-w-0 flex-1 break-words">
             Telemetry read failed: {error}
             {reading && <span className="text-ink-soft"> · last good reading shown below</span>}
-          </span>
-          <button
-            type="button"
-            onClick={() => void read()}
-            disabled={busy}
-            className="ml-auto shrink-0 text-drape hover:text-ink disabled:text-ink-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape"
-          >
-            retry
-          </button>
-        </p>
+          </p>
+          <ReadButton busy={busy} onRead={read} idle="retry" pending="retrying…" className="shrink-0" />
+        </div>
       )}
 
       {reading ? (
@@ -393,6 +411,48 @@ export function Cockpit({ gatewayMeasured = GATEWAY_MEASURED }: { gatewayMeasure
   )
 }
 
+/**
+ * A read trigger. While a read is in flight it is `aria-disabled` rather than
+ * `disabled`: a natively disabled button drops keyboard focus to <body> the
+ * moment it is pressed. The click is still ignored (read() never overlaps).
+ */
+function ReadButton({
+  busy,
+  onRead,
+  idle,
+  pending,
+  className,
+}: {
+  busy: boolean
+  onRead: () => Promise<void>
+  idle: string
+  pending: string
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!busy) void onRead()
+      }}
+      aria-disabled={busy}
+      title={busy ? 'A telemetry read is already in progress' : undefined}
+      className={`${className ?? ''} text-drape hover:text-ink aria-disabled:cursor-default aria-disabled:text-ink-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape`}
+    >
+      {busy ? pending : idle}
+    </button>
+  )
+}
+
+const MARK_WORD: Record<Mark, string> = {
+  present: 'ok',
+  partial: 'partial',
+  warning: 'warning',
+  critical: 'critical',
+  absent: 'not reported',
+  na: 'not applicable',
+}
+
 function PanelHead({
   id,
   title,
@@ -411,6 +471,7 @@ function PanelHead({
       </h2>
       <span className="flex items-baseline gap-1 tabular-nums">
         <Glyph mark={mark} />
+        {mark !== 'absent' && <span className="sr-only">Status: {MARK_WORD[mark]}.</span>}
         <span className={mark === 'absent' ? 'text-ink-soft' : 'text-ink'}>{children}</span>
       </span>
     </div>

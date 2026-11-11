@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Hint } from '../lib/hints'
 import type { ExamReport, Finding } from '../screens/types'
@@ -15,12 +15,19 @@ type HealOutcome =
   | { kind: 'ok'; fixed: number; offered: number }
   | { kind: 'error'; message: string }
 
+/**
+ * The house vocabulary (components/chart.tsx, IDENTITY.md): ■ critical,
+ * ▲ warning, ◐ info. The banner must use the same marks as the Examination
+ * rows under it, or one glyph would mean two severities on one screen.
+ */
 const GLYPH: Record<Level, string> = {
   unread: '○',
   healthy: '●',
-  warning: '◐',
-  critical: '▲',
+  warning: '▲',
+  critical: '■',
 }
+
+const FINDING_GLYPH: Record<string, string> = { critical: '■', warning: '▲', info: '◐' }
 
 const TONE: Record<Level, string> = {
   unread: 'border-rule text-ink-soft',
@@ -36,9 +43,14 @@ function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`
 }
 
+/**
+ * Derived from the findings, never from the report's own `criticals` /
+ * `fixable` totals, exactly as the Examination screen counts them, so the
+ * banner and the screen below it can never disagree.
+ */
 function levelOf(exam: ExamReport | null): Level {
   if (!exam) return 'unread'
-  if (exam.criticals > 0) return 'critical'
+  if (exam.findings.some((f) => f.severity === 'critical')) return 'critical'
   if (exam.findings.some((f) => f.severity === 'warning')) return 'warning'
   return 'healthy'
 }
@@ -65,13 +77,20 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
   const [expanded, setExpanded] = useState(false)
   // A ref, not state: two clicks in the same tick both see `healing === false`.
   const inFlight = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   const level = levelOf(exam)
   const findings: Finding[] = exam?.findings ?? []
-  const criticals = exam?.criticals ?? 0
+  const criticals = findings.filter((f) => f.severity === 'critical').length
   const warnings = findings.filter((f) => f.severity === 'warning').length
   const infos = findings.filter((f) => f.severity === 'info').length
-  const fixable = exam?.fixable ?? 0
+  const fixable = findings.filter((f) => f.auto_fixable).length
   const hasTamper = findings.some((f) => f.rule_id === 'master-prompt-tampered')
 
   const handleHeal = async () => {
@@ -82,13 +101,14 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
     const offered = fixable
     try {
       const fixed = await invoke<number>('heal_vitals', { brain: null, tools: null })
-      setOutcome({ kind: 'ok', fixed, offered })
+      // The Brain changed either way, so the parent still re-reads it.
+      if (mounted.current) setOutcome({ kind: 'ok', fixed, offered })
       onHealed()
     } catch (e) {
-      setOutcome({ kind: 'error', message: errorText(e) })
+      if (mounted.current) setOutcome({ kind: 'error', message: errorText(e).replace(/[.\s]+$/, '') })
     } finally {
       inFlight.current = false
-      setHealing(false)
+      if (mounted.current) setHealing(false)
     }
   }
 
@@ -151,7 +171,7 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
                 aria-expanded={expanded}
-                aria-controls="alert-findings"
+                aria-controls={expanded ? 'alert-findings' : undefined}
                 className={`border border-rule px-3 py-1 text-ink-soft hover:text-ink ${FOCUS}`}
               >
                 {expanded ? 'Hide findings' : `Show ${plural(findings.length, 'finding')}`}
@@ -184,9 +204,11 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
         <ul id="alert-findings" className="mt-2 divide-y divide-rule border-t border-rule">
           {findings.map((f, i) => (
             <li key={`${f.rule_id}-${f.subject ?? ''}-${i}`} className="flex gap-2 py-1 text-[11px]">
-              <span aria-hidden="true">{f.severity === 'critical' ? '▲' : f.severity === 'warning' ? '◐' : '·'}</span>
+              <span aria-hidden="true" className="w-3 shrink-0 text-center">
+                {FINDING_GLYPH[f.severity] ?? '·'}
+              </span>
               <span className="w-16 shrink-0 uppercase text-ink-soft">{f.severity}</span>
-              <span className="min-w-0 flex-1 text-ink">
+              <span className="min-w-0 flex-1 break-words text-ink [overflow-wrap:anywhere]">
                 {f.message}
                 {f.subject && <span className="ml-2 text-ink-soft">{f.subject}</span>}
               </span>
@@ -207,8 +229,8 @@ export function AlertBanner({ exam, onHealed, onOpenOnboard }: AlertBannerProps)
             {outcome.kind === 'ok' ? (
               <>
                 <span aria-hidden="true">● </span>
-                Healed {outcome.fixed.toLocaleString()} of {plural(outcome.offered, 'auto-fixable finding')}. Vitals
-                re-read. <span className="text-ink-soft">Next</span> <span className="text-drape">synapse doctor</span>
+                Healed {outcome.fixed.toLocaleString()} of {plural(outcome.offered, 'auto-fixable finding')}. Re-reading
+                vitals. <span className="text-ink-soft">Next</span> <span className="text-drape">synapse doctor</span>
               </>
             ) : (
               <>

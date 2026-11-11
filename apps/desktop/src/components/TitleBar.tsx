@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 /**
@@ -8,54 +8,50 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
  * Dragging and double-click-to-maximise come from Tauri's own drag-region
  * handler: any element carrying `data-tauri-drag-region` starts a window drag
  * on mousedown and toggles maximise on double-click. The attribute does not
- * cascade to children, so every non-interactive child repeats it.
+ * cascade to children, so every non-interactive child repeats it, and the
+ * controls (and their group) deliberately do not carry it, so a press on a
+ * control is never taken as the start of a drag.
+ *
+ * The controls are three line glyphs: minus, plus, cross. Each carries a soft
+ * neon glow drawn with `filter: drop-shadow()` on the SVG itself, so the glow
+ * follows the stroke rather than the button box. The look lives in index.css
+ * (`.window-control`), driven by the `--glow-*` tokens.
  */
 
 const NOT_IN_TAURI = 'Window controls are only available in the desktop app'
+
+type TauriWindow = ReturnType<typeof getCurrentWindow>
+type WindowAction = 'minimize' | 'toggleMaximize' | 'close'
 
 function inTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
-type Glyph = 'minimise' | 'maximise' | 'restore' | 'close'
-
-/** Thin line glyphs on a 12px grid, 1.5px stroke, drawn in currentColor. */
-function GlyphPaths({ glyph }: { glyph: Glyph }) {
-  switch (glyph) {
-    case 'minimise':
-      return <path d="M2 6h8" />
-    case 'maximise':
-      return <path d="M6 2v8M2 6h8" />
-    case 'restore':
-      // Two offset squares: the conventional "restore down" mark, in line.
-      return (
-        <>
-          <path d="M2.5 4.5h5v5h-5z" />
-          <path d="M4.5 4.5v-2h5v5h-2" />
-        </>
-      )
-    case 'close':
-      return <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
+/**
+ * The current window, or null when the Tauri internals are present but
+ * incomplete (a browser session with a partial shim). `getCurrentWindow()`
+ * reads window metadata synchronously and throws in that case; uncaught, the
+ * throw would take down the whole shell from an effect.
+ */
+function currentWindow(): TauriWindow | null {
+  try {
+    return getCurrentWindow()
+  } catch {
+    return null
   }
 }
 
-function GlyphSvg({ glyph, className }: { glyph: Glyph; className: string }) {
-  return (
-    <svg
-      viewBox="0 0 12 12"
-      width={12}
-      height={12}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="square"
-      aria-hidden="true"
-      focusable="false"
-      className={className}
-    >
-      <GlyphPaths glyph={glyph} />
-    </svg>
-  )
+function warn(what: string, e: unknown) {
+  console.warn(`synapse: window ${what} failed`, e)
+}
+
+type Glyph = 'minimise' | 'maximise' | 'close'
+
+/** Thin line glyphs on a 12px grid, 1.5px stroke, drawn in currentColor. */
+const GLYPH_PATH: Record<Glyph, string> = {
+  minimise: 'M2 6h8',
+  maximise: 'M6 2v8M2 6h8',
+  close: 'M2.5 2.5l7 7M9.5 2.5l-7 7',
 }
 
 interface ControlProps {
@@ -64,17 +60,10 @@ interface ControlProps {
   onClick: () => void
   disabled: boolean
   danger?: boolean
+  state?: string
 }
 
-function WindowControl({ glyph, label, onClick, disabled, danger = false }: ControlProps) {
-  // The glow is a blurred copy of the glyph sitting behind the crisp one, so it
-  // follows the stroke shape rather than the button box. Dim by default, a
-  // touch stronger on hover/focus; close shifts to the alarm colour on hover.
-  const glowHover = danger
-    ? 'group-hover:text-alarm group-hover:opacity-70 group-focus-visible:opacity-60'
-    : 'group-hover:opacity-60 group-focus-visible:opacity-60'
-  const inkHover = danger ? 'group-hover:text-alarm' : 'group-hover:text-ink'
-
+function WindowControl({ glyph, label, onClick, disabled, danger = false, state }: ControlProps) {
   return (
     <button
       type="button"
@@ -82,18 +71,24 @@ function WindowControl({ glyph, label, onClick, disabled, danger = false }: Cont
       title={disabled ? NOT_IN_TAURI : label}
       disabled={disabled}
       onClick={onClick}
-      className="group flex h-9 w-11 items-center justify-center outline-none focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-drape disabled:cursor-not-allowed disabled:opacity-40"
+      data-tone={danger ? 'danger' : undefined}
+      data-state={state}
+      className="window-control flex h-9 w-11 items-center justify-center disabled:cursor-not-allowed"
     >
-      <span className="relative block h-3 w-3">
-        <GlyphSvg
-          glyph={glyph}
-          className={`absolute inset-0 text-drape opacity-30 blur-[2px] transition-[opacity,color] duration-150 group-disabled:opacity-0 ${glowHover}`}
-        />
-        <GlyphSvg
-          glyph={glyph}
-          className={`absolute inset-0 text-ink-soft transition-colors duration-150 group-focus-visible:text-ink group-disabled:text-ink-soft ${inkHover}`}
-        />
-      </span>
+      <svg
+        viewBox="0 0 12 12"
+        width={12}
+        height={12}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="square"
+        aria-hidden="true"
+        focusable="false"
+        data-glyph={glyph}
+      >
+        <path d={GLYPH_PATH[glyph]} />
+      </svg>
     </button>
   )
 }
@@ -101,42 +96,81 @@ function WindowControl({ glyph, label, onClick, disabled, danger = false }: Cont
 export function TitleBar(): JSX.Element {
   const available = inTauri()
   const [maximised, setMaximised] = useState(false)
+  // Re-reads the maximised state; set by the effect while mounted.
+  const syncRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (!available) return
-    const win = getCurrentWindow()
+    const win = currentWindow()
+    if (!win) return
     let alive = true
+    let seq = 0
     let unlisten: (() => void) | undefined
 
+    // Responses can arrive out of order during a resize storm: only the
+    // newest answer may set the state.
     const sync = () => {
-      win
-        .isMaximized()
+      const mine = ++seq
+      let pending: Promise<boolean>
+      try {
+        pending = win.isMaximized()
+      } catch (e) {
+        warn('state read', e)
+        return
+      }
+      pending
         .then((m) => {
-          if (alive) setMaximised(m)
+          if (alive && mine === seq) setMaximised(m)
         })
-        .catch(() => {})
+        .catch((e) => warn('state read', e))
     }
+    syncRef.current = sync
 
     sync()
-    win
-      .onResized(sync)
-      .then((fn) => {
-        // Unmounted before the listener registered: release it immediately.
-        if (alive) unlisten = fn
-        else fn()
-      })
-      .catch(() => {})
+    // Catches maximise by other means: double-click on the drag region, the
+    // OS shortcut, window snapping.
+    try {
+      win
+        .onResized(sync)
+        .then((fn) => {
+          // Unmounted before the listener registered: release it immediately.
+          if (alive) unlisten = fn
+          else fn()
+        })
+        .catch((e) => warn('resize listener', e))
+    } catch (e) {
+      warn('resize listener', e)
+    }
 
     return () => {
       alive = false
+      syncRef.current = () => {}
       unlisten?.()
     }
   }, [available])
 
-  const run = (action: 'minimize' | 'toggleMaximize' | 'close') => () => {
-    if (!available) return
-    void getCurrentWindow()[action]().catch(() => {})
-  }
+  const run = useCallback(
+    (action: WindowAction) => {
+      if (!available) return
+      const win = currentWindow()
+      if (!win) return
+      let pending: Promise<void>
+      try {
+        pending = win[action]()
+      } catch (e) {
+        warn(action, e)
+        return
+      }
+      pending
+        .then(() => {
+          // Not every platform emits a resize for a maximise toggle; read the
+          // state back so the label and glyph never lag behind the window.
+          if (action === 'toggleMaximize') syncRef.current()
+        })
+        .catch((e) => warn(action, e))
+    },
+    [available],
+  )
 
   return (
     <header
@@ -151,15 +185,16 @@ export function TitleBar(): JSX.Element {
           clinical engine for ai context
         </span>
       </div>
-      <div className="flex items-center border-l border-rule">
-        <WindowControl glyph="minimise" label="Minimise window" onClick={run('minimize')} disabled={!available} />
+      <div role="group" aria-label="Window controls" className="flex items-center border-l border-rule">
+        <WindowControl glyph="minimise" label="Minimise window" onClick={() => run('minimize')} disabled={!available} />
         <WindowControl
-          glyph={maximised ? 'restore' : 'maximise'}
+          glyph="maximise"
           label={maximised ? 'Restore window' : 'Maximise window'}
-          onClick={run('toggleMaximize')}
+          state={maximised ? 'maximised' : 'normal'}
+          onClick={() => run('toggleMaximize')}
           disabled={!available}
         />
-        <WindowControl glyph="close" label="Close window" onClick={run('close')} disabled={!available} danger />
+        <WindowControl glyph="close" label="Close window" onClick={() => run('close')} disabled={!available} danger />
       </div>
     </header>
   )

@@ -76,6 +76,8 @@ export interface HintsApi {
   isDismissed: (id: string) => boolean
   dismiss: (id: string) => void
   resetDismissed: () => void
+  /** How many hints the user has dismissed one by one (so a UI can offer them back). */
+  dismissedCount: number
 }
 
 const HintsContext = createContext<HintsApi | null>(null)
@@ -97,6 +99,8 @@ export function HintsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const onStorage = (e: StorageEvent) => {
+      // sessionStorage changes fire the same event; only localStorage holds hints.
+      if (!fromLocalStorage(e)) return
       if (e.key === null) {
         // localStorage.clear() in another window: back to first-boot defaults.
         setEnabledState(true)
@@ -123,11 +127,19 @@ export function HintsProvider({ children }: { children: ReactNode }) {
   )
   const resetDismissed = useCallback(() => setDismissed((d) => (d.length === 0 ? d : [])), [])
 
+  const dismissedCount = dismissed.length
   const api = useMemo<HintsApi>(
-    () => ({ enabled, setEnabled, toggle, isDismissed, dismiss, resetDismissed }),
-    [enabled, setEnabled, toggle, isDismissed, dismiss, resetDismissed],
+    () => ({ enabled, setEnabled, toggle, isDismissed, dismiss, resetDismissed, dismissedCount }),
+    [enabled, setEnabled, toggle, isDismissed, dismiss, resetDismissed, dismissedCount],
   )
   return <HintsContext.Provider value={api}>{children}</HintsContext.Provider>
+}
+
+/** True when a storage event came from localStorage (or the area is unknown). */
+export function fromLocalStorage(e: StorageEvent): boolean {
+  if (!e.storageArea) return true
+  const local = storage()
+  return local === null || e.storageArea === local
 }
 
 function sameList(a: string[], b: string[]): boolean {
@@ -141,6 +153,7 @@ const OFF_API: HintsApi = {
   isDismissed: () => true,
   dismiss: () => {},
   resetDismissed: () => {},
+  dismissedCount: 0,
 }
 
 /** Safe outside a provider (tests, isolated screens): behaves as "hints off". */

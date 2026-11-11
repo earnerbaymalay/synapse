@@ -1,10 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as THREE from 'three'
 import { invoke } from '@tauri-apps/api/core'
 import { HintsProvider } from '../../lib/hints'
-import { MAX_DISTANCE, MAX_NODES, MIN_DISTANCE, MemoryGraph, formatTs, normalizeGraph } from '../MemoryGraph'
+import {
+  MAX_DISTANCE,
+  MAX_NODES,
+  MIN_DISTANCE,
+  MemoryGraph,
+  errorText,
+  formatTs,
+  graphSummary,
+  keepSelection,
+  layoutPosition,
+  normalizeGraph,
+} from '../MemoryGraph'
 
 /**
  * three.js cannot render in jsdom, so WebGLRenderer is swapped for a recorder.
@@ -374,5 +385,309 @@ describe('MemoryGraph lifecycle', () => {
     resolve(payload())
     await waitFor(() => expect(gl.renderers).toHaveLength(0))
     expect(errors).not.toHaveBeenCalled()
+  })
+})
+
+/** A promise the test settles by hand. */
+function deferred<T = unknown>() {
+  let resolve!: (v: T) => void
+  let reject!: (e: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+const reducedMotion = () => {
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: true,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }) as unknown as typeof window.matchMedia
+}
+
+describe('pure helpers', () => {
+  it('layoutPosition is finite for 0, 1, 2 and many nodes, and for bad input', () => {
+    const finite = (p: number[]) => p.every(Number.isFinite)
+    expect(layoutPosition(0, 0, false)).toEqual([0, 0, 0])
+    expect(layoutPosition(0, 1, false)).toEqual([0, 0, 0])
+    expect(finite(layoutPosition(0, 2, false))).toBe(true)
+    expect(finite(layoutPosition(1, 2, false))).toBe(true)
+    expect(layoutPosition(0, 2, false)).not.toEqual(layoutPosition(1, 2, false))
+    for (let i = 0; i < MAX_NODES; i += 37) expect(finite(layoutPosition(i, MAX_NODES, true))).toBe(true)
+    expect(finite(layoutPosition(NaN, 3, false))).toBe(true)
+    expect(finite(layoutPosition(5, 3, false))).toBe(true) // index past the end is clamped
+    expect(finite(layoutPosition(1, Infinity, false))).toBe(true)
+  })
+
+  it('keepSelection keeps an id that still exists and drops one that does not', () => {
+    const g = normalizeGraph(payload())
+    expect(keepSelection(g, 'o-1')).toBe('o-1')
+    expect(keepSelection(g, 'gone')).toBeNull()
+    expect(keepSelection(g, null)).toBeNull()
+  })
+
+  it('errorText passes the backend text through', () => {
+    expect(errorText('memory dir unreadable')).toBe('memory dir unreadable')
+    expect(errorText(new Error('boom'))).toBe('boom')
+    expect(errorText({ message: 'shaped' })).toBe('shaped')
+    expect(errorText({ code: 3 })).toBe('{"code":3}')
+  })
+
+  it('graphSummary describes counts, kinds and the filter', () => {
+    const g = normalizeGraph(payload())
+    expect(graphSummary(g, [['core', 1], ['project', 1]], null)).toBe('3 nodes and 2 edges. Kinds: core 1, project 1.')
+    expect(graphSummary(g, [], 0)).toBe('3 nodes and 2 edges. 0 match the filter.')
+  })
+})
+
+describe('MemoryGraph graph edge cases', () => {
+  it('draws two nodes, a self-link and a duplicate id without NaN in the camera', async () => {
+    invokeMock.mockResolvedValue({
+      nodes: [{ id: 'a' }, { id: 'b' }, { id: 'a', label: 'dup' }],
+      edges: [
+        { source: 'a', target: 'a', label: 'self' },
+        { source: 'a', target: 'b', label: 'x' },
+      ],
+    })
+    await renderReady()
+    expect(readout()).not.toMatch(/NaN|Infinity/)
+    expect(screen.getByRole('application').getAttribute('aria-label')).toMatch(/2 nodes/)
+  })
+
+  it('a self-link in the panel keeps focus on the panel, not <body>', async () => {
+    const user = userEvent.setup()
+    invokeMock.mockResolvedValue({ nodes: [{ id: 'a', label: 'loop' }], edges: [{ source: 'a', target: 'a', label: 'self' }] })
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'loop' }))
+    const panel = screen.getByRole('complementary', { name: 'Node loop' })
+    await user.click(within(panel).getByRole('button', { name: 'loop' }))
+    expect(within(panel).getByRole('heading', { name: 'loop' })).toHaveFocus()
+  })
+})
+
+describe('MemoryGraph reading the backend', () => {
+  it('calls get_memory_graph with no arguments (the Rust brain arg is optional)', async () => {
+    await renderReady()
+    expect(invokeMock).toHaveBeenCalledTimes(1)
+    expect(invokeMock).toHaveBeenCalledWith('get_memory_graph')
+  })
+
+  it('error state offers a retry that reads again and then draws the real graph', async () => {
+    const user = userEvent.setup()
+    invokeMock.mockRejectedValueOnce('memory dir unreadable')
+    render(<MemoryGraph />)
+    const retry = await screen.findByRole('button', { name: 'try again' })
+    const next = deferred()
+    invokeMock.mockReturnValueOnce(next.promise as never)
+    await user.click(retry)
+    expect(screen.getByRole('button', { name: 'reading…' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'reading…' }))
+    expect(invokeMock).toHaveBeenCalledTimes(2) // double press ignored
+    await act(async () => next.resolve(payload()))
+    expect(await screen.findByTestId('memory-viewport')).toBeInTheDocument()
+    expect(screen.queryByText('Memory graph could not be read.')).not.toBeInTheDocument()
+  })
+
+  it('a failed retry shows the new backend text and stays usable', async () => {
+    const user = userEvent.setup()
+    invokeMock.mockRejectedValueOnce('first').mockRejectedValueOnce('second failure')
+    render(<MemoryGraph />)
+    await user.click(await screen.findByRole('button', { name: 'try again' }))
+    expect(await screen.findByText(/second failure/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'try again' })).toBeEnabled()
+  })
+
+  it('empty brain shows no nodes and offers refresh, which then draws what was recorded', async () => {
+    const user = userEvent.setup()
+    invokeMock.mockResolvedValueOnce({ nodes: [], edges: [], total_observations: 0 })
+    render(<MemoryGraph />)
+    expect(await screen.findByText('No memory nodes recorded.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'refresh' }))
+    expect(await screen.findByTestId('memory-viewport')).toBeInTheDocument()
+  })
+
+  it('refresh blocks double submit and keeps a selection whose node still exists', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'Fixed the parser' }))
+    const next = deferred()
+    invokeMock.mockReturnValueOnce(next.promise as never)
+    await user.click(screen.getByRole('button', { name: 'refresh' }))
+    const busy = screen.getByRole('button', { name: 'reading…' })
+    expect(busy).toBeDisabled()
+    expect(busy).toHaveAttribute('aria-busy', 'true')
+    await user.click(busy)
+    expect(invokeMock).toHaveBeenCalledTimes(2)
+    // the old graph stays on screen while reading
+    expect(screen.getByRole('complementary', { name: 'Node Fixed the parser' })).toBeInTheDocument()
+    await act(async () =>
+      next.resolve(
+        payload({
+          nodes: [...payload().nodes, { id: 'o-2', label: 'new obs', kind: 'change', narrative: '', files: [], ts: 1, val: 1 }],
+        }),
+      ),
+    )
+    expect(await screen.findByRole('button', { name: 'refresh' })).toBeEnabled()
+    expect(screen.getByRole('complementary', { name: 'Node Fixed the parser' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'new obs' })).toBeInTheDocument()
+  })
+
+  it('refresh clears a selection whose node is gone', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'Fixed the parser' }))
+    invokeMock.mockResolvedValueOnce(payload({ nodes: payload().nodes.slice(0, 2), edges: [] }))
+    await user.click(screen.getByRole('button', { name: 'refresh' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Fixed the parser' })).not.toBeInTheDocument())
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    expect(screen.getByTestId('memory-announce')).toHaveTextContent('')
+  })
+
+  it('a failed refresh keeps the last graph and shows the backend error text', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    invokeMock.mockRejectedValueOnce("Couldn't read the memory log in /x. (denied)")
+    await user.click(screen.getByRole('button', { name: 'refresh' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't read the memory log in /x. (denied)")
+    expect(screen.getByTestId('memory-viewport')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'refresh' })).toBeEnabled()
+    // a later success clears the error
+    await user.click(screen.getByRole('button', { name: 'refresh' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+  })
+
+  it('unmount during a refresh sets no state', async () => {
+    const user = userEvent.setup()
+    const { unmount } = await renderReady()
+    const next = deferred()
+    invokeMock.mockReturnValueOnce(next.promise as never)
+    await user.click(screen.getByRole('button', { name: 'refresh' }))
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    unmount()
+    await act(async () => next.resolve(payload()))
+    expect(errors).not.toHaveBeenCalled()
+    expect(gl.renderers).toHaveLength(1)
+  })
+})
+
+describe('MemoryGraph controls, second wave', () => {
+  it('auto-rotate cannot claim to be on under reduced motion', async () => {
+    reducedMotion()
+    const user = userEvent.setup()
+    await renderReady()
+    const btn = screen.getByRole('button', { name: 'auto-rotate off' })
+    expect(btn).toBeDisabled()
+    await user.click(btn)
+    expect(screen.queryByRole('button', { name: 'auto-rotate on' })).not.toBeInTheDocument()
+  })
+
+  it('Ctrl/Cmd/Alt + and - are left to the browser', async () => {
+    await renderReady()
+    const vp = screen.getByRole('application')
+    const before = readout()
+    const ev = new KeyboardEvent('keydown', { key: '=', ctrlKey: true, bubbles: true, cancelable: true })
+    act(() => {
+      vp.dispatchEvent(ev)
+    })
+    expect(ev.defaultPrevented).toBe(false)
+    expect(readout()).toBe(before)
+  })
+
+  it('wheel zooms within limits and blocks page scroll', async () => {
+    await renderReady()
+    const vp = screen.getByRole('application')
+    const d0 = dist()
+    expect(fireEvent.wheel(vp, { deltaY: -100 })).toBe(false) // preventDefault called
+    expect(dist()).toBeLessThan(d0)
+    for (let i = 0; i < 40; i++) fireEvent.wheel(vp, { deltaY: 1000 })
+    expect(dist()).toBe(MAX_DISTANCE)
+  })
+
+  it('lost graphics context falls back to the list and rebuild view builds a fresh scene', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    act(() => {
+      gl.renderers[0].domElement.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+    })
+    expect(await screen.findByText('The graphics context was lost')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Memory nodes' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'rebuild view' }))
+    expect(await screen.findByTestId('memory-viewport')).toBeInTheDocument()
+    expect(gl.renderers).toHaveLength(2)
+  })
+
+  it('the viewport is described by a text summary of the graph', async () => {
+    await renderReady()
+    const vp = screen.getByRole('application')
+    const id = vp.getAttribute('aria-describedby')
+    expect(id).toBeTruthy()
+    expect(document.getElementById(id!)).toHaveTextContent('3 nodes and 2 edges. Kinds:')
+  })
+
+  it('selection is announced in a polite live region', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'alpha' }))
+    expect(screen.getByTestId('memory-announce')).toHaveTextContent('Selected alpha, project, 2 links.')
+    expect(screen.getByTestId('memory-announce')).toHaveAttribute('aria-live', 'polite')
+  })
+
+  it('following a link in the panel moves focus to the new node heading', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'Fixed the parser' }))
+    await user.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'alpha' }))
+    expect(screen.getByRole('heading', { name: 'alpha' })).toHaveFocus()
+  })
+
+  it('closing the panel returns focus to the node row instead of <body>', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'Fixed the parser' }))
+    await user.click(screen.getByRole('button', { name: 'Close details for Fixed the parser' }))
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Fixed the parser' })).toHaveFocus()
+  })
+
+  it('in graph view, closing the panel returns focus to the viewport', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    await user.click(screen.getByRole('button', { name: 'alpha' }))
+    await user.click(screen.getByRole('button', { name: 'graph view' }))
+    await screen.findByTestId('memory-viewport')
+    within(screen.getByRole('complementary')).getByRole('button', { name: /Close details/ }).focus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    expect(screen.getByRole('application')).toHaveFocus()
+  })
+
+  it('long labels wrap instead of overflowing the list and panel', async () => {
+    const user = userEvent.setup()
+    const long = 'src/' + 'very_long_path_segment/'.repeat(12) + 'file.rs'
+    invokeMock.mockResolvedValue({ nodes: [{ id: 'x', label: long, kind: 'file' }], edges: [] })
+    await renderReady()
+    await user.click(screen.getByRole('button', { name: 'list view' }))
+    const row = screen.getByRole('button', { name: long })
+    expect(row.className).toMatch(/overflow-wrap:anywhere/)
+    await user.click(row)
+    expect(screen.getByRole('heading', { name: long }).className).toMatch(/overflow-wrap:anywhere/)
+  })
+
+  it('typing L or 0 in the filter box does not switch view or reset', async () => {
+    const user = userEvent.setup()
+    await renderReady()
+    await user.type(screen.getByRole('searchbox'), 'l0')
+    expect(screen.getByTestId('memory-viewport')).toBeInTheDocument()
+    expect(screen.getByRole('searchbox')).toHaveValue('l0')
   })
 })

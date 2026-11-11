@@ -181,4 +181,103 @@ describe('App shell', () => {
     expect(btn.getAttribute('title')).toMatch(/No backend attached/)
     expect(invokeMock).not.toHaveBeenCalled()
   })
+
+  it('hides a stale Healthy banner once a re-read fails', async () => {
+    await renderApp()
+    expect(await screen.findByText(/Healthy:/)).toBeInTheDocument()
+    backend({
+      examine: () => {
+        throw new Error('core unreachable')
+      },
+    })
+    act(() => pressMod('r'))
+    expect(await screen.findByText('vitals unread')).toBeInTheDocument()
+    expect(screen.queryByText(/Healthy:/)).toBeNull()
+  })
+
+  it('keeps keyboard focus on retry while it runs, and ignores a second press', async () => {
+    let release!: () => void
+    let fail = true
+    backend({
+      examine: () => {
+        if (fail) throw new Error('core unreachable')
+        return new Promise((r) => (release = () => r(EXAM)))
+      },
+    })
+    render(<App />)
+    fireEvent.click(navButton('Examination'))
+    await screen.findByText('examination halted.')
+    fail = false
+    const retry = screen.getByRole('button', { name: 'retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    const busy = await screen.findByRole('button', { name: 'retrying…' })
+    // A disabled button drops focus; aria-disabled keeps it.
+    expect(busy).not.toBeDisabled()
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    expect(busy).toHaveFocus()
+    fireEvent.click(busy)
+    expect(calls('examine')).toBe(2)
+    await act(async () => release())
+    expect(await screen.findByTestId('screen-examination')).toBeInTheDocument()
+  })
+
+  it('moves focus to the working area when a successful retry removes the retry button', async () => {
+    let fail = true
+    backend({
+      examine: () => {
+        if (fail) throw new Error('core unreachable')
+        return EXAM
+      },
+    })
+    render(<App />)
+    fireEvent.click(navButton('Examination'))
+    await screen.findByText('examination halted.')
+    fail = false
+    const retry = screen.getByRole('button', { name: 'retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await screen.findByTestId('screen-examination')
+    await waitFor(() => expect(screen.getByRole('main')).toHaveFocus())
+  })
+
+  it('does not move focus on boot', async () => {
+    await renderApp()
+    expect(screen.getByRole('main')).not.toHaveFocus()
+  })
+
+  it('keeps re-read focusable while a read runs and ignores clicks then', async () => {
+    let release!: () => void
+    await renderApp()
+    await screen.findByRole('button', { name: 're-read vitals' })
+    backend({ examine: () => new Promise((r) => (release = () => r(EXAM))) })
+    const btn = screen.getByRole('button', { name: 're-read vitals' })
+    btn.focus()
+    fireEvent.click(btn)
+    const busy = await screen.findByRole('button', { name: 'reading…' })
+    expect(busy).not.toBeDisabled()
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    expect(busy).toHaveFocus()
+    fireEvent.click(busy)
+    expect(calls('examine')).toBe(2)
+    await act(async () => release())
+    expect(await screen.findByRole('button', { name: 're-read vitals' })).toBeInTheDocument()
+  })
+
+  it('announces nav shortcuts with the platform key (Meta on macOS)', async () => {
+    const desc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'platform')
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    try {
+      await renderApp()
+      expect(navButton('Intake')).toHaveAttribute('aria-keyshortcuts', 'Meta+1')
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).platform
+      if (desc) expect(navigator.platform).not.toBe('MacIntel')
+    }
+  })
+
+  it('announces nav shortcuts as Control elsewhere', async () => {
+    await renderApp()
+    expect(navButton('Sensory Spool')).toHaveAttribute('aria-keyshortcuts', 'Control+5')
+  })
 })

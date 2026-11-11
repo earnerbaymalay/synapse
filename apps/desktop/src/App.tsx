@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { cn } from './lib/utils'
 import { Hint, HINTS_TOGGLE_KEYS, HintsProvider, useHints } from './lib/hints'
-import { formatKeys, useShortcut } from './lib/shortcuts'
+import { formatKeys, isMac, useShortcut } from './lib/shortcuts'
 import { Intake } from './screens/Intake'
 import { Examination } from './screens/Examination'
 import { MemoryGraph } from './screens/MemoryGraph'
@@ -53,6 +53,11 @@ const KEYS_HINTS = HINTS_TOGGLE_KEYS
 /** True when running inside a Tauri webview — false in a plain browser. */
 function inTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
+/** ARIA form of a shortcut ("mod+1" -> "Control+1", or "Meta+1" on macOS). */
+function ariaKeys(keys: string): string {
+  return keys.replace(/\bmod\b/g, isMac() ? 'Meta' : 'Control')
 }
 
 function keyLabel(keys: string): string {
@@ -163,6 +168,23 @@ function Shell() {
 
   const busy = examBusy || intakeBusy
 
+  // A retry or re-read that succeeds removes the control that held keyboard
+  // focus (the retry button goes away with its error). Without this the focus
+  // falls to <body> and the next Tab starts from the top of the window. Only
+  // on an error clearing, so boot never moves focus.
+  const mainRef = useRef<HTMLElement>(null)
+  const hadError = useRef(false)
+  const anyError = Boolean(examError || intakeError)
+  useEffect(() => {
+    const cleared = hadError.current && !anyError
+    hadError.current = anyError
+    if (!cleared) return
+    const active = document.activeElement
+    if (!active || active === document.body || !active.isConnected) {
+      mainRef.current?.focus({ preventScroll: true })
+    }
+  }, [anyError])
+
   // Shortcuts. The registry calls preventDefault, so mod+r never reloads.
   useShortcut({ id: 'nav.intake', keys: NAV[0].keys, label: 'Go to Intake', group: 'Navigation' }, () =>
     setScreen('intake'),
@@ -215,7 +237,7 @@ function Shell() {
                       type="button"
                       onClick={() => setScreen(item.id)}
                       aria-current={active ? 'page' : undefined}
-                      aria-keyshortcuts={item.keys.replace('mod', 'Control')}
+                      aria-keyshortcuts={ariaKeys(item.keys)}
                       className={cn(
                         'flex w-full items-baseline gap-2 border-l-2 px-4 py-2.5 text-left transition-colors',
                         'focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-drape',
@@ -239,10 +261,16 @@ function Shell() {
 
           <div className="border-t border-rule px-4 py-3">
             <div className="flex items-baseline justify-between gap-2">
+              {/* While a read runs the button is aria-disabled, not disabled:
+                  a disabled button drops keyboard focus mid-press. */}
               <button
                 type="button"
-                onClick={reread}
-                disabled={busy || !tauri}
+                onClick={() => {
+                  if (!busy) reread()
+                }}
+                disabled={!tauri}
+                aria-disabled={busy || undefined}
+                aria-keyshortcuts={ariaKeys(KEYS_REREAD)}
                 title={
                   !tauri
                     ? 'No backend attached: this window is running outside the desktop shell, so there are no vitals to read.'
@@ -250,7 +278,7 @@ function Shell() {
                       ? 'A read is already in progress.'
                       : 'Re-run the examination'
                 }
-                className="font-mono text-xs text-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape disabled:text-ink-soft"
+                className="font-mono text-xs text-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape disabled:text-ink-soft aria-disabled:cursor-default aria-disabled:text-ink-soft aria-disabled:hover:text-ink-soft"
               >
                 {busy ? 'reading…' : 're-read vitals'}
               </button>
@@ -263,6 +291,7 @@ function Shell() {
                 type="button"
                 onClick={hints.toggle}
                 aria-pressed={hints.enabled}
+                aria-keyshortcuts={ariaKeys(KEYS_HINTS)}
                 className="font-mono text-xs text-ink-soft hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape"
               >
                 {hints.enabled ? 'hints on' : 'hints off'}
@@ -271,18 +300,24 @@ function Shell() {
             </div>
             <Hint id="shell.reference">Press ? for every shortcut.</Hint>
           </div>
-        <HintsCoach />
+          <HintsCoach />
         </aside>
 
         {/* Working area */}
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-chart px-8 py-6">
+        <main
+          ref={mainRef}
+          tabIndex={-1}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-chart px-8 py-6 focus-visible:outline-none"
+        >
           <div className="mx-auto max-w-5xl">
             {!tauri ? (
               <Disconnected />
             ) : (
               <>
-                {/* Only shown once vitals have actually been read. */}
-                {exam && (
+                {/* Only shown once vitals have actually been read, and hidden
+                    while the latest read failed: a stale "Healthy" next to
+                    "vitals unread" would contradict itself. */}
+                {exam && !examError && (
                   <AlertBanner exam={exam} onHealed={() => void readExam()} onOpenOnboard={() => setScreen('intake')} />
                 )}
                 {examError && screen !== 'examination' && (
@@ -348,9 +383,12 @@ function RetryButton({ busy, onRetry }: { busy: boolean; onRetry: () => void }) 
   return (
     <button
       type="button"
-      onClick={onRetry}
-      disabled={busy}
-      className="font-mono text-xs text-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape disabled:text-ink-soft"
+      onClick={() => {
+        if (!busy) onRetry()
+      }}
+      // aria-disabled, not disabled: a disabled button drops keyboard focus.
+      aria-disabled={busy || undefined}
+      className="font-mono text-xs text-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape aria-disabled:cursor-default aria-disabled:text-ink-soft aria-disabled:hover:text-ink-soft"
     >
       {busy ? 'retrying…' : 'retry'}
     </button>

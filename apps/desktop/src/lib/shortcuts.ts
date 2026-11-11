@@ -24,6 +24,11 @@ import { useEffect, useRef } from 'react'
  * - Several registrations may share an id; the newest wins and unmounting it
  *   restores the previous one. Newer registrations are tried first.
  * - IME composition keystrokes are ignored.
+ * - While a modal dialog (an element with aria-modal="true") is open, only
+ *   shortcuts that set `inModal` fire; everything behind the dialog is inert.
+ * - A keystroke some focused widget already handled (defaultPrevented) is left alone.
+ * - Auto-repeat (a held key) is swallowed: the default action is still prevented,
+ *   but the handler runs once per press unless the def sets `allowRepeat`.
  */
 
 export interface ShortcutDef {
@@ -35,6 +40,10 @@ export interface ShortcutDef {
   when?: () => boolean
   /** fire even when focus is in a text field (bare keys are blocked otherwise) */
   allowWhileTyping?: boolean
+  /** fire while a modal dialog is open (everything else is suppressed then) */
+  inModal?: boolean
+  /** run the handler on keyboard auto-repeat too (off by default) */
+  allowRepeat?: boolean
 }
 
 type Entry = ShortcutDef & { handler: (e: KeyboardEvent) => void; token: number }
@@ -214,15 +223,26 @@ function activeEntries(): Entry[] {
   return out.sort((a, b) => b.token - a.token)
 }
 
+/** True while an aria-modal dialog is in the document. Exported for tests. */
+export function modalOpen(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.querySelector('[aria-modal="true"]') !== null
+}
+
 function onKeyDown(e: KeyboardEvent) {
   if (e.isComposing || e.keyCode === 229) return
+  // A focused widget (e.g. a graph viewport) already handled this keystroke.
+  if (e.defaultPrevented) return
   const target = (typeof e.composedPath === 'function' && e.composedPath()[0]) || e.target
   const typing = isTypingTarget(target)
+  const modal = modalOpen()
   for (const entry of activeEntries()) {
     if (!matches(e, entry.keys)) continue
+    if (modal && !entry.inModal) continue
     if (typing && isBare(entry.keys) && !entry.allowWhileTyping) continue
     if (entry.when && !entry.when()) continue
     e.preventDefault()
+    if (e.repeat && !entry.allowRepeat) return
     entry.handler(e)
     return
   }
@@ -286,6 +306,6 @@ export function useShortcut(def: ShortcutDef, handler: (e: KeyboardEvent) => voi
         (e) => ref.current(e),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [def.id, def.keys, def.label, def.group, def.allowWhileTyping],
+    [def.id, def.keys, def.label, def.group, def.allowWhileTyping, def.inModal, def.allowRepeat],
   )
 }

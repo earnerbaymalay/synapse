@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HINT_FOCUS_RING, HINTS_TOGGLE_KEYS, safeGet, safeSet, useFadeIn, useHints } from '../lib/hints'
+import { fromLocalStorage, HINT_FOCUS_RING, HINTS_TOGGLE_KEYS, safeGet, safeSet, useFadeIn, useHints } from '../lib/hints'
 import { formatKeys } from '../lib/shortcuts'
 
 /**
- * HintsCoach: a quiet ruled panel in the bottom-right corner that tells the user
- * hints are on and how to turn them off. Shown while hints are enabled and until
- * the user presses "Got it". Never takes focus; announced politely.
+ * HintsCoach: a quiet ruled panel (the shell puts it at the foot of the sidebar)
+ * that tells the user hints are on and how to turn them off. Shown while hints
+ * are enabled and until the user presses "Got it". Never takes focus; announced
+ * politely. It occupies its space from the first frame (it only fades), so it
+ * never pushes controls around when it appears.
  */
 
 export const COACH_KEY_DISMISSED = 'synapse.hints.coach.dismissed'
@@ -21,6 +23,7 @@ export function HintsCoach(): JSX.Element | null {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const onStorage = (e: StorageEvent) => {
+      if (!fromLocalStorage(e)) return
       if (e.key === null) setDismissed(false)
       else if (e.key === COACH_KEY_DISMISSED) setDismissed(e.newValue === 'true')
     }

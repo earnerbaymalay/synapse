@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import * as THREE from 'three'
 import { Hint } from '../lib/hints'
@@ -152,6 +152,47 @@ export function formatTs(ts: number | null): string {
   return Number.isNaN(d.getTime()) ? 'not recorded' : d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
 }
 
+/**
+ * Where node `idx` of `count` sits: an even Fibonacci-sphere spread. Always
+ * finite: 0 or 1 nodes sit at the origin, and a bad index or count never
+ * yields NaN or Infinity.
+ */
+export function layoutPosition(idx: number, count: number, lod: boolean): [number, number, number] {
+  if (!Number.isFinite(idx) || !Number.isFinite(count) || count <= 1 || idx < 0) return [0, 0, 0]
+  const i = Math.min(Math.floor(idx), count - 1)
+  const phi = Math.acos(Math.max(-1, Math.min(1, 1 - (2 * (i + 0.5)) / count)))
+  const theta = Math.PI * (1 + Math.sqrt(5)) * i
+  const dist = 80 + (i % 3) * 20 + (lod ? Math.sqrt(count) * 4 : 0)
+  return [dist * Math.cos(theta) * Math.sin(phi), dist * Math.cos(phi) * 0.7, dist * Math.sin(theta) * Math.sin(phi)]
+}
+
+/** The selection to keep after a re-read: the same id if that node still exists, else none. */
+export function keepSelection(graph: NormalizedGraph, id: string | null): string | null {
+  return id !== null && graph.nodes.some((n) => n.id === id) ? id : null
+}
+
+/** The backend's own error text: Tauri commands reject with a string. */
+export function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (isObj(err) && typeof err.message === 'string') return err.message
+  try {
+    return JSON.stringify(err) ?? String(err)
+  } catch {
+    return String(err)
+  }
+}
+
+/** One-sentence text summary of the graph for screen readers. */
+export function graphSummary(graph: NormalizedGraph, kinds: Array<[string, number]>, matching: number | null): string {
+  const parts = [
+    `${graph.nodes.length} ${graph.nodes.length === 1 ? 'node' : 'nodes'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'edge' : 'edges'}.`,
+  ]
+  if (kinds.length) parts.push(`Kinds: ${kinds.map(([k, n]) => `${k} ${n}`).join(', ')}.`)
+  if (matching !== null) parts.push(`${matching} match the filter.`)
+  return parts.join(' ')
+}
+
 /** True when a WebGL context can be created. Frees the probe context. */
 export function detectWebGL(): boolean {
   try {
@@ -224,6 +265,8 @@ export function MemoryGraph() {
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
   const [autoRotate, setAutoRotate] = useState(() => !prefersReducedMotion())
   const [sound, setSound] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
@@ -231,6 +274,15 @@ export function MemoryGraph() {
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const controlsRef = useRef<SceneControls | null>(null)
   const audioRef = useRef<AudioContext | null>(null)
+  const asideRef = useRef<HTMLElement | null>(null)
+  const panelHeadingRef = useRef<HTMLHeadingElement | null>(null)
+  const filterRef = useRef<HTMLInputElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  /** 'panel': move focus to the detail heading; a string: return focus to that node's row */
+  const focusAfterRef = useRef<'panel' | { returnTo: string } | null>(null)
+  const mountedRef = useRef(true)
+  const inFlightRef = useRef(false)
+  const seqRef = useRef(0)
 
   // Live values the render loop reads without rebuilding the scene.
   const autoRotateRef = useRef(autoRotate)
@@ -249,22 +301,53 @@ export function MemoryGraph() {
 
   // --- data ---------------------------------------------------------------
   useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  /**
+   * Read the graph. One call in flight at a time (a second press is ignored),
+   * and only the newest call may write state. A failed re-read keeps the last
+   * graph on screen and reports the backend's text beside it.
+   */
+  const readGraph = useCallback(() => {
     if (!inTauri()) {
       setLoad({ status: 'outside' })
       return
     }
-    let cancelled = false
+    if (inFlightRef.current) return
+    inFlightRef.current = true
+    const seq = ++seqRef.current
+    setRefreshing(true)
+    const current = () => mountedRef.current && seq === seqRef.current
     invoke<unknown>('get_memory_graph')
-      .then((res) => {
-        if (!cancelled) setLoad({ status: 'ready', graph: normalizeGraph(res) })
+      .then(
+        (res) => {
+          if (!current()) return
+          const next = normalizeGraph(res)
+          setLoad({ status: 'ready', graph: next })
+          setRefreshError(null)
+          setSelectedId((id) => keepSelection(next, id))
+        },
+        (err: unknown) => {
+          if (!current()) return
+          const message = errorText(err)
+          setLoad((prev) => (prev.status === 'ready' ? prev : { status: 'error', message }))
+          setRefreshError(message)
+        },
+      )
+      .finally(() => {
+        if (seq !== seqRef.current) return
+        inFlightRef.current = false
+        if (mountedRef.current) setRefreshing(false)
       })
-      .catch((err: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: err instanceof Error ? err.message : String(err) })
-      })
-    return () => {
-      cancelled = true
-    }
   }, [])
+
+  useEffect(() => {
+    readGraph()
+  }, [readGraph])
 
   // --- reduced motion follows the OS setting live -------------------------
   useEffect(() => {
@@ -368,17 +451,7 @@ export function MemoryGraph() {
       const mesh = new THREE.Mesh(sphere, materialFor(node.kind))
       const r = 3 + node.size * 7
       mesh.scale.setScalar(r)
-      if (count > 1) {
-        // Fibonacci sphere: even spread for any node count.
-        const phi = Math.acos(1 - (2 * (idx + 0.5)) / count)
-        const theta = Math.PI * (1 + Math.sqrt(5)) * idx
-        const dist = 80 + (idx % 3) * 20 + (lod ? Math.sqrt(count) * 4 : 0)
-        mesh.position.set(
-          dist * Math.cos(theta) * Math.sin(phi),
-          dist * Math.cos(phi) * 0.7,
-          dist * Math.sin(theta) * Math.sin(phi),
-        )
-      }
+      mesh.position.set(...layoutPosition(idx, count, lod))
       mesh.userData = { id: node.id, radius: r }
       scene.add(mesh)
       meshes.set(node.id, mesh)
@@ -697,6 +770,40 @@ export function MemoryGraph() {
   useEffect(() => {
     controlsRef.current?.select(selectedId)
   }, [selectedId])
+
+  // Focus follows selection changes made from inside the detail panel, so a
+  // keyboard user is never dropped on <body> when the button they pressed goes.
+  useEffect(() => {
+    const want = focusAfterRef.current
+    if (!want) return
+    focusAfterRef.current = null
+    if (want === 'panel') {
+      panelHeadingRef.current?.focus()
+      return
+    }
+    const row = [...(listRef.current?.querySelectorAll<HTMLElement>('[data-node-id]') ?? [])].find(
+      (el) => el.dataset.nodeId === want.returnTo,
+    )
+    ;(row ?? viewportRef.current ?? filterRef.current)?.focus()
+  }, [selectedId])
+
+  const selectFromPanel = (id: string) => {
+    if (id === selectedRef.current) {
+      // a self-link: nothing changes, so no effect will run to move focus
+      panelHeadingRef.current?.focus()
+      return
+    }
+    focusAfterRef.current = 'panel'
+    setSelectedId(id)
+  }
+  const clearSelection = useCallback(() => {
+    const active = typeof document !== 'undefined' ? document.activeElement : null
+    const id = selectedRef.current
+    if (id !== null && asideRef.current && active && asideRef.current.contains(active)) {
+      focusAfterRef.current = { returnTo: id }
+    }
+    setSelectedId(null)
+  }, [])
   useEffect(() => {
     controlsRef.current?.filter(query)
   }, [query])
@@ -708,7 +815,7 @@ export function MemoryGraph() {
   )
   useShortcut(
     { id: 'memory.clear', keys: 'escape', label: 'Memory: clear selection', group: 'View', when: () => selectedRef.current !== null },
-    () => setSelectedId(null),
+    clearSelection,
   )
   useShortcut(
     { id: 'memory.list', keys: 'l', label: 'Memory: switch graph or list view', group: 'View', when: () => gl === 'ok' },
@@ -717,7 +824,8 @@ export function MemoryGraph() {
 
   const onViewportKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const c = controlsRef.current
-    if (!c) return
+    // Leave Ctrl/Cmd/Alt combos (browser zoom, app shortcuts) alone.
+    if (!c || e.ctrlKey || e.metaKey || e.altKey) return
     switch (e.key) {
       case 'ArrowLeft':
         c.orbit(ORBIT_STEP, 0)
@@ -766,6 +874,10 @@ export function MemoryGraph() {
     return [...m.entries()].sort((a, b) => b[1] - a[1])
   }, [graph])
   const visibleNodes = useMemo(() => graph?.nodes.filter((n) => nodeMatches(n, query)) ?? [], [graph, query])
+  const summary = useMemo(
+    () => (graph ? graphSummary(graph, kinds, query.trim() ? visibleNodes.length : null) : ''),
+    [graph, kinds, query, visibleNodes.length],
+  )
 
   // --- render ---------------------------------------------------------------
   if (load.status === 'outside') {
@@ -783,7 +895,18 @@ export function MemoryGraph() {
     return (
       <Section>
         <p className="font-mono text-sm text-alarm">Memory graph could not be read.</p>
-        <p className="mt-2 max-w-prose font-mono text-xs text-ink-soft">get_memory_graph: {load.message}</p>
+        <p className="mt-2 max-w-prose break-words font-mono text-xs text-ink-soft">
+          get_memory_graph: {load.message}
+        </p>
+        <button
+          type="button"
+          className="mt-3 border border-rule px-2.5 py-1 font-mono text-xs text-ink-soft hover:border-drape hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape disabled:opacity-50"
+          disabled={refreshing}
+          aria-busy={refreshing}
+          onClick={readGraph}
+        >
+          {refreshing ? 'reading…' : 'try again'}
+        </button>
       </Section>
     )
   }
@@ -820,7 +943,28 @@ export function MemoryGraph() {
             matching <span className="text-ink">{visibleNodes.length}</span>
           </span>
         )}
+        <button
+          type="button"
+          className={cn(btn, 'ml-auto')}
+          disabled={refreshing}
+          aria-busy={refreshing}
+          onClick={readGraph}
+        >
+          {refreshing ? 'reading…' : 'refresh'}
+        </button>
       </div>
+      <p className="sr-only" role="status" aria-live="polite" data-testid="memory-announce">
+        {refreshing
+          ? 'Reading memory store.'
+          : selected
+            ? `Selected ${selected.label}, ${selected.kind}, ${links.length} ${links.length === 1 ? 'link' : 'links'}.`
+            : ''}
+      </p>
+      {refreshError && (
+        <p className="mt-2 break-words font-mono text-xs text-alarm" role="alert">
+          Refresh failed; showing the last graph read. get_memory_graph: {refreshError}
+        </p>
+      )}
       {graph.totalNodes > graph.nodes.length && (
         <p className="mt-2 font-mono text-xs text-caution">
           Showing the first {graph.nodes.length} of {graph.totalNodes} nodes. {graph.cappedEdges} edges to nodes past
@@ -849,6 +993,7 @@ export function MemoryGraph() {
             <label className="flex items-center gap-2 font-mono text-xs text-ink-soft">
               filter
               <input
+                ref={filterRef}
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -873,11 +1018,12 @@ export function MemoryGraph() {
                 <button
                   type="button"
                   className={btn}
-                  aria-pressed={autoRotate}
+                  aria-pressed={autoRotate && !reducedMotion}
+                  disabled={reducedMotion}
                   onClick={() => setAutoRotate((v) => !v)}
-                  title={reducedMotion ? 'Your system asks for reduced motion' : undefined}
+                  title={reducedMotion ? 'Your system asks for reduced motion, so the graph does not rotate' : undefined}
                 >
-                  auto-rotate {autoRotate ? 'on' : 'off'}
+                  auto-rotate {autoRotate && !reducedMotion ? 'on' : 'off'}
                 </button>
                 <button
                   type="button"
@@ -935,11 +1081,15 @@ export function MemoryGraph() {
                   role="application"
                   aria-roledescription="3D graph"
                   aria-label={`Memory graph, ${graph.nodes.length} nodes. Arrow keys orbit, plus and minus zoom, Escape clears the selection. Press L for a list view.`}
+                  aria-describedby="memory-summary"
                   onKeyDown={onViewportKey}
                   className="relative h-[60vh] min-h-[360px] cursor-grab touch-none bg-ground outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape"
                   data-testid="memory-viewport"
                 >
                   <div ref={mountRef} className="absolute inset-0" />
+                  <p id="memory-summary" className="sr-only">
+                    {summary}
+                  </p>
                   <div className="pointer-events-none absolute left-3 top-2 font-mono text-[11px] text-ink-soft">
                     camera <span ref={readoutRef} data-testid="memory-readout" />
                   </div>
@@ -947,7 +1097,7 @@ export function MemoryGraph() {
                     ref={tooltipRef}
                     role="tooltip"
                     className={cn(
-                      'pointer-events-none absolute z-10 border border-rule bg-chart px-2 py-1 font-mono text-[11px]',
+                      'pointer-events-none absolute z-10 max-w-[18rem] truncate border border-rule bg-chart px-2 py-1 font-mono text-[11px]',
                       !hover && 'hidden',
                     )}
                   >
@@ -965,26 +1115,42 @@ export function MemoryGraph() {
                   )}
                 </div>
               ) : (
-                <NodeList nodes={visibleNodes} edges={graph.edges} selectedId={selectedId} onSelect={setSelectedId} />
+                <NodeList
+                  listRef={listRef}
+                  nodes={visibleNodes}
+                  edges={graph.edges}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
               )}
             </div>
 
             {selected && (
               <aside
+                ref={asideRef}
                 aria-label={`Node ${selected.label}`}
                 className="w-72 shrink-0 overflow-y-auto border-l border-rule bg-chart p-4 text-xs"
               >
                 <div className="flex items-baseline justify-between border-b border-rule pb-2">
-                  <span className="font-mono uppercase tracking-wider text-ink-soft">{selected.kind}</span>
+                  <span className="min-w-0 truncate font-mono uppercase tracking-wider text-ink-soft" title={selected.kind}>
+                    {selected.kind}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(null)}
+                    aria-label={`Close details for ${selected.label}`}
+                    onClick={clearSelection}
                     className="font-mono text-ink-soft hover:text-drape focus-visible:text-drape"
                   >
                     close
                   </button>
                 </div>
-                <h2 className="mt-3 break-words text-sm text-ink">{selected.label}</h2>
+                <h2
+                  ref={panelHeadingRef}
+                  tabIndex={-1}
+                  className="mt-3 text-sm text-ink outline-none [overflow-wrap:anywhere] focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape"
+                >
+                  {selected.label}
+                </h2>
                 <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[11px]">
                   <dt className="text-ink-soft">id</dt>
                   <dd className="break-all">{selected.id}</dd>
@@ -1010,7 +1176,7 @@ export function MemoryGraph() {
                 <h3 className="mt-4 border-b border-rule pb-1 font-mono text-[11px] uppercase tracking-wider text-ink-soft">
                   narrative
                 </h3>
-                <p className="mt-1 leading-relaxed text-ink">
+                <p className="mt-1 leading-relaxed text-ink [overflow-wrap:anywhere]">
                   {selected.narrative || <span className="font-mono text-ink-soft">none recorded</span>}
                 </p>
                 <h3 className="mt-4 border-b border-rule pb-1 font-mono text-[11px] uppercase tracking-wider text-ink-soft">
@@ -1027,8 +1193,8 @@ export function MemoryGraph() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => setSelectedId(other.id)}
-                          className="text-left text-ink underline decoration-rule underline-offset-2 hover:text-drape focus-visible:text-drape"
+                          onClick={() => selectFromPanel(other.id)}
+                          className="text-left text-ink underline [overflow-wrap:anywhere] decoration-rule underline-offset-2 hover:text-drape focus-visible:text-drape"
                         >
                           {other.label}
                         </button>
@@ -1067,11 +1233,13 @@ function Section({ children }: { children: ReactNode }) {
 }
 
 function NodeList({
+  listRef,
   nodes,
   edges,
   selectedId,
   onSelect,
 }: {
+  listRef: RefObject<HTMLDivElement | null>
   nodes: GraphNode[]
   edges: GraphEdge[]
   selectedId: string | null
@@ -1087,7 +1255,7 @@ function NodeList({
   }, [edges])
   if (nodes.length === 0) return <p className="p-3 font-mono text-xs text-ink-soft">No node matches the filter.</p>
   return (
-    <div className="max-h-[60vh] overflow-y-auto">
+    <div ref={listRef} className="max-h-[60vh] overflow-y-auto">
       <table className="w-full border-collapse font-mono text-xs" aria-label="Memory nodes">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -1101,13 +1269,14 @@ function NodeList({
         <tbody>
           {nodes.map((n) => (
             <tr key={n.id} className={cn('border-b border-rule', n.id === selectedId && 'bg-chart')}>
-              <td className="px-3 py-1 text-ink-soft">{n.kind}</td>
+              <td className="px-3 py-1 text-ink-soft [overflow-wrap:anywhere]">{n.kind}</td>
               <td className="px-3 py-1">
                 <button
                   type="button"
+                  data-node-id={n.id}
                   aria-pressed={n.id === selectedId}
                   onClick={() => onSelect(n.id)}
-                  className="text-left text-ink hover:text-drape focus-visible:text-drape"
+                  className="text-left text-ink [overflow-wrap:anywhere] hover:text-drape focus-visible:text-drape focus-visible:outline focus-visible:outline-1 focus-visible:outline-drape"
                 >
                   {n.label}
                 </button>

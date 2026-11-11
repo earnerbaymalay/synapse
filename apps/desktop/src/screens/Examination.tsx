@@ -73,9 +73,21 @@ export function Examination({ report }: { report: ExamReport }) {
 
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      if (timer.current) clearTimeout(timer.current)
+    }
   }, [])
+
+  // A confirmation belongs to the command it copied: when a re-read changes
+  // the next command, the old "copied" note must not sit under the new one.
+  useEffect(() => {
+    setCopied('idle')
+    if (timer.current) clearTimeout(timer.current)
+  }, [nextCmd])
 
   const copyNext = useCallback(async () => {
     let ok = false
@@ -87,6 +99,9 @@ export function Examination({ report }: { report: ExamReport }) {
     } catch {
       ok = false
     }
+    // The clipboard write can settle after the screen is gone: no state and
+    // no timer may be created then.
+    if (!mounted.current) return
     setCopied(ok ? 'copied' : 'failed')
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => setCopied('idle'), 2500)
@@ -153,8 +168,13 @@ export function Examination({ report }: { report: ExamReport }) {
             copy
           </button>
           <span role="status" aria-live="polite" className="text-ink-soft">
-            {copied === 'copied' ? 'copied' : copied === 'failed' ? 'clipboard unavailable, select the command' : ''}
+            {copied === 'copied' ? 'copied' : ''}
           </span>
+          {copied === 'failed' && (
+            <span role="alert" className="text-alarm">
+              <span aria-hidden="true">▲ </span>clipboard unavailable, select the command
+            </span>
+          )}
         </div>
         {t.fixable > 0 && (
           <Hint id="examination.fix">

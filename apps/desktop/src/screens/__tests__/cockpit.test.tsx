@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 
@@ -269,6 +269,173 @@ describe('Cockpit controls', () => {
     await u.click(screen.getByRole('button', { name: 'read now' }))
     await flush()
     expect(mockInvoke).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('Cockpit bug fixes (wave 2)', () => {
+  it('a visibility flip during a slow read does not start a second polling chain', async () => {
+    render(<Cockpit />)
+    await flush()
+    let resolve!: (v: CockpitTelemetry) => void
+    mockInvoke.mockImplementationOnce(() => new Promise((r) => (resolve = r as typeof resolve)))
+    await advance(POLL_MS) // tick #2 starts, read is pending
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+    hidden = true
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    hidden = false
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await act(async () => resolve(telemetry()))
+    await flush()
+    const before = mockInvoke.mock.calls.length
+    await advance(POLL_MS * 3)
+    // One chain: exactly one read per interval.
+    expect(mockInvoke.mock.calls.length - before).toBe(3)
+  })
+
+  it('a visibility flip during a slow read leaves no orphan timer after unmount', async () => {
+    const { unmount } = render(<Cockpit />)
+    await flush()
+    let resolve!: (v: CockpitTelemetry) => void
+    mockInvoke.mockImplementationOnce(() => new Promise((r) => (resolve = r as typeof resolve)))
+    await advance(POLL_MS)
+    hidden = true
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    hidden = false
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await act(async () => resolve(telemetry()))
+    await flush()
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('does not say "Vitals steady." when Doctor counts were not reported', async () => {
+    mockInvoke.mockResolvedValue({ gateway_status: 'ONLINE' })
+    render(<Cockpit gatewayMeasured />)
+    await flush()
+    expect(screen.queryByText('Vitals steady.')).not.toBeInTheDocument()
+    expect(screen.getByText('Doctor counts not reported.')).toBeInTheDocument()
+  })
+
+  it('does not say "Brain steady" when the fixable count is missing', async () => {
+    mockInvoke.mockResolvedValue({ doctor_criticals: 0, adapters_present: 3, adapters_total: 3 })
+    render(<Cockpit />)
+    await flush()
+    expect(screen.queryByText(/Brain steady/)).not.toBeInTheDocument()
+    expect(screen.getByText('Doctor counts not reported.')).toBeInTheDocument()
+  })
+
+  it('shows the message of an object-shaped rejection, not [object Object]', async () => {
+    mockInvoke.mockRejectedValue({ message: 'permission denied: /root/AIBrain' })
+    render(<Cockpit />)
+    await flush()
+    expect(screen.getByRole('alert')).toHaveTextContent('Telemetry read failed: permission denied: /root/AIBrain')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('[object Object]')
+  })
+
+  it('names an empty rejection instead of showing a blank reason', async () => {
+    mockInvoke.mockRejectedValue('')
+    render(<Cockpit />)
+    await flush()
+    expect(screen.getByRole('alert')).toHaveTextContent('Telemetry read failed: no reason given by the backend')
+  })
+
+  it('read now: pending state keeps focus, blocks a second click and explains why', async () => {
+    const u = user()
+    render(<Cockpit />)
+    await flush()
+    let resolve!: (v: CockpitTelemetry) => void
+    mockInvoke.mockImplementationOnce(() => new Promise((r) => (resolve = r as typeof resolve)))
+    const btn = screen.getByRole('button', { name: 'read now' })
+    btn.focus()
+    await u.keyboard('{Enter}')
+    const pending = screen.getByRole('button', { name: 'reading…' })
+    expect(pending).toBe(btn)
+    expect(pending).toHaveAttribute('aria-disabled', 'true')
+    expect(pending).toHaveAttribute('title', expect.stringMatching(/already in progress/))
+    expect(pending).toHaveFocus()
+    await u.click(pending)
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+    await act(async () => resolve(telemetry({ adapters_present: 15 })))
+    await flush()
+    expect(screen.getByRole('button', { name: 'read now' })).toHaveAttribute('aria-disabled', 'false')
+    expect(screen.getByText('15/15 grafts')).toBeInTheDocument()
+  })
+
+  it('read now shows the values the backend returned, not the old ones', async () => {
+    const u = user()
+    render(<Cockpit />)
+    await flush()
+    expect(screen.getByText('14/15 grafts')).toBeInTheDocument()
+    mockInvoke.mockResolvedValueOnce(telemetry({ adapters_present: 9, adapters_total: 12, doctor_fixable: 4 }))
+    await u.click(screen.getByRole('button', { name: 'read now' }))
+    await flush()
+    expect(screen.getByText('9/12 grafts')).toBeInTheDocument()
+    expect(screen.getByText('4 fixable findings on the Brain.')).toBeInTheDocument()
+    expect(screen.getByText('4')).toHaveClass('text-caution')
+  })
+
+  it('read now failure shows the backend error and leaves the controls usable', async () => {
+    const u = user()
+    render(<Cockpit />)
+    await flush()
+    mockInvoke.mockRejectedValueOnce('tool root not found: ~/.config')
+    await u.click(screen.getByRole('button', { name: 'read now' }))
+    await flush()
+    expect(screen.getByRole('alert')).toHaveTextContent('tool root not found: ~/.config')
+    expect(screen.getByText('14/15 grafts')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'read now' })).toHaveAttribute('aria-disabled', 'false')
+    expect(screen.getByRole('button', { name: /pause/ })).toBeEnabled()
+  })
+
+  it('retry shows its own pending state and blocks a double submit', async () => {
+    const u = user()
+    mockInvoke.mockRejectedValueOnce('boom')
+    render(<Cockpit />)
+    await flush()
+    let resolve!: (v: CockpitTelemetry) => void
+    mockInvoke.mockImplementationOnce(() => new Promise((r) => (resolve = r as typeof resolve)))
+    await u.click(screen.getByRole('button', { name: 'retry' }))
+    const pending = screen.getByRole('button', { name: 'retrying…' })
+    expect(pending).toHaveAttribute('aria-disabled', 'true')
+    await u.click(pending)
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+    await act(async () => resolve(telemetry()))
+    await flush()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText('14/15 grafts')).toBeInTheDocument()
+  })
+
+  it('the pause button name is not polluted by the shortcut hint', async () => {
+    render(<Cockpit />)
+    await flush()
+    const btn = screen.getByRole('button', { name: 'pause' })
+    expect(btn).toHaveAttribute('aria-keyshortcuts', 'P')
+  })
+
+  it('panel status is announced in words, not only by glyph colour', async () => {
+    mockInvoke.mockResolvedValue(telemetry({ doctor_criticals: 1 }))
+    render(<Cockpit />)
+    await flush()
+    const brain = screen.getByRole('region', { name: 'Brain health' })
+    expect(within(brain).getByText('Status: critical.')).toHaveClass('sr-only')
+    const gw = screen.getByRole('region', { name: 'Runtime gateway' })
+    expect(gw).toHaveTextContent(/not measured/)
+  })
+
+  it('the chart head wraps its context instead of overflowing a narrow window', async () => {
+    render(<Cockpit />)
+    await flush()
+    const ctx = screen.getByText(/every 5 s/).closest('p') as HTMLElement
+    expect(ctx).toHaveClass('min-w-0')
+    expect(ctx.parentElement).toHaveClass('flex-wrap')
+  })
+
+  it('a long backend error can shrink and wrap inside the alert row', async () => {
+    mockInvoke.mockRejectedValue('x'.repeat(400))
+    render(<Cockpit />)
+    await flush()
+    const msg = screen.getByText(/Telemetry read failed/)
+    expect(msg).toHaveClass('min-w-0')
   })
 })
 

@@ -122,8 +122,17 @@ export function Spool() {
   const [log, setLog] = useState<LogState>({ kind: 'idle' })
   const [view, setView] = useState<ViewMode>('side-by-side')
   const [copyNote, setCopyNote] = useState<{ ok: boolean; text: string } | null>(null)
+  /** True while a re-read runs over a list that is already on screen. */
+  const [reloading, setReloading] = useState(false)
+  /**
+   * Bumped by every successful list read, so the selected log is re-read too:
+   * otherwise a re-read that keeps the same selection leaves a stale log (or
+   * a stale "no longer exists" error) on screen.
+   */
+  const [listGen, setListGen] = useState(0)
   const listSeq = useRef(0)
   const logSeq = useRef(0)
+  const listInFlight = useRef(false)
   const mounted = useRef(true)
 
   useEffect(() => {
@@ -138,18 +147,28 @@ export function Spool() {
       setList({ kind: 'outside' })
       return
     }
+    // One read at a time: a held-down shortcut or a double click must not
+    // queue a burst of identical spool reads.
+    if (listInFlight.current) return
+    listInFlight.current = true
     const seq = ++listSeq.current
-    setList({ kind: 'loading' })
+    // A list already on screen stays there while it is re-read.
+    setList((prev) => (prev.kind === 'ready' ? prev : { kind: 'loading' }))
+    setReloading(true)
     try {
       const entries = await invoke<SpoolEntryDto[]>('spool_list')
       if (!mounted.current || seq !== listSeq.current) return
       const safe = Array.isArray(entries) ? entries : []
       setList({ kind: 'ready', entries: safe })
       setSelectedId((cur) => (cur && safe.some((e) => e.id === cur) ? cur : (safe[0]?.id ?? null)))
+      setListGen((g) => g + 1)
     } catch (e) {
       if (!mounted.current || seq !== listSeq.current) return
       const message = errorText(e)
       setList(isUnwired(message) ? { kind: 'unwired', message } : { kind: 'error', message })
+    } finally {
+      listInFlight.current = false
+      if (mounted.current && seq === listSeq.current) setReloading(false)
     }
   }, [])
 
@@ -174,7 +193,7 @@ export function Spool() {
         if (!mounted.current || seq !== logSeq.current) return
         setLog({ kind: 'error', message: errorText(e) })
       })
-  }, [selectedId])
+  }, [selectedId, listGen])
 
   const cycleView = useCallback(() => {
     setView((v) => VIEWS[(VIEWS.findIndex((x) => x.id === v) + 1) % VIEWS.length].id)
@@ -198,6 +217,7 @@ export function Spool() {
   const entries = list.kind === 'ready' ? list.entries : []
   const selected = entries.find((e) => e.id === selectedId) ?? null
   const shownEntries = entries.slice(0, MAX_ENTRIES)
+  const reread = () => void loadList()
 
   return (
     <div className="space-y-6">
@@ -218,7 +238,11 @@ export function Spool() {
         />
       )}
 
-      {list.kind === 'loading' && <p className="font-mono text-xs text-ink-soft">reading spool…</p>}
+      {list.kind === 'loading' && (
+        <p role="status" className="font-mono text-xs text-ink-soft">
+          reading spool…
+        </p>
+      )}
 
       {list.kind === 'unwired' && (
         <Absent
@@ -234,24 +258,30 @@ export function Spool() {
             <span aria-hidden="true">▲ </span>Spool could not be read.
           </p>
           <p className="mt-2 break-words font-mono text-xs text-ink-soft">{list.message}</p>
-          <RetryLine onRetry={() => void loadList()} />
+          <RetryLine onRetry={reread} busy={reloading} />
         </div>
       )}
 
       {list.kind === 'ready' && entries.length === 0 && (
-        <Absent
-          title="Spool is empty."
-          body="No command output has been spooled yet. Output is spooled when a command runs through sensory gating."
-          next="synapse squash <command>"
-        />
+        <div>
+          <Absent
+            title="Spool is empty."
+            body="No command output has been spooled yet. Output is spooled when a command runs through sensory gating."
+            next="synapse squash <command>"
+          />
+          <RetryLine onRetry={reread} busy={reloading} />
+        </div>
       )}
 
       {list.kind === 'ready' && entries.length > 0 && (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <nav aria-label="Spooled runs" className="border border-rule bg-ground">
-            <div className="flex items-center justify-between border-b border-rule px-3 py-2">
+            <div className="flex items-center justify-between gap-2 border-b border-rule px-3 py-2">
               <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-drape">Spooled runs</p>
-              <p className="font-mono text-[11px] tabular-nums text-ink-soft">{fmtInt(entries.length)}</p>
+              <div className="flex items-center gap-2 font-mono text-[11px]">
+                <span className="tabular-nums text-ink-soft">{fmtInt(entries.length)}</span>
+                <ReloadButton onReload={reread} busy={reloading} />
+              </div>
             </div>
             <ul className="max-h-[32rem] divide-y divide-rule overflow-y-auto">
               {shownEntries.map((run) => {
@@ -266,10 +296,15 @@ export function Spool() {
                         active ? 'border-drape bg-chart text-ink' : 'border-transparent text-ink-soft hover:text-ink'
                       }`}
                     >
-                      <span className="block truncate text-ink">{run.command?.trim() || run.id}</span>
+                      <span className="block truncate text-ink" title={run.command?.trim() || run.id}>
+                        {run.command?.trim() || run.id}
+                      </span>
                       <span className="mt-0.5 flex justify-between gap-2 text-[11px] tabular-nums text-ink-soft">
-                        <span>{run.id}</span>
-                        <span>{fmtBytes(run.raw_bytes)}</span>
+                        {/* The id is already the title line when no command was recorded. */}
+                        <span className="min-w-0 truncate" title={run.id}>
+                          {run.command?.trim() ? run.id : ''}
+                        </span>
+                        <span className="shrink-0">{fmtBytes(run.raw_bytes)}</span>
                       </span>
                       <span className="block text-[11px] tabular-nums text-ink-soft">{fmtTime(run.timestamp)}</span>
                     </button>
@@ -293,6 +328,8 @@ export function Spool() {
                 setView={setView}
                 onCopy={doCopy}
                 copyNote={copyNote}
+                onReread={reread}
+                rereading={reloading}
               />
             ) : (
               <p className="font-mono text-xs text-ink-soft">Select a run to inspect it.</p>
@@ -311,6 +348,8 @@ function Inspector({
   setView,
   onCopy,
   copyNote,
+  onReread,
+  rereading,
 }: {
   entry: SpoolEntryDto
   log: LogState
@@ -318,6 +357,8 @@ function Inspector({
   setView: (v: ViewMode) => void
   onCopy: (what: string, text: string) => Promise<void>
   copyNote: { ok: boolean; text: string } | null
+  onReread: () => void
+  rereading: boolean
 }) {
   const text = log.kind === 'ready' ? log.text : null
   const tokens = text !== null ? estimateTokens(text) : null
@@ -327,10 +368,20 @@ function Inspector({
     <>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-rule pb-3">
         <div className="min-w-0">
-          <h3 className="truncate font-mono text-sm font-semibold text-ink">{entry.command?.trim() || entry.id}</h3>
-          <p className="font-mono text-[11px] tabular-nums text-ink-soft">
+          <h3
+            className="truncate font-mono text-sm font-semibold text-ink"
+            title={entry.command?.trim() || entry.id}
+          >
+            {entry.command?.trim() || entry.id}
+          </h3>
+          <p className="break-words font-mono text-[11px] tabular-nums text-ink-soft">
             {entry.id} · {fmtTime(entry.timestamp)} · {fmtBytes(entry.raw_bytes)} raw
-            {tokens !== null && <> · ≈ {fmtInt(tokens)} tokens</>}
+            {tokens !== null && (
+              <span title={TOKEN_NOTE}>
+                {' '}
+                · ≈ {fmtInt(tokens)} tokens (estimate)
+              </span>
+            )}
           </p>
           <p className="mt-1 break-all font-mono text-[11px] text-ink-soft">{entry.log_path}</p>
         </div>
@@ -364,6 +415,7 @@ function Inspector({
         <button
           type="button"
           disabled={text === null}
+          title={text === null ? 'The log has not been read, so there is nothing to copy yet.' : undefined}
           onClick={() => text !== null && void onCopy('full log', text)}
           className={`border border-rule px-2.5 py-1 text-ink-soft hover:text-ink disabled:opacity-50 ${FOCUS}`}
         >
@@ -376,20 +428,34 @@ function Inspector({
         >
           Copy <span className="text-drape">synapse spool show {entry.id}</span>
         </button>
-        {copyNote && (
-          <span role={copyNote.ok ? 'status' : 'alert'} className={copyNote.ok ? 'text-ink-soft' : 'text-alarm'}>
-            <span aria-hidden="true">{copyNote.ok ? '● ' : '▲ '}</span>
+        {/* Kept mounted so a polite confirmation is actually announced. */}
+        <span role="status" className="text-ink-soft">
+          {copyNote?.ok && (
+            <>
+              <span aria-hidden="true">● </span>
+              {copyNote.text}
+            </>
+          )}
+        </span>
+        {copyNote && !copyNote.ok && (
+          <span role="alert" className="text-alarm">
+            <span aria-hidden="true">▲ </span>
             {copyNote.text}
           </span>
         )}
       </div>
 
-      <div className={`grid grid-cols-1 gap-4 ${view === 'side-by-side' ? 'md:grid-cols-2' : ''}`}>
+      {/* Side by side only from xl: below that the inspector is too narrow for two log panes. */}
+      <div className={`grid grid-cols-1 gap-4 ${view === 'side-by-side' ? 'xl:grid-cols-2' : ''}`}>
         {(view === 'side-by-side' || view === 'raw') && (
           <div className="border border-rule bg-ground">
             <p className="flex justify-between border-b border-rule px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink">
               <span>Raw output</span>
-              {tokens !== null && <span className="font-normal tabular-nums text-ink-soft">≈ {fmtInt(tokens)} tokens</span>}
+              {tokens !== null && (
+                <span className="font-normal tabular-nums text-ink-soft" title={TOKEN_NOTE}>
+                  ≈ {fmtInt(tokens)} tokens
+                </span>
+              )}
             </p>
             {log.kind === 'loading' && <p className="p-3 font-mono text-xs text-ink-soft">reading log…</p>}
             {log.kind === 'error' && (
@@ -398,6 +464,9 @@ function Inspector({
                   <span aria-hidden="true">▲ </span>Log could not be read.
                 </p>
                 <p className="mt-1 break-words text-ink-soft">{log.message}</p>
+                <p className="mt-2">
+                  <ReloadButton onReload={onReread} busy={rereading} label="Re-read the spool" />
+                </p>
               </div>
             )}
             {tail && tail.total > MAX_LINES && (
@@ -466,12 +535,41 @@ function Absent({ title, body, next }: { title: string; body: string; next: stri
   )
 }
 
-function RetryLine({ onRetry }: { onRetry: () => void }) {
+const TOKEN_NOTE = 'Estimate: characters ÷ 4, the same rule the CLI uses. Not a measured token count.'
+
+/**
+ * Re-reads the spool. While a read is running it says so and ignores
+ * presses (aria-disabled, so a keyboard user keeps focus on it).
+ */
+function ReloadButton({
+  onReload,
+  busy,
+  label = 're-read',
+}: {
+  onReload: () => void
+  busy: boolean
+  label?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!busy) onReload()
+      }}
+      aria-disabled={busy || undefined}
+      aria-keyshortcuts="Shift+R"
+      title={busy ? 'The spool is being read.' : `Re-read the spool (${formatKeys(KEYS_RELOAD).join(' ')})`}
+      className={`text-drape hover:text-ink aria-disabled:cursor-wait aria-disabled:text-ink-soft ${FOCUS}`}
+    >
+      {busy ? 'reading…' : label}
+    </button>
+  )
+}
+
+function RetryLine({ onRetry, busy }: { onRetry: () => void; busy: boolean }) {
   return (
     <p className="mt-3 font-mono text-xs">
-      <button type="button" onClick={onRetry} className={`text-drape hover:text-ink ${FOCUS}`}>
-        Re-read the spool
-      </button>
+      <ReloadButton onReload={onRetry} busy={busy} label="Re-read the spool" />
       <span className="text-ink-soft"> · or run </span>
       <span className="text-drape">synapse spool list</span>
     </p>

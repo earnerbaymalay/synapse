@@ -8,7 +8,7 @@
 //! "…successfully" string regardless of outcome), so they are gone rather
 //! than restyled.
 
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 use synapse_core::adapters::all_adapters;
@@ -33,23 +33,54 @@ fn user_path(raw: &str) -> Option<PathBuf> {
     Some(crate::config::expand_tilde(trimmed))
 }
 
+/// `user_path`, plus the requirement that the result is absolute. A relative
+/// path would be resolved against the app's working directory, which for a
+/// desktop app is wherever the launcher happened to start it (often `/`), so
+/// the same setting could point at a different folder on every launch. It is
+/// refused with a message instead of being silently reinterpreted.
+fn absolute_user_path(raw: &str, what: &str) -> Result<Option<PathBuf>, String> {
+    match user_path(raw) {
+        None => Ok(None),
+        Some(p) if p.is_absolute() => Ok(Some(p)),
+        Some(p) => Err(format!(
+            "{what} \"{}\" is not a full path, so it would depend on where Synapse \
+             was started. Use a full path such as ~/AIBrain.",
+            p.display()
+        )),
+    }
+}
+
+/// An explicit path argument from the webview, normalised and checked.
+fn explicit_path(explicit: Option<&str>, what: &str) -> Result<Option<PathBuf>, String> {
+    match explicit {
+        Some(raw) => absolute_user_path(raw, what),
+        None => Ok(None),
+    }
+}
+
 /// The first of `vars` that is set to a non-empty value. An env var set to
 /// "" must not become the relative path "" (i.e. the process cwd).
-fn env_path(vars: &[&str]) -> Option<PathBuf> {
-    vars.iter()
-        .filter_map(|v| std::env::var_os(v))
-        .find(|v| !v.is_empty())
-        .and_then(|v| user_path(&v.to_string_lossy()))
+fn env_path(vars: &[&str]) -> Result<Option<PathBuf>, String> {
+    for var in vars {
+        let Some(value) = std::env::var_os(var) else {
+            continue;
+        };
+        if value.is_empty() {
+            continue;
+        }
+        return absolute_user_path(&value.to_string_lossy(), &format!("${var}"));
+    }
+    Ok(None)
 }
 
 /// Resolves the Brain directory, mirroring the CLI's precedence so both
 /// surfaces examine the same Brain: an explicit path, then
 /// `$SYNAPSE_BRAIN_PATH` / `$SYNAPSE_BRAIN`, then `~/AIBrain`.
 fn resolve_brain_root(explicit: Option<String>) -> Result<PathBuf, String> {
-    if let Some(p) = explicit.as_deref().and_then(user_path) {
+    if let Some(p) = explicit_path(explicit.as_deref(), "The Brain folder")? {
         return Ok(p);
     }
-    if let Some(p) = env_path(&["SYNAPSE_BRAIN_PATH", "SYNAPSE_BRAIN"]) {
+    if let Some(p) = env_path(&["SYNAPSE_BRAIN_PATH", "SYNAPSE_BRAIN"])? {
         return Ok(p);
     }
     directories::UserDirs::new()
@@ -65,10 +96,10 @@ fn resolve_brain_root(explicit: Option<String>) -> Result<PathBuf, String> {
 /// the CLI: an explicit path, then `$SYNAPSE_WORKSPACE_PATH` /
 /// `$SYNAPSE_TOOL_ROOT`, then the home directory.
 fn resolve_tool_root(explicit: Option<String>) -> Result<PathBuf, String> {
-    if let Some(p) = explicit.as_deref().and_then(user_path) {
+    if let Some(p) = explicit_path(explicit.as_deref(), "The tools folder")? {
         return Ok(p);
     }
-    if let Some(p) = env_path(&["SYNAPSE_WORKSPACE_PATH", "SYNAPSE_TOOL_ROOT"]) {
+    if let Some(p) = env_path(&["SYNAPSE_WORKSPACE_PATH", "SYNAPSE_TOOL_ROOT"])? {
         return Ok(p);
     }
     directories::UserDirs::new()
@@ -312,7 +343,7 @@ pub fn run_get_memory_graph(brain: Option<String>) -> Result<MemoryGraphPayload,
     // ~/.synapse/memory). Reading `<brain>/memory` instead meant the graph
     // never saw anything the CLI recorded. An explicit Brain still scopes
     // the store to that Brain's own `memory/` folder.
-    let explicit_brain = brain.as_deref().and_then(user_path);
+    let explicit_brain = explicit_path(brain.as_deref(), "The Brain folder")?;
     let memory_dir = match &explicit_brain {
         Some(b) => b.join("memory"),
         None => synapse_core::memory::MemoryStore::default_dir(),
@@ -394,13 +425,13 @@ pub fn run_get_memory_graph(brain: Option<String>) -> Result<MemoryGraphPayload,
         });
 
         for file in &obs.files {
-            let f_id = format!("file-{}", file);
+            let f_id = format!("file-{file}");
             if files_seen.insert(f_id.clone()) {
                 nodes.push(MemoryNodeDto {
                     id: f_id.clone(),
                     label: file.split('/').next_back().unwrap_or(file).to_string(),
                     kind: "file".to_string(),
-                    narrative: format!("Touched file: {}", file),
+                    narrative: format!("Touched file: {file}"),
                     files: vec![file.clone()],
                     ts: obs.ts,
                     val: 6.0,
@@ -472,6 +503,11 @@ pub fn run_get_cockpit_telemetry(
     let all = all_adapters();
     let present = all.iter().filter(|a| a.detect(&tool_root)).count();
 
+    // OPEN PRODUCT QUESTION (not measured): the gateway fields below, from
+    // `gateway_status` through `reduction_pct`, are hard-coded constants, not
+    // readings of a running gateway. Only `brain_path`, the adapter counts
+    // and the Doctor counts are measured. Left as-is pending a product
+    // decision; see the BACKEND audit report.
     Ok(CockpitTelemetry {
         gateway_status: "ONLINE",
         upstream_url: "http://127.0.0.1:11434 (Ollama)".to_string(),
@@ -500,6 +536,8 @@ pub async fn heal_vitals(brain: Option<String>, tools: Option<String>) -> Result
 pub fn run_heal_vitals(brain: Option<String>, tools: Option<String>) -> Result<usize, String> {
     let brain_root = resolve_brain_root(brain)?;
     let tool_root = resolve_tool_root(tools)?;
+    let home = directories::UserDirs::new().map(|d| d.home_dir().to_path_buf());
+    check_heal_target(&brain_root, home.as_deref())?;
 
     let ctx = DoctorContext {
         brain_root: brain_root.clone(),
@@ -514,6 +552,40 @@ pub fn run_heal_vitals(brain: Option<String>, tools: Option<String>) -> Result<u
             brain_root.display()
         )
     })
+}
+
+/// Refuses Brain locations where a repair would do damage rather than heal.
+/// `apply_fixes` creates the Brain folder, runs `git init` in it and writes
+/// Brain files there, so a Brain path of `/`, the home folder, or any parent
+/// of home (whether it came from a stray env var or from the webview) would
+/// turn the user's home into a git repository. `..` is refused outright so
+/// the check cannot be sidestepped lexically.
+fn check_heal_target(brain_root: &Path, home: Option<&Path>) -> Result<(), String> {
+    if brain_root
+        .components()
+        .any(|c| matches!(c, Component::ParentDir))
+    {
+        return Err(format!(
+            "Synapse won't repair a Brain at {} because the path contains \"..\". \
+             Use the folder's full path.",
+            brain_root.display()
+        ));
+    }
+    let resolved = brain_root
+        .canonicalize()
+        .unwrap_or_else(|_| brain_root.to_path_buf());
+    let home = home.map(|h| h.canonicalize().unwrap_or_else(|_| h.to_path_buf()));
+    let is_fs_root = resolved.parent().is_none();
+    let covers_home = home.as_deref().is_some_and(|h| h.starts_with(&resolved));
+    if is_fs_root || covers_home {
+        return Err(format!(
+            "Synapse won't repair a Brain at {}: that is your home folder or one of its \
+             parents, and a repair would turn it into a git repository. Point \
+             SYNAPSE_BRAIN_PATH at a dedicated folder such as ~/AIBrain.",
+            brain_root.display()
+        ));
+    }
+    Ok(())
 }
 
 // ── spool (raw command logs) ────────────────────────────────────────────
@@ -587,20 +659,75 @@ pub fn run_spool_show(id: String) -> Result<String, String> {
     spool_show_in(synapse_core::compression::SpoolManager::default_dir(), &id)
 }
 
+/// Largest log `spool_show` returns whole. A spooled build or test run can
+/// be hundreds of megabytes; reading that into one string and pushing it
+/// over IPC into a React text view stalls or crashes the window, so beyond
+/// this only the tail is returned, under a line that says so.
+const SPOOL_SHOW_MAX_BYTES: u64 = 8 * 1024 * 1024;
+
 fn spool_show_in(dir: PathBuf, id: &str) -> Result<String, String> {
     validate_spool_id(id)?;
+    let path = dir.join(format!("{id}.log"));
+    // `symlink_metadata` so a `<id>.log` that is a link is seen as one: the
+    // spool only ever holds regular files Synapse wrote, and following a
+    // link would read whatever it points at.
+    let meta = std::fs::symlink_metadata(&path).map_err(|e| spool_read_error(id, &e))?;
+    if !meta.is_file() {
+        return Err(format!(
+            "The spool log \"{id}\" isn't a regular file (it may be a link to somewhere \
+             else), so Synapse won't open it."
+        ));
+    }
+    if meta.len() > SPOOL_SHOW_MAX_BYTES {
+        return read_spool_tail(&path, meta.len(), SPOOL_SHOW_MAX_BYTES)
+            .map_err(|e| spool_read_error(id, &e));
+    }
     let manager = synapse_core::compression::SpoolManager::new(dir);
     manager
         .read_log(id, None, None)
-        .map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => {
-                format!("The spool log \"{id}\" no longer exists. Refresh the list.")
-            }
-            std::io::ErrorKind::InvalidData => {
-                format!("The spool log \"{id}\" isn't readable text (it contains invalid UTF-8).")
-            }
-            _ => format!("Couldn't open the spool log \"{id}\". ({e})"),
-        })
+        .map_err(|e| spool_read_error(id, &e))
+}
+
+fn spool_read_error(id: &str, e: &std::io::Error) -> String {
+    match e.kind() {
+        std::io::ErrorKind::NotFound => {
+            format!("The spool log \"{id}\" no longer exists. Refresh the list.")
+        }
+        std::io::ErrorKind::InvalidData => {
+            format!("The spool log \"{id}\" isn't readable text (it contains invalid UTF-8).")
+        }
+        _ => format!("Couldn't open the spool log \"{id}\". ({e})"),
+    }
+}
+
+/// Reads at most the last `max` bytes of a `len`-byte log, starting at the
+/// first whole line so the text never opens on half a line or half a UTF-8
+/// character, and prefixes one line stating that the view is partial. Lines
+/// are re-joined with `\n`, matching core's `read_log`.
+fn read_spool_tail(path: &Path, len: u64, max: u64) -> std::io::Result<String> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(path)?;
+    file.seek(SeekFrom::Start(len.saturating_sub(max)))?;
+    let mut buf = Vec::new();
+    file.take(max).read_to_end(&mut buf)?;
+
+    let start = match buf.iter().position(|&b| b == b'\n') {
+        Some(i) => i + 1,
+        // One enormous line: at least skip a split UTF-8 sequence.
+        None => buf
+            .iter()
+            .position(|&b| (b & 0xC0) != 0x80)
+            .unwrap_or(buf.len()),
+    };
+    let text = std::str::from_utf8(&buf[start..])
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let body = text.lines().collect::<Vec<_>>().join("\n");
+    Ok(format!(
+        "[synapse] This log is {len} bytes; only its last {} bytes are shown. Full log: {}\n{body}",
+        buf.len() - start,
+        path.display()
+    ))
 }
 
 #[cfg(test)]
@@ -808,6 +935,92 @@ mod tests {
         assert!(graph.nodes.is_empty(), "sample nodes were injected");
         assert!(graph.edges.is_empty());
         assert_eq!(graph.total_observations, 0);
+    }
+
+    #[test]
+    fn relative_explicit_paths_are_refused_not_resolved_against_the_cwd() {
+        assert!(resolve_brain_root(Some("AIBrain".to_string())).is_err());
+        assert!(resolve_tool_root(Some("some/dir".to_string())).is_err());
+        assert!(run_get_memory_graph(Some("relative-brain".to_string())).is_err());
+    }
+
+    #[test]
+    fn heal_refuses_root_home_and_parents_of_home() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+
+        assert!(check_heal_target(Path::new("/"), Some(home.as_path())).is_err());
+        assert!(check_heal_target(&home, Some(home.as_path())).is_err());
+        assert!(check_heal_target(dir.path(), Some(home.as_path())).is_err());
+        assert!(check_heal_target(&home.join("AIBrain").join(".."), Some(home.as_path())).is_err());
+
+        assert!(check_heal_target(&home.join("AIBrain"), Some(home.as_path())).is_ok());
+        assert!(check_heal_target(&dir.path().join("elsewhere"), Some(home.as_path())).is_ok());
+        assert!(check_heal_target(&home.join("AIBrain"), None).is_ok());
+    }
+
+    #[test]
+    fn heal_with_home_as_the_brain_writes_nothing() {
+        let home = tempfile::tempdir().unwrap();
+        let _home = HomeGuard::empty(home.path());
+        let err = run_heal_vitals(
+            Some(home.path().display().to_string()),
+            Some(home.path().display().to_string()),
+        )
+        .unwrap_err();
+        assert!(err.contains("home folder"), "{err}");
+        assert!(!home.path().join(".git").exists(), "git init ran in home");
+    }
+
+    #[test]
+    fn oversized_spool_logs_return_a_labelled_tail() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("big.log");
+        let content: String = (0..50).map(|i| format!("line {i:02} é\n")).collect();
+        std::fs::write(&path, &content).unwrap();
+        let len = content.len() as u64;
+
+        let text = read_spool_tail(&path, len, 40).unwrap();
+        let mut lines = text.lines();
+        let header = lines.next().unwrap();
+        assert!(header.starts_with("[synapse] This log is"), "{header}");
+        assert!(header.contains(&len.to_string()));
+        let rest: Vec<&str> = lines.collect();
+        assert!(!rest.is_empty());
+        assert!(rest.iter().all(|l| l.starts_with("line ")), "{rest:?}");
+        assert_eq!(*rest.last().unwrap(), "line 49 é");
+
+        // A log under the cap still comes back whole through core.
+        assert_eq!(
+            spool_show_in(dir.path().to_path_buf(), "big").unwrap(),
+            content.trim_end()
+        );
+    }
+
+    #[test]
+    fn a_tail_without_newlines_does_not_start_mid_character() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("one.log");
+        let content = "é".repeat(100);
+        std::fs::write(&path, &content).unwrap();
+        // 41 bytes back lands inside a two-byte character.
+        let text = read_spool_tail(&path, content.len() as u64, 41).unwrap();
+        assert!(text.lines().nth(1).unwrap().chars().all(|c| c == 'é'));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn spool_show_refuses_symlinked_logs() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let secret = outside.path().join("secret.txt");
+        std::fs::write(&secret, "do not read").unwrap();
+        std::os::unix::fs::symlink(&secret, dir.path().join("link.log")).unwrap();
+
+        let err = spool_show_in(dir.path().to_path_buf(), "link").unwrap_err();
+        assert!(!err.contains("do not read"));
+        assert!(err.contains("isn't a regular file"), "{err}");
     }
 
     #[test]

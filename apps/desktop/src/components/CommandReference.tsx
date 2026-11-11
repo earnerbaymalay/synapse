@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useHints } from '../lib/hints'
-import { formatKeys, listShortcuts, subscribeShortcuts, useShortcut, type ShortcutDef } from '../lib/shortcuts'
+import { formatKeys, isMac, listShortcuts, subscribeShortcuts, useShortcut, type ShortcutDef } from '../lib/shortcuts'
 
 /**
  * Quick command reference: every registered keyboard shortcut plus the
- * synapse CLI commands. Opens with "?", mod+/ or mod+k. Self-contained:
+ * synapse CLI commands. "?", mod+/ and mod+k open and close it; so does
+ * <CommandReferenceButton /> (or openCommandReference()). Self-contained:
  * the shell mounts <CommandReference /> once and it manages its own state.
  */
+
+/** Window event the visible opener uses; CommandReference listens for it. */
+export const COMMAND_REFERENCE_OPEN_EVENT = 'synapse:command-reference-open'
+
+/** Open the command reference from anywhere (focus returns to the caller's focused element). */
+export function openCommandReference(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(COMMAND_REFERENCE_OPEN_EVENT))
+}
 
 interface CliCommand {
   command: string
@@ -28,6 +38,49 @@ export const CLI_COMMANDS: CliCommand[] = [
 ]
 
 const HELP_GROUP = 'Help'
+/** Groups render in this order; any other group follows, in registration order. */
+const GROUP_ORDER = ['Navigation', 'Actions', 'View', HELP_GROUP]
+
+const SPOKEN: Record<string, string> = {
+  '⌘': 'Command',
+  '⌃': 'Control',
+  '⌥': 'Option',
+  '⇧': 'Shift',
+  Ctrl: 'Control',
+  Win: 'Windows',
+  Esc: 'Escape',
+  Del: 'Delete',
+  '↑': 'Up arrow',
+  '↓': 'Down arrow',
+  '←': 'Left arrow',
+  '→': 'Right arrow',
+  '?': 'Question mark',
+  '/': 'Slash',
+  '+': 'Plus',
+  '-': 'Minus',
+}
+
+/** What a screen reader should say for a combo: "Command+K", not "place of interest sign K". */
+export function spokenKeys(keys: string): string {
+  return formatKeys(keys)
+    .map((k) => SPOKEN[k] ?? k)
+    .join('+')
+}
+
+function available(s: ShortcutDef): boolean {
+  try {
+    return s.when ? s.when() !== false : true
+  } catch {
+    return false
+  }
+}
+
+interface Row {
+  label: string
+  group: string
+  combos: ShortcutDef[]
+  available: boolean
+}
 
 function useRegisteredShortcuts(): ShortcutDef[] {
   // listShortcuts() returns a fresh array each call; cache per notification.
@@ -82,9 +135,14 @@ export function CommandReference(): JSX.Element | null {
     setOpen(false)
   }, [])
 
-  useShortcut({ id: 'help.reference.question', keys: '?', label: 'Open command reference', group: HELP_GROUP }, show)
-  useShortcut({ id: 'help.reference.slash', keys: 'mod+/', label: 'Open command reference', group: HELP_GROUP }, show)
-  useShortcut({ id: 'help.reference.k', keys: 'mod+k', label: 'Open command reference', group: HELP_GROUP }, show)
+  const toggleOpen = useCallback(() => (openRef.current ? close() : show()), [close, show])
+  const OPEN_LABEL = 'Open or close command reference'
+
+  // inModal: these keep working while the dialog is open; every other shortcut
+  // (including a screen's own Escape) is inert behind it.
+  useShortcut({ id: 'help.reference.question', keys: '?', label: OPEN_LABEL, group: HELP_GROUP, inModal: true }, toggleOpen)
+  useShortcut({ id: 'help.reference.slash', keys: 'mod+/', label: OPEN_LABEL, group: HELP_GROUP, inModal: true }, toggleOpen)
+  useShortcut({ id: 'help.reference.k', keys: 'mod+k', label: OPEN_LABEL, group: HELP_GROUP, inModal: true }, toggleOpen)
   useShortcut(
     {
       id: 'help.reference.close',
@@ -92,10 +150,18 @@ export function CommandReference(): JSX.Element | null {
       label: 'Close command reference',
       group: HELP_GROUP,
       allowWhileTyping: true,
+      inModal: true,
       when: () => openRef.current,
     },
     close,
   )
+
+  // The visible opener (CommandReferenceButton) talks to us through a window event.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.addEventListener(COMMAND_REFERENCE_OPEN_EVENT, show)
+    return () => window.removeEventListener(COMMAND_REFERENCE_OPEN_EVENT, show)
+  }, [show])
 
   // Focus the search box on open; restore focus on close.
   useEffect(() => {
@@ -111,16 +177,27 @@ export function CommandReference(): JSX.Element | null {
   const q = query.trim().toLowerCase()
 
   const groups = useMemo(() => {
-    const byGroup = new Map<string, ShortcutDef[]>()
+    // One row per action: several combos for the same label share a row.
+    const byGroup = new Map<string, Map<string, Row>>()
     for (const s of shortcuts) {
-      const hay = [s.label, s.keys, s.group, formatKeys(s.keys).join(' ')].join(' ').toLowerCase()
+      const hay = [s.label, s.keys, s.group, formatKeys(s.keys).join(' '), spokenKeys(s.keys)].join(' ').toLowerCase()
       if (q && !hay.includes(q)) continue
-      const list = byGroup.get(s.group) ?? []
-      list.push(s)
-      byGroup.set(s.group, list)
+      const rows = byGroup.get(s.group) ?? new Map<string, Row>()
+      const row = rows.get(s.label) ?? { label: s.label, group: s.group, combos: [], available: false }
+      row.combos.push(s)
+      row.available ||= available(s)
+      rows.set(s.label, row)
+      byGroup.set(s.group, rows)
+    }
+    const rank = (g: string) => {
+      const i = GROUP_ORDER.indexOf(g)
+      return i === -1 ? GROUP_ORDER.length : i
     }
     return [...byGroup.entries()]
-  }, [shortcuts, q])
+      .map(([g, rows]) => [g, [...rows.values()]] as const)
+      .sort((a, b) => rank(a[0]) - rank(b[0]))
+    // `open` is a dependency so availability is re-read each time the dialog opens.
+  }, [shortcuts, q, open])
 
   const cli = useMemo(
     () => CLI_COMMANDS.filter((c) => !q || `${c.command} ${c.description}`.toLowerCase().includes(q)),
@@ -151,6 +228,7 @@ export function CommandReference(): JSX.Element | null {
   if (!open) return null
 
   const empty = groups.length === 0 && cli.length === 0
+  const shortcutCount = groups.reduce((n, [, rows]) => n + rows.length, 0)
 
   return (
     <div
@@ -200,7 +278,11 @@ export function CommandReference(): JSX.Element | null {
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <p role="status" aria-live="polite" className="sr-only">
+          {q ? (empty ? 'No matches.' : `${shortcutCount} shortcuts, ${cli.length} commands.`) : ''}
+        </p>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {groups.length > 0 && (
             <section aria-label="Keyboard shortcuts" className="border-b border-rule">
               {groups.map(([group, items]) => {
@@ -217,16 +299,35 @@ export function CommandReference(): JSX.Element | null {
                       {group}
                     </h3>
                     <ul>
-                      {items.map((s) => (
+                      {items.map((row) => (
                         <li
-                          key={s.id}
-                          data-shortcut-id={s.id}
-                          className="flex items-center justify-between gap-4 border-b border-rule px-4 py-1.5 text-sm last:border-b-0"
+                          key={row.label}
+                          data-available={row.available ? undefined : 'false'}
+                          title={row.available ? undefined : 'Not available on this screen right now'}
+                          className={
+                            'flex items-center justify-between gap-4 border-b border-rule px-4 py-1.5 text-sm last:border-b-0 ' +
+                            (row.available ? '' : 'text-ink-soft')
+                          }
                         >
-                          <span>{s.label}</span>
-                          <span className="flex shrink-0 gap-1" aria-label={formatKeys(s.keys).join(' + ')}>
-                            {formatKeys(s.keys).map((k, i) => (
-                              <Kbd key={i}>{k}</Kbd>
+                          <span>
+                            {row.label}
+                            {!row.available && <span className="sr-only"> (not available right now)</span>}
+                          </span>
+                          <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                            {row.combos.map((s, ci) => (
+                              <span key={s.id} data-shortcut-id={s.id} className="flex items-center gap-1">
+                                {ci > 0 && (
+                                  <span aria-hidden="true" className="font-mono text-[11px] text-ink-soft">
+                                    or
+                                  </span>
+                                )}
+                                <span className="sr-only">{(ci > 0 ? 'or ' : '') + spokenKeys(s.keys)}</span>
+                                <span aria-hidden="true" className="flex gap-1">
+                                  {formatKeys(s.keys).map((k, i) => (
+                                    <Kbd key={i}>{k}</Kbd>
+                                  ))}
+                                </span>
+                              </span>
                             ))}
                           </span>
                         </li>
@@ -261,9 +362,22 @@ export function CommandReference(): JSX.Element | null {
         </div>
 
         <footer className="flex items-center justify-between gap-4 border-t border-rule px-4 py-3">
-          <p id={noteId} className="text-xs text-ink-soft">
-            Hints can be turned back on here at any time.
-          </p>
+          <div className="flex min-w-0 flex-col gap-1">
+            <p id={noteId} className="text-xs text-ink-soft">
+              Hints can be turned back on here at any time.
+            </p>
+            {hints.dismissedCount > 0 && (
+              <button
+                type="button"
+                onClick={hints.resetDismissed}
+                className="self-start font-mono text-[11px] text-ink-soft underline-offset-2 hover:text-ink hover:underline focus-visible:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape"
+              >
+                {hints.dismissedCount === 1
+                  ? 'Show 1 dismissed hint again'
+                  : `Show ${hints.dismissedCount} dismissed hints again`}
+              </button>
+            )}
+          </div>
           <label className="flex shrink-0 items-center gap-2 text-xs text-ink">
             <span id={`${titleId}-hints`}>Show hints</span>
             <button
@@ -290,5 +404,26 @@ export function CommandReference(): JSX.Element | null {
         </footer>
       </div>
     </div>
+  )
+}
+
+/**
+ * Visible opener for the command reference, styled like the sidebar's quiet
+ * mono controls. Focus returns here when the reference closes.
+ */
+export function CommandReferenceButton({ className }: { className?: string }): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={openCommandReference}
+      aria-haspopup="dialog"
+      aria-keyshortcuts={isMac() ? 'Shift+? Meta+K Meta+/' : 'Shift+? Control+K Control+/'}
+      className={
+        'font-mono text-xs text-ink-soft hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-drape ' +
+        (className ?? '')
+      }
+    >
+      shortcuts
+    </button>
   )
 }

@@ -27,8 +27,17 @@ pub struct DryRunReport {
 
 /// Detects every supported AI tool's config under the current directory
 /// and reports what `import()` would bring in. Never writes anything.
+///
+/// Async, with the scan on the blocking pool: a synchronous command runs on
+/// the main thread, so a scan over a large tree would freeze the window.
 #[tauri::command]
-pub fn scan_dry_run() -> Result<DryRunReport, String> {
+pub async fn scan_dry_run() -> Result<DryRunReport, String> {
+    tauri::async_runtime::spawn_blocking(run_scan_dry_run)
+        .await
+        .map_err(|e| format!("The background task stopped unexpectedly: {e}"))?
+}
+
+pub fn run_scan_dry_run() -> Result<DryRunReport, String> {
     let root = env::current_dir().map_err(|e| format!("failed to read current directory: {e}"))?;
 
     let mut detected = Vec::new();
@@ -72,7 +81,7 @@ mod tests {
         // writing anything (same guarantee `apps/cli`'s equivalent test
         // makes) — actual detection behavior is exercised by
         // `packages/core`'s own adapter test suite, not duplicated here.
-        let report = scan_dry_run().unwrap();
+        let report = run_scan_dry_run().unwrap();
         assert!(!report.root.is_empty());
     }
 }
